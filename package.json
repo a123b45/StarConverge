@@ -1,0 +1,19 @@
+{
+  "name": "starconverge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "StarConverge — lightweight API relay / gateway platform",
+  "scripts": {
+    "dev": "pnpm -r --parallel run dev",
+    "dev:server": "pnpm --filter @starconverge/server dev",
+    "dev:admin": "pnpm --filter @starconverge/admin dev",
+    "build": "pnpm -r run build",
+    "start": "pnpm --filter @starconverge/server start",
+    "db:push": "pnpm --filter @starconverge/server db:push",
+    "db:seed": "pnpm --filter @starconverge/server db:seed"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@9.15.0"
+}
