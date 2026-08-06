@@ -9,20 +9,25 @@ chmod +x deploy/*.sh
 ./deploy/start.sh
 ```
 
+- **第一次**：自动构建镜像（较慢）
+- **之后**：直接启动，不再构建
+- **代码更新后**：`./deploy/start.sh --rebuild`
+
 默认优先使用 **Docker**；若本机没有 Docker，会自动回退到 **本地 Node.js** 模式。
 
-也可强制指定：
-
 ```bash
-./deploy/start.sh docker   # 仅 Docker
-./deploy/start.sh local    # 仅本地 pnpm/node
+./deploy/start.sh              # 启动（有镜像则跳过构建）
+./deploy/start.sh --rebuild    # 强制重新构建再启动
+./deploy/start.sh docker       # 仅 Docker
+./deploy/start.sh local        # 仅本地 pnpm/node
 ```
 
 ## 常用命令
 
 | 脚本 | 说明 |
 |------|------|
-| `./deploy/start.sh` | 一键构建并启动 |
+| `./deploy/start.sh` | 启动（首次才构建） |
+| `./deploy/start.sh --rebuild` | 重新构建并启动 |
 | `./deploy/stop.sh` | 停止服务 |
 | `./deploy/logs.sh` | 查看日志 |
 

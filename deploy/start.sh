@@ -17,8 +17,27 @@ ok()    { echo -e "${GREEN}[OK]${NC} $*"; }
 warn()  { echo -e "${YELLOW}[WARN]${NC} $*"; }
 err()   { echo -e "${RED}[ERR]${NC} $*" >&2; }
 
-MODE="${1:-auto}"   # auto | docker | local
+MODE="auto"       # auto | docker | local
+REBUILD=0         # 1 = 强制重新构建镜像
 PORT="${PORT:-8787}"
+
+for arg in "$@"; do
+  case "$arg" in
+    auto|docker|local) MODE="$arg" ;;
+    --rebuild|rebuild|-b) REBUILD=1 ;;
+    -h|--help)
+      echo "用法: $0 [auto|docker|local] [--rebuild]"
+      echo "  默认只启动；镜像不存在时会自动构建一次"
+      echo "  --rebuild  强制重新构建后再启动（git pull 更新代码后用）"
+      exit 0
+      ;;
+    *)
+      err "未知参数: $arg"
+      echo "用法: $0 [auto|docker|local] [--rebuild]"
+      exit 1
+      ;;
+  esac
+done
 
 banner() {
   echo ""
@@ -68,8 +87,24 @@ start_docker() {
   source "$DEPLOY_DIR/.env"
   set +a
 
-  # project-directory 必须是仓库根，这样 context: . 才能找到 Dockerfile
-  docker compose -f "$DEPLOY_DIR/docker-compose.yml" --project-directory "$ROOT" up -d --build
+  COMPOSE=(docker compose -f "$DEPLOY_DIR/docker-compose.yml" --project-directory "$ROOT")
+
+  need_build=0
+  if [[ "$REBUILD" -eq 1 ]]; then
+    need_build=1
+    info "强制重新构建镜像..."
+  elif ! "${COMPOSE[@]}" images -q 2>/dev/null | grep -q .; then
+    need_build=1
+    info "未找到镜像，首次构建（仅此一次，后续启动会跳过）..."
+  else
+    info "复用已有镜像，跳过构建（更新代码后请用: $0 --rebuild）"
+  fi
+
+  if [[ "$need_build" -eq 1 ]]; then
+    "${COMPOSE[@]}" up -d --build
+  else
+    "${COMPOSE[@]}" up -d
+  fi
 
   ok "容器已启动"
   echo ""
@@ -178,16 +213,12 @@ case "$MODE" in
   local)
     start_local
     ;;
-  auto|"")
+  auto)
     if have_docker; then
       start_docker
     else
       warn "未检测到可用 Docker，回退到本地模式"
       start_local
     fi
-    ;;
-  *)
-    echo "用法: $0 [auto|docker|local]"
-    exit 1
     ;;
 esac

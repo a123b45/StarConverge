@@ -55,7 +55,8 @@ docker compose up -d --build
 
 ```bash
 chmod +x deploy/*.sh
-./deploy/start.sh
+./deploy/start.sh              # 首次自动构建，之后直接启动
+./deploy/start.sh --rebuild    # 代码更新后重新构建
 ```
 
 服务映射 `8787`，管理 UI 由服务端一并托管。详见 [deploy/README.md](deploy/README.md)。
