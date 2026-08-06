@@ -57,12 +57,18 @@ start_docker() {
   info "使用 Docker Compose 启动..."
   ensure_env
 
+  if [[ ! -f "$ROOT/Dockerfile" ]]; then
+    err "未找到 $ROOT/Dockerfile，请确认在仓库根目录下的 deploy/ 中执行"
+    exit 1
+  fi
+
   # sync deploy/.env into compose
   set -a
   # shellcheck disable=SC1091
   source "$DEPLOY_DIR/.env"
   set +a
 
+  # project-directory 必须是仓库根，这样 context: . 才能找到 Dockerfile
   docker compose -f "$DEPLOY_DIR/docker-compose.yml" --project-directory "$ROOT" up -d --build
 
   ok "容器已启动"

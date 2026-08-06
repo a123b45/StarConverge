@@ -1,7 +1,8 @@
 services:
   starconverge:
     build:
-      context: ..
+      # start.sh 使用 --project-directory=<仓库根目录>
+      context: .
       dockerfile: Dockerfile
     container_name: starconverge
     ports:
