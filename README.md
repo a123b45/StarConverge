@@ -47,19 +47,30 @@ curl http://127.0.0.1:8787/v1/chat/completions \
 
 ## Docker
 
-```bash
-docker compose up -d --build
-```
-
-或使用一键脚本（推荐）：
+推荐使用一键脚本（拉取阿里云预构建镜像，无需本地构建）：
 
 ```bash
+# 私有仓库先登录
+docker login crpi-h49so3m1b8wov228.cn-hangzhou.personal.cr.aliyuncs.com
+
 chmod +x deploy/*.sh
-./deploy/start.sh              # 首次自动构建，之后直接启动
-./deploy/start.sh --rebuild    # 代码更新后重新构建
+./deploy/start.sh              # 首次自动拉取，之后直接启动
+./deploy/start.sh --rebuild    # 强制重新拉取
 ```
 
-服务映射 `8787`，管理 UI 由服务端一并托管。详见 [deploy/README.md](deploy/README.md)。
+镜像：
+
+```
+crpi-h49so3m1b8wov228.cn-hangzhou.personal.cr.aliyuncs.com/yxl_image_registry/starconverge:v1.0.0
+```
+
+也可直接：
+
+```bash
+docker compose -f deploy/docker-compose.yml --project-directory . up -d
+```
+
+详见 [deploy/README.md](deploy/README.md)。
 
 ## 目录结构
 

@@ -1,16 +1,17 @@
 services:
   starconverge:
-    build: .
+    image: crpi-h49so3m1b8wov228.cn-hangzhou.personal.cr.aliyuncs.com/yxl_image_registry/starconverge:v1.0.0
+    pull_policy: missing
     ports:
-      - "8787:8787"
+      - "${PORT:-8787}:8787"
     environment:
       PORT: 8787
       HOST: 0.0.0.0
       DATABASE_PATH: /data/starconverge.db
-      ADMIN_USERNAME: admin
-      ADMIN_PASSWORD: admin123
-      ADMIN_JWT_SECRET: change-me-in-production
-      CORS_ORIGIN: "*"
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET:-change-me-in-production}
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
     volumes:
       - sc-data:/data
     restart: unless-stopped

@@ -1,9 +1,7 @@
 services:
   starconverge:
-    build:
-      # start.sh 使用 --project-directory=<仓库根目录>
-      context: .
-      dockerfile: Dockerfile
+    image: ${IMAGE:-crpi-h49so3m1b8wov228.cn-hangzhou.personal.cr.aliyuncs.com/yxl_image_registry/starconverge:v1.0.0}
+    pull_policy: ${PULL_POLICY:-missing}
     container_name: starconverge
     ports:
       - "${PORT:-8787}:8787"

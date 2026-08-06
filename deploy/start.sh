@@ -27,8 +27,8 @@ for arg in "$@"; do
     --rebuild|rebuild|-b) REBUILD=1 ;;
     -h|--help)
       echo "用法: $0 [auto|docker|local] [--rebuild]"
-      echo "  默认只启动；镜像不存在时会自动构建一次"
-      echo "  --rebuild  强制重新构建后再启动（git pull 更新代码后用）"
+      echo "  默认拉取/复用阿里云预构建镜像后启动"
+      echo "  --rebuild  强制重新拉取镜像后再启动"
       exit 0
       ;;
     *)
@@ -73,13 +73,8 @@ have_docker() {
 }
 
 start_docker() {
-  info "使用 Docker Compose 启动..."
+  info "使用 Docker Compose 启动（预构建镜像）..."
   ensure_env
-
-  if [[ ! -f "$ROOT/Dockerfile" ]]; then
-    err "未找到 $ROOT/Dockerfile，请确认在仓库根目录下的 deploy/ 中执行"
-    exit 1
-  fi
 
   # sync deploy/.env into compose
   set -a
@@ -87,27 +82,38 @@ start_docker() {
   source "$DEPLOY_DIR/.env"
   set +a
 
+  IMAGE="${IMAGE:-crpi-h49so3m1b8wov228.cn-hangzhou.personal.cr.aliyuncs.com/yxl_image_registry/starconverge:v1.0.0}"
+  PULL_POLICY="${PULL_POLICY:-missing}"
+  export IMAGE PULL_POLICY
+
   COMPOSE=(docker compose -f "$DEPLOY_DIR/docker-compose.yml" --project-directory "$ROOT")
 
-  need_build=0
   if [[ "$REBUILD" -eq 1 ]]; then
-    need_build=1
-    info "强制重新构建镜像..."
-  elif ! "${COMPOSE[@]}" images -q 2>/dev/null | grep -q .; then
-    need_build=1
-    info "未找到镜像，首次构建（仅此一次，后续启动会跳过）..."
+    info "拉取最新镜像: $IMAGE"
+    if ! "${COMPOSE[@]}" pull; then
+      err "拉取镜像失败。若为私有仓库，请先登录："
+      echo "  docker login crpi-h49so3m1b8wov228.cn-hangzhou.personal.cr.aliyuncs.com"
+      exit 1
+    fi
   else
-    info "复用已有镜像，跳过构建（更新代码后请用: $0 --rebuild）"
+    # 本地没有该镜像时再拉取
+    if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
+      info "本地无镜像，正在拉取: $IMAGE"
+      if ! "${COMPOSE[@]}" pull; then
+        err "拉取镜像失败。若为私有仓库，请先登录："
+        echo "  docker login crpi-h49so3m1b8wov228.cn-hangzhou.personal.cr.aliyuncs.com"
+        exit 1
+      fi
+    else
+      info "复用本地镜像，跳过拉取（更新版本请用: $0 --rebuild）"
+    fi
   fi
 
-  if [[ "$need_build" -eq 1 ]]; then
-    "${COMPOSE[@]}" up -d --build
-  else
-    "${COMPOSE[@]}" up -d
-  fi
+  "${COMPOSE[@]}" up -d
 
   ok "容器已启动"
   echo ""
+  echo -e "  镜像           : ${CYAN}${IMAGE}${NC}"
   echo -e "  管理后台 / API : ${CYAN}http://127.0.0.1:${PORT}${NC}"
   echo -e "  健康检查       : ${CYAN}http://127.0.0.1:${PORT}/health${NC}"
   echo -e "  默认账号       : ${YELLOW}admin / admin123${NC}（请尽快修改）"
