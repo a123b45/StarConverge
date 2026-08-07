@@ -13,72 +13,136 @@ type Log = {
   durationMs: number | null;
   error: string | null;
   createdAt: string;
+  ip: string | null;
 };
 
 export default function LogsPage() {
   const [rows, setRows] = useState<Log[]>([]);
   const [total, setTotal] = useState(0);
+  const [model, setModel] = useState("");
+  const [sinceHours, setSinceHours] = useState(24);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function load() {
+    setLoading(true);
+    setError("");
+    try {
+      const params = new URLSearchParams({
+        limit: "100",
+        sinceHours: String(sinceHours),
+      });
+      if (model.trim()) params.set("model", model.trim());
+      const res = await api<{ data: Log[]; total: number }>(`/logs?${params}`);
+      setRows(res.data);
+      setTotal(res.total);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "加载失败");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    api<{ data: Log[]; total: number }>("/logs?limit=100")
-      .then((res) => {
-        setRows(res.data);
-        setTotal(res.total);
-      })
-      .catch((e) => setError(e.message));
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
     <>
-      <div className="page-head">
-        <div>
+      <div className="topbar">
+        <div className="page-head">
           <h2>请求日志</h2>
-          <p>共 {total} 条记录（展示最近 100 条）</p>
+          <p>
+            筛选结果 {rows.length} 条 · 库内匹配 {total} 条
+          </p>
         </div>
+        <button className="btn ghost" onClick={load} disabled={loading}>
+          {loading ? "刷新中…" : "刷新"}
+        </button>
       </div>
+
       {error ? <div className="alert">{error}</div> : null}
+
+      <div className="toolbar">
+        <input
+          className="search"
+          placeholder="按模型筛选，如 gpt-4o-mini"
+          value={model}
+          onChange={(e) => setModel(e.target.value)}
+        />
+        <select
+          className="field"
+          style={{ width: 160 }}
+          value={sinceHours}
+          onChange={(e) => setSinceHours(Number(e.target.value))}
+        >
+          <option value={0}>全部时间</option>
+          <option value={1}>近 1 小时</option>
+          <option value={24}>近 24 小时</option>
+          <option value={168}>近 7 天</option>
+        </select>
+        <button className="btn" onClick={load}>
+          查询
+        </button>
+      </div>
+
       <div className="panel">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>时间</th>
-              <th>方法/路径</th>
-              <th>模型</th>
-              <th>状态</th>
-              <th>Tokens</th>
-              <th>耗时</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.id}>
-                <td className="mono">{new Date(r.createdAt).toLocaleString()}</td>
-                <td>
-                  <span className="mono">{r.method}</span> {r.path}
-                  {r.error ? (
-                    <div style={{ color: "var(--danger)", fontSize: "0.8rem" }}>{r.error}</div>
-                  ) : null}
-                </td>
-                <td>{r.model ?? "—"}</td>
-                <td>
-                  <span className={`badge ${Number(r.statusCode) >= 400 ? "off" : "on"}`}>
-                    {r.statusCode ?? "—"}
-                  </span>
-                </td>
-                <td className="mono">{r.totalTokens ?? 0}</td>
-                <td className="mono">{r.durationMs != null ? `${r.durationMs}ms` : "—"}</td>
-              </tr>
-            ))}
-            {!rows.length ? (
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
               <tr>
-                <td colSpan={6} className="empty">
-                  暂无日志
-                </td>
+                <th>时间</th>
+                <th>方法/路径</th>
+                <th>模型</th>
+                <th>状态</th>
+                <th>Tokens</th>
+                <th>耗时</th>
+                <th>IP</th>
               </tr>
-            ) : null}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id}>
+                  <td className="mono" style={{ fontSize: "0.8rem" }}>
+                    {new Date(r.createdAt).toLocaleString()}
+                  </td>
+                  <td>
+                    <span className="badge blue">{r.method}</span>{" "}
+                    <span style={{ fontSize: "0.85rem" }}>{r.path}</span>
+                    {r.error ? (
+                      <div style={{ color: "var(--danger)", fontSize: "0.78rem", marginTop: 4 }}>
+                        {r.error}
+                      </div>
+                    ) : null}
+                  </td>
+                  <td>{r.model ?? "—"}</td>
+                  <td>
+                    <span
+                      className={`badge ${
+                        Number(r.statusCode) >= 400 || r.error ? "danger" : "on"
+                      }`}
+                    >
+                      {r.statusCode ?? "—"}
+                    </span>
+                  </td>
+                  <td className="mono">{r.totalTokens ?? 0}</td>
+                  <td className="mono">{r.durationMs != null ? `${r.durationMs}ms` : "—"}</td>
+                  <td className="mono" style={{ fontSize: "0.78rem" }}>
+                    {r.ip ?? "—"}
+                  </td>
+                </tr>
+              ))}
+              {!rows.length ? (
+                <tr>
+                  <td colSpan={7} className="empty">
+                    暂无日志
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
       </div>
     </>
   );

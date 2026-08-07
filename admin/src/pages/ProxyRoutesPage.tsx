@@ -65,8 +65,8 @@ export default function ProxyRoutesPage() {
 
   return (
     <>
-      <div className="page-head">
-        <div>
+      <div className="topbar">
+        <div className="page-head">
           <h2>通用代理</h2>
           <p>把任意 HTTP API 挂到 /proxy 前缀下转发</p>
         </div>
@@ -76,47 +76,49 @@ export default function ProxyRoutesPage() {
       </div>
       {error ? <div className="alert">{error}</div> : null}
       <div className="panel">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>名称</th>
-              <th>路径前缀</th>
-              <th>目标</th>
-              <th>鉴权</th>
-              <th>状态</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.id}>
-                <td>{r.name}</td>
-                <td className="mono">{r.pathPrefix}</td>
-                <td className="mono" style={{ fontSize: "0.85rem" }}>
-                  {r.targetUrl}
-                </td>
-                <td>{r.requireToken ? "需要 Token" : "公开"}</td>
-                <td>
-                  <span className={`badge ${r.enabled ? "on" : "off"}`}>
-                    {r.enabled ? "启用" : "禁用"}
-                  </span>
-                </td>
-                <td>
-                  <button className="btn danger" onClick={() => remove(r)}>
-                    删除
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {!rows.length ? (
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
               <tr>
-                <td colSpan={6} className="empty">
-                  例如：/proxy/weather → https://api.weather.example
-                </td>
+                <th>名称</th>
+                <th>路径前缀</th>
+                <th>目标</th>
+                <th>鉴权</th>
+                <th>状态</th>
+                <th>操作</th>
               </tr>
-            ) : null}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id}>
+                  <td>{r.name}</td>
+                  <td className="mono">{r.pathPrefix}</td>
+                  <td className="mono" style={{ fontSize: "0.85rem" }}>
+                    {r.targetUrl}
+                  </td>
+                  <td>{r.requireToken ? "需要 Token" : "公开"}</td>
+                  <td>
+                    <span className={`badge ${r.enabled ? "on" : "off"}`}>
+                      {r.enabled ? "启用" : "禁用"}
+                    </span>
+                  </td>
+                  <td>
+                    <button className="btn danger sm" onClick={() => remove(r)}>
+                      删除
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {!rows.length ? (
+                <tr>
+                  <td colSpan={6} className="empty">
+                    例如：/proxy/weather → https://api.weather.example
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {open ? (

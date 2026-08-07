@@ -68,10 +68,10 @@ export default function ModelsPage() {
 
   return (
     <>
-      <div className="page-head">
-        <div>
+      <div className="topbar">
+        <div className="page-head">
           <h2>模型路由</h2>
-          <p>指定模型走哪些通道，可改写上游模型名</p>
+          <p>指定模型走哪些渠道，可改写上游模型名</p>
         </div>
         <button className="btn" onClick={() => setOpen(true)}>
           新建路由
@@ -79,47 +79,49 @@ export default function ModelsPage() {
       </div>
       {error ? <div className="alert">{error}</div> : null}
       <div className="panel">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>模型</th>
-              <th>通道顺序</th>
-              <th>改写</th>
-              <th>状态</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.id}>
-                <td className="mono">{r.model}</td>
-                <td>
-                  {r.channelIds.length
-                    ? r.channelIds.map(channelName).join(" → ")
-                    : "自动匹配通道模型列表"}
-                </td>
-                <td className="mono">{r.rewriteModel || "—"}</td>
-                <td>
-                  <span className={`badge ${r.enabled ? "on" : "off"}`}>
-                    {r.enabled ? "启用" : "禁用"}
-                  </span>
-                </td>
-                <td>
-                  <button className="btn danger" onClick={() => remove(r)}>
-                    删除
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {!rows.length ? (
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
               <tr>
-                <td colSpan={5} className="empty">
-                  可依赖通道模型列表自动路由，也可在此精确绑定
-                </td>
+                <th>模型</th>
+                <th>通道顺序</th>
+                <th>改写</th>
+                <th>状态</th>
+                <th>操作</th>
               </tr>
-            ) : null}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id}>
+                  <td className="mono">{r.model}</td>
+                  <td>
+                    {r.channelIds.length
+                      ? r.channelIds.map(channelName).join(" → ")
+                      : "自动匹配通道模型列表"}
+                  </td>
+                  <td className="mono">{r.rewriteModel || "—"}</td>
+                  <td>
+                    <span className={`badge ${r.enabled ? "on" : "off"}`}>
+                      {r.enabled ? "启用" : "禁用"}
+                    </span>
+                  </td>
+                  <td>
+                    <button className="btn danger sm" onClick={() => remove(r)}>
+                      删除
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {!rows.length ? (
+                <tr>
+                  <td colSpan={5} className="empty">
+                    可依赖通道模型列表自动路由，也可在此精确绑定
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {open ? (

@@ -32,13 +32,14 @@ export default function LoginPage() {
   return (
     <div className="login-page">
       <form className="login-card" onSubmit={onSubmit}>
+        <div className="brand-mark">SC</div>
         <h1>StarConverge</h1>
-        <p>登录管理后台，配置通道、密钥与路由</p>
+        <p>登录管理控制台，配置渠道、令牌与路由</p>
         {error ? <div className="alert">{error}</div> : null}
         <div className="form-grid">
           <label>
             用户名
-            <input value={username} onChange={(e) => setUsername(e.target.value)} />
+            <input value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" />
           </label>
           <label>
             密码
@@ -46,6 +47,7 @@ export default function LoginPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
             />
           </label>
           <button className="btn" disabled={loading}>

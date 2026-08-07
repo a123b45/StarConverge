@@ -1,10 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
 
 type Dashboard = {
   last24h: { requests: number; tokens: number; errors: number };
   allTime: { requests: number; tokens: number };
-  counts: { channels: number; tokens: number; models: number };
+  counts: {
+    channels: number;
+    channelsEnabled: number;
+    tokens: number;
+    tokensEnabled: number;
+    models: number;
+  };
   recent: Array<{
     id: string;
     model: string | null;
@@ -16,11 +22,15 @@ type Dashboard = {
     error: string | null;
   }>;
   byModel: Array<{ model: string; requests: number; tokens: number }>;
+  hourly: Array<{ hour: string; requests: number; tokens: number }>;
 };
 
 export default function DashboardPage() {
   const [data, setData] = useState<Dashboard | null>(null);
   const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  const endpoint = `${window.location.origin}/v1`;
 
   useEffect(() => {
     api<Dashboard>("/dashboard")
@@ -28,100 +38,164 @@ export default function DashboardPage() {
       .catch((e) => setError(e.message));
   }, []);
 
+  const maxHour = useMemo(
+    () => Math.max(1, ...(data?.hourly.map((h) => h.requests) ?? [1])),
+    [data],
+  );
+  const maxModel = useMemo(
+    () => Math.max(1, ...(data?.byModel.map((m) => m.requests) ?? [1])),
+    [data],
+  );
+
+  async function copyEndpoint() {
+    await navigator.clipboard.writeText(endpoint);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h2>总览</h2>
-          <p>近 24 小时流量、资源规模与最近请求</p>
+      <div className="topbar">
+        <div className="page-head">
+          <h2>数据看板</h2>
+          <p>近 24 小时流量、资源规模与调用趋势</p>
         </div>
-      </div>
-      {error ? <div className="alert">{error}</div> : null}
-      <div className="grid-stats">
-        <div className="stat">
-          <div className="label">24h 请求</div>
-          <div className="value">{data?.last24h.requests ?? "—"}</div>
-        </div>
-        <div className="stat">
-          <div className="label">24h Tokens</div>
-          <div className="value">{data?.last24h.tokens ?? "—"}</div>
-        </div>
-        <div className="stat">
-          <div className="label">24h 错误</div>
-          <div className="value">{data?.last24h.errors ?? "—"}</div>
-        </div>
-        <div className="stat">
-          <div className="label">通道 / 密钥 / 模型</div>
-          <div className="value" style={{ fontSize: "1.25rem" }}>
-            {data
-              ? `${data.counts.channels} / ${data.counts.tokens} / ${data.counts.models}`
-              : "—"}
-          </div>
+        <div className="copy-inline">
+          <code className="mono" style={{ fontSize: "0.82rem", color: "var(--muted)" }}>
+            {endpoint}
+          </code>
+          <button className="btn ghost sm" onClick={copyEndpoint}>
+            {copied ? "已复制" : "复制 Base URL"}
+          </button>
         </div>
       </div>
 
-      <div style={{ display: "grid", gap: 16, gridTemplateColumns: "1.2fr 0.8fr" }}>
+      {error ? <div className="alert">{error}</div> : null}
+
+      <div className="grid-stats">
+        <div className="stat">
+          <div className="label">24h 请求</div>
+          <div className="value">{fmt(data?.last24h.requests)}</div>
+          <div className="hint">错误 {fmt(data?.last24h.errors)}</div>
+        </div>
+        <div className="stat">
+          <div className="label">24h Tokens</div>
+          <div className="value">{fmt(data?.last24h.tokens)}</div>
+          <div className="hint">累计 {fmt(data?.allTime.tokens)}</div>
+        </div>
+        <div className="stat">
+          <div className="label">渠道</div>
+          <div className="value">
+            {data ? `${data.counts.channelsEnabled}/${data.counts.channels}` : "—"}
+          </div>
+          <div className="hint">启用 / 全部</div>
+        </div>
+        <div className="stat">
+          <div className="label">令牌 · 模型</div>
+          <div className="value" style={{ fontSize: "1.25rem" }}>
+            {data
+              ? `${data.counts.tokensEnabled}/${data.counts.tokens} · ${data.counts.models}`
+              : "—"}
+          </div>
+          <div className="hint">启用令牌 / 全部 · 路由数</div>
+        </div>
+      </div>
+
+      <div className="dash-grid">
         <div className="panel">
           <div className="panel-head">
-            <strong>最近请求</strong>
+            <strong>24h 请求趋势</strong>
+            <span className="badge">按小时</span>
           </div>
-          <table className="table">
-            <thead>
-              <tr>
-                <th>时间</th>
-                <th>模型</th>
-                <th>状态</th>
-                <th>耗时</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(data?.recent ?? []).map((r) => (
-                <tr key={r.id}>
-                  <td className="mono">{formatTime(r.createdAt)}</td>
-                  <td>{r.model ?? r.path}</td>
-                  <td>
-                    <span className={`badge ${Number(r.statusCode) >= 400 ? "off" : "on"}`}>
-                      {r.statusCode ?? "—"}
-                    </span>
-                  </td>
-                  <td className="mono">{r.durationMs != null ? `${r.durationMs}ms` : "—"}</td>
-                </tr>
-              ))}
-              {!data?.recent?.length ? (
-                <tr>
-                  <td colSpan={4} className="empty">
-                    暂无请求记录
-                  </td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
+          <div style={{ padding: "12px 16px 16px" }}>
+            {(data?.hourly?.length ?? 0) > 0 ? (
+              <div className="chart" title="请求数">
+                {data!.hourly.map((h) => (
+                  <div
+                    key={h.hour}
+                    className="chart-bar"
+                    style={{ height: `${Math.max(4, (h.requests / maxHour) * 100)}%` }}
+                    title={`${h.hour}\n${h.requests} 次 · ${h.tokens} tokens`}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="empty">暂无趋势数据，产生调用后将在此展示</div>
+            )}
+          </div>
         </div>
 
         <div className="panel">
           <div className="panel-head">
             <strong>热门模型 · 24h</strong>
           </div>
+          {(data?.byModel?.length ?? 0) > 0 ? (
+            <div className="bar-list">
+              {data!.byModel.map((r) => (
+                <div className="bar-row" key={r.model}>
+                  <span className="mono" style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {r.model}
+                  </span>
+                  <div className="track">
+                    <div
+                      className="fill"
+                      style={{ width: `${(r.requests / maxModel) * 100}%` }}
+                    />
+                  </div>
+                  <span className="mono">{r.requests}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="empty">暂无数据</div>
+          )}
+        </div>
+      </div>
+
+      <div className="panel" style={{ marginTop: 16 }}>
+        <div className="panel-head">
+          <strong>最近请求</strong>
+        </div>
+        <div className="table-wrap">
           <table className="table">
             <thead>
               <tr>
-                <th>模型</th>
-                <th>请求</th>
+                <th>时间</th>
+                <th>模型 / 路径</th>
+                <th>状态</th>
                 <th>Tokens</th>
+                <th>耗时</th>
               </tr>
             </thead>
             <tbody>
-              {(data?.byModel ?? []).map((r) => (
-                <tr key={r.model}>
-                  <td>{r.model}</td>
-                  <td className="mono">{r.requests}</td>
-                  <td className="mono">{r.tokens}</td>
+              {(data?.recent ?? []).map((r) => (
+                <tr key={r.id}>
+                  <td className="mono" style={{ fontSize: "0.8rem" }}>
+                    {formatTime(r.createdAt)}
+                  </td>
+                  <td>
+                    <div>{r.model ?? "—"}</div>
+                    <div className="mono" style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
+                      {r.path}
+                    </div>
+                  </td>
+                  <td>
+                    <span
+                      className={`badge ${
+                        Number(r.statusCode) >= 400 || r.error ? "danger" : "on"
+                      }`}
+                    >
+                      {r.statusCode ?? "—"}
+                    </span>
+                  </td>
+                  <td className="mono">{r.totalTokens ?? 0}</td>
+                  <td className="mono">{r.durationMs != null ? `${r.durationMs}ms` : "—"}</td>
                 </tr>
               ))}
-              {!data?.byModel?.length ? (
+              {!data?.recent?.length ? (
                 <tr>
-                  <td colSpan={3} className="empty">
-                    暂无数据
+                  <td colSpan={5} className="empty">
+                    暂无请求记录
                   </td>
                 </tr>
               ) : null}
@@ -131,6 +205,11 @@ export default function DashboardPage() {
       </div>
     </>
   );
+}
+
+function fmt(n?: number) {
+  if (n == null) return "—";
+  return n.toLocaleString();
 }
 
 function formatTime(v: string | Date) {

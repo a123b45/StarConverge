@@ -106,6 +106,63 @@ adminRoutes.delete("/channels/:id", async (c) => {
   return c.json({ ok: true });
 });
 
+adminRoutes.post("/channels/:id/test", async (c) => {
+  const idParam = c.req.param("id");
+  const row = await db.query.channels.findFirst({ where: eq(channels.id, idParam) });
+  if (!row) return c.json({ error: "Not found" }, 404);
+
+  const started = Date.now();
+  const base = row.baseUrl.replace(/\/+$/, "");
+  const url = base.endsWith("/v1") ? `${base}/models` : `${base}/v1/models`;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), Math.min(row.timeoutMs, 20_000));
+    const res = await fetch(url, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${row.apiKey}` },
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    const latencyMs = Date.now() - started;
+    const text = await res.text();
+    return c.json({
+      ok: res.ok,
+      statusCode: res.status,
+      latencyMs,
+      preview: text.slice(0, 200),
+      url,
+    });
+  } catch (err) {
+    return c.json({
+      ok: false,
+      statusCode: 0,
+      latencyMs: Date.now() - started,
+      error: err instanceof Error ? err.message : String(err),
+      url,
+    });
+  }
+});
+
+adminRoutes.get("/system", (c) => {
+  return c.json({
+    name: "StarConverge",
+    version: "0.2.0",
+    adminUsername: config.adminUsername,
+    endpoints: {
+      openai: "/v1",
+      chat: "/v1/chat/completions",
+      models: "/v1/models",
+      proxy: "/proxy",
+      health: "/health",
+    },
+    tips: [
+      "客户端 Base URL 填：https://你的域名 或 http://IP:8787/v1",
+      "Authorization: Bearer <访问密钥>",
+      "通道测试会请求上游 /v1/models",
+    ],
+  });
+});
+
 // ---- Tokens ----
 adminRoutes.get("/tokens", async (c) => {
   const rows = await db.select().from(tokens).orderBy(desc(tokens.createdAt));

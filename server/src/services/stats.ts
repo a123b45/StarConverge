@@ -62,15 +62,19 @@ export async function getDashboardStats() {
     })
     .from(requestLogs);
 
-  const channelCount = await db
+  const [channelAll] = await db
+    .select({ c: sql<number>`count(*)` })
+    .from(channels);
+  const [channelOn] = await db
     .select({ c: sql<number>`count(*)` })
     .from(channels)
     .where(eq(channels.enabled, true));
-  const tokenCount = await db
+  const [tokenAll] = await db.select({ c: sql<number>`count(*)` }).from(tokens);
+  const [tokenOn] = await db
     .select({ c: sql<number>`count(*)` })
     .from(tokens)
     .where(eq(tokens.enabled, true));
-  const routeCount = await db
+  const [routeCount] = await db
     .select({ c: sql<number>`count(*)` })
     .from(modelRoutes)
     .where(eq(modelRoutes.enabled, true));
@@ -93,6 +97,18 @@ export async function getDashboardStats() {
     .orderBy(desc(sql`count(*)`))
     .limit(10);
 
+  // last 24h hourly buckets (UTC)
+  const hourlyRaw = await db
+    .select({
+      hour: sql<string>`strftime('%Y-%m-%d %H:00', ${requestLogs.createdAt} / 1000, 'unixepoch')`,
+      requests: sql<number>`count(*)`,
+      tokens: sql<number>`coalesce(sum(${requestLogs.totalTokens}), 0)`,
+    })
+    .from(requestLogs)
+    .where(gte(requestLogs.createdAt, since24h))
+    .groupBy(sql`strftime('%Y-%m-%d %H:00', ${requestLogs.createdAt} / 1000, 'unixepoch')`)
+    .orderBy(sql`strftime('%Y-%m-%d %H:00', ${requestLogs.createdAt} / 1000, 'unixepoch')`);
+
   return {
     last24h: {
       requests: Number(totals?.requests ?? 0),
@@ -104,13 +120,20 @@ export async function getDashboardStats() {
       tokens: Number(allTime?.tokens ?? 0),
     },
     counts: {
-      channels: Number(channelCount[0]?.c ?? 0),
-      tokens: Number(tokenCount[0]?.c ?? 0),
-      models: Number(routeCount[0]?.c ?? 0),
+      channels: Number(channelAll?.c ?? 0),
+      channelsEnabled: Number(channelOn?.c ?? 0),
+      tokens: Number(tokenAll?.c ?? 0),
+      tokensEnabled: Number(tokenOn?.c ?? 0),
+      models: Number(routeCount?.c ?? 0),
     },
     recent,
     byModel: byModel.map((r) => ({
       model: r.model ?? "(unknown)",
+      requests: Number(r.requests),
+      tokens: Number(r.tokens),
+    })),
+    hourly: hourlyRaw.map((r) => ({
+      hour: r.hour,
       requests: Number(r.requests),
       tokens: Number(r.tokens),
     })),
