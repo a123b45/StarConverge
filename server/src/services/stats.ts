@@ -158,6 +158,7 @@ export function publicToken(row: typeof tokens.$inferSelect) {
     id: row.id,
     name: row.name,
     keyPrefix: row.keyPrefix,
+    key: row.keyPlain ?? null,
     quota: row.quota,
     usedQuota: row.usedQuota,
     rateLimit: row.rateLimit,

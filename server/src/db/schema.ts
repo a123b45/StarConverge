@@ -34,6 +34,8 @@ export const tokens = sqliteTable(
     name: text("name").notNull(),
     keyHash: text("key_hash").notNull().unique(),
     keyPrefix: text("key_prefix").notNull(),
+    /** plaintext for admin re-view; auth still uses keyHash */
+    keyPlain: text("key_plain"),
     quota: integer("quota").notNull().default(-1), // -1 = unlimited
     usedQuota: integer("used_quota").notNull().default(0),
     rateLimit: integer("rate_limit").notNull().default(60), // req/min

@@ -33,6 +33,7 @@ const statements = [
     name TEXT NOT NULL,
     key_hash TEXT NOT NULL UNIQUE,
     key_prefix TEXT NOT NULL,
+    key_plain TEXT,
     quota INTEGER NOT NULL DEFAULT -1,
     used_quota INTEGER NOT NULL DEFAULT 0,
     rate_limit INTEGER NOT NULL DEFAULT 60,
@@ -90,6 +91,11 @@ const statements = [
 export function migrate() {
   for (const s of statements) {
     sqlite.exec(s);
+  }
+  // additive migrations for existing DBs
+  const cols = sqlite.prepare(`PRAGMA table_info(tokens)`).all() as Array<{ name: string }>;
+  if (!cols.some((c) => c.name === "key_plain")) {
+    sqlite.exec(`ALTER TABLE tokens ADD COLUMN key_plain TEXT`);
   }
 }
 

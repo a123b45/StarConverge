@@ -42,6 +42,7 @@ async function seed() {
     name: "Default Token",
     keyHash: key.hash,
     keyPrefix: key.prefix,
+    keyPlain: key.key,
     quota: -1,
     usedQuota: 0,
     rateLimit: 60,

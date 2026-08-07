@@ -187,6 +187,7 @@ adminRoutes.post("/tokens", async (c) => {
     name: v.name,
     keyHash: key.hash,
     keyPrefix: key.prefix,
+    keyPlain: key.key,
     quota: v.quota,
     usedQuota: 0,
     rateLimit: v.rateLimit,
@@ -203,6 +204,22 @@ adminRoutes.post("/tokens", async (c) => {
     },
     201,
   );
+});
+
+adminRoutes.get("/available-models", async (c) => {
+  const set = new Set<string>();
+  const chRows = await db.select().from(channels);
+  for (const ch of chRows) {
+    for (const m of parseJsonArray(ch.models)) {
+      if (m && m !== "*") set.add(m);
+    }
+  }
+  const mrRows = await db.select().from(modelRoutes);
+  for (const mr of mrRows) {
+    if (mr.model) set.add(mr.model);
+    if (mr.rewriteModel) set.add(mr.rewriteModel);
+  }
+  return c.json({ data: ["*", ...[...set].sort()] });
 });
 
 adminRoutes.put("/tokens/:id", async (c) => {
