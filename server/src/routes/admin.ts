@@ -48,7 +48,7 @@ adminRoutes.get("/channels", async (c) => {
 adminRoutes.post("/channels", async (c) => {
   const schema = z.object({
     name: z.string().min(1),
-    type: z.enum(["openai", "custom"]).default("openai"),
+    type: z.string().min(1).default("openai"),
     baseUrl: z.string().url(),
     apiKey: z.string().min(1),
     models: z.array(z.string()).default([]),
