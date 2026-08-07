@@ -13,3 +13,4 @@ deploy/run
 deploy/.env
 deploy/runtime
 *.tsbuildinfo
+*.tar.gz
