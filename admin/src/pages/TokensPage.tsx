@@ -173,12 +173,13 @@ export default function TokensPage() {
                 const fillClass =
                   r.quota < 0 ? "" : pct >= 90 ? "danger" : pct >= 70 ? "warn" : "";
                 const revealed = revealId === r.id && !!r.key;
-                const shown =
-                  revealed && r.key
-                    ? r.key
+                const masked =
+                  r.key && r.key.length > 12
+                    ? `${r.key.slice(0, 12)}${"•".repeat(Math.max(8, r.key.length - 12))}`
                     : r.key
-                      ? `${r.keyPrefix}••••••••`
+                      ? `${r.keyPrefix}${"•".repeat(16)}`
                       : `${r.keyPrefix}…`;
+                const shown = revealed && r.key ? r.key : masked;
                 return (
                   <tr key={r.id}>
                     <td>
@@ -193,11 +194,11 @@ export default function TokensPage() {
                         </div>
                       )}
                     </td>
-                    <td style={{ maxWidth: 320 }}>
+                    <td className="key-td">
                       <div className="key-cell">
                         <span
-                          className="key-pill mono"
-                          style={revealed ? { maxWidth: "none", whiteSpace: "normal", wordBreak: "break-all" } : undefined}
+                          className={`key-pill mono ${revealed ? "is-revealed" : "is-masked"}`}
+                          title={revealed && r.key ? r.key : undefined}
                         >
                           {shown}
                         </span>
@@ -206,12 +207,12 @@ export default function TokensPage() {
                             <button
                               type="button"
                               className="icon-btn"
-                              title={revealId === r.id ? "隐藏密钥" : "显示密钥"}
+                              title={revealed ? "隐藏密钥" : "显示密钥"}
                               onClick={() =>
                                 setRevealId((id) => (id === r.id ? null : r.id))
                               }
                             >
-                              {revealId === r.id ? <IconEyeOff /> : <IconEye />}
+                              {revealed ? <IconEyeOff /> : <IconEye />}
                             </button>
                             <button
                               type="button"
