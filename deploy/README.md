@@ -4,8 +4,8 @@
 
 ## 环境要求
 
-- Node.js ≥ 20
-- 能访问 npm 源（首次 `pnpm install`）
+- 能访问外网（首次自动下载 Node 便携包与 npm 依赖）
+- **不必预装 Node**：`start.sh` 会下载到 `deploy/runtime/`
 
 ## 快速开始
 

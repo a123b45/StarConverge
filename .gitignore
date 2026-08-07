@@ -11,4 +11,5 @@ data
 coverage
 deploy/run
 deploy/.env
+deploy/runtime
 *.tsbuildinfo

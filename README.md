@@ -51,7 +51,7 @@ curl http://127.0.0.1:8787/v1/chat/completions \
 git clone https://github.com/a123b45/StarConverge.git
 cd StarConverge
 chmod +x deploy/*.sh
-bash deploy/start.sh              # 默认源码部署
+bash deploy/start.sh              # 默认源码部署（无 Node 时自动下载便携版）
 # bash deploy/start.sh --rebuild  # 更新代码后重建
 ```
 

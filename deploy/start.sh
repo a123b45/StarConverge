@@ -27,7 +27,7 @@ for arg in "$@"; do
     --rebuild|rebuild|-b) REBUILD=1 ;;
     -h|--help)
       echo "用法: $0 [local|docker|auto] [--rebuild]"
-      echo "  local   源码部署（默认）：pnpm install → build → 后台启动"
+      echo "  local   源码部署（默认）：自动准备 Node/pnpm → install → build → 启动"
       echo "  docker  使用 Docker / 预构建镜像"
       echo "  --rebuild  强制重新构建后再启动"
       exit 0
@@ -113,18 +113,107 @@ start_docker() {
   ok "容器已启动 → http://127.0.0.1:${PORT}"
 }
 
+NODE_VERSION="${NODE_VERSION:-22.14.0}"
+RUNTIME_DIR="$DEPLOY_DIR/runtime"
+
+# 把 deploy/runtime 里的 node 放到 PATH 最前
+use_runtime_node() {
+  if [[ -x "$RUNTIME_DIR/node/bin/node" ]]; then
+    export PATH="$RUNTIME_DIR/node/bin:$PATH"
+  fi
+}
+
+ensure_node() {
+  use_runtime_node
+
+  if command -v node >/dev/null 2>&1; then
+    NODE_MAJOR="$(node -p "process.versions.node.split('.')[0]" 2>/dev/null || echo 0)"
+    if [[ "$NODE_MAJOR" -ge 20 ]]; then
+      ok "Node.js $(node -v)"
+      return
+    fi
+    warn "系统 Node $(node -v) 过旧，将下载便携版 ≥20"
+  else
+    info "未检测到 Node.js，将自动下载便携版到 deploy/runtime/"
+  fi
+
+  ARCH="$(uname -m)"
+  case "$ARCH" in
+    x86_64|amd64) NODE_ARCH="x64" ;;
+    aarch64|arm64) NODE_ARCH="arm64" ;;
+    *)
+      err "不支持的架构: $ARCH，请手动安装 Node.js ≥ 20"
+      exit 1
+      ;;
+  esac
+
+  OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
+  if [[ "$OS" != "linux" && "$OS" != "darwin" ]]; then
+    err "当前仅自动安装 linux/darwin 便携 Node，请手动安装"
+    exit 1
+  fi
+
+  NAME="node-v${NODE_VERSION}-${OS}-${NODE_ARCH}"
+  FILE="${NAME}.tar.xz"
+  MIRROR1="https://npmmirror.com/mirrors/node/v${NODE_VERSION}/${FILE}"
+  MIRROR2="https://nodejs.org/dist/v${NODE_VERSION}/${FILE}"
+
+  mkdir -p "$RUNTIME_DIR"
+  TMP_TAR="$RUNTIME_DIR/${FILE}"
+
+  info "下载 Node.js v${NODE_VERSION} (${OS}-${NODE_ARCH})..."
+  if command -v curl >/dev/null 2>&1; then
+    if ! curl -fL --retry 3 --connect-timeout 15 -o "$TMP_TAR" "$MIRROR1"; then
+      warn "镜像站失败，尝试 nodejs.org..."
+      curl -fL --retry 3 --connect-timeout 30 -o "$TMP_TAR" "$MIRROR2"
+    fi
+  elif command -v wget >/dev/null 2>&1; then
+    if ! wget -O "$TMP_TAR" "$MIRROR1"; then
+      wget -O "$TMP_TAR" "$MIRROR2"
+    fi
+  else
+    err "需要 curl 或 wget 以下载 Node.js"
+    exit 1
+  fi
+
+  info "解压到 $RUNTIME_DIR/node ..."
+  rm -rf "$RUNTIME_DIR/node"
+  tar -xJf "$TMP_TAR" -C "$RUNTIME_DIR"
+  mv "$RUNTIME_DIR/$NAME" "$RUNTIME_DIR/node"
+  rm -f "$TMP_TAR"
+
+  use_runtime_node
+  if ! command -v node >/dev/null 2>&1; then
+    err "Node 安装失败"
+    exit 1
+  fi
+  ok "已安装便携 Node $(node -v) → $RUNTIME_DIR/node"
+}
+
 ensure_pnpm() {
+  use_runtime_node
   if command -v pnpm >/dev/null 2>&1; then
+    ok "pnpm $(pnpm -v)"
     return
   fi
   if command -v corepack >/dev/null 2>&1; then
     info "启用 corepack pnpm..."
-    corepack enable
-    corepack prepare pnpm@9.15.0 --activate
-    return
+    # corepack 可能需要写系统目录；失败则用 npm 装到 runtime
+    if corepack enable 2>/dev/null && corepack prepare pnpm@9.15.0 --activate 2>/dev/null; then
+      ok "pnpm $(pnpm -v)"
+      return
+    fi
+    warn "corepack 不可用，改用 npm 安装 pnpm 到 runtime"
   fi
-  err "未找到 pnpm。请安装 Node.js ≥ 20，然后: corepack enable"
-  exit 1
+  info "安装 pnpm 到 deploy/runtime..."
+  mkdir -p "$RUNTIME_DIR/node"
+  npm install -g pnpm@9.15.0 --prefix "$RUNTIME_DIR/node"
+  use_runtime_node
+  if ! command -v pnpm >/dev/null 2>&1; then
+    err "pnpm 安装失败"
+    exit 1
+  fi
+  ok "pnpm $(pnpm -v)"
 }
 
 stop_local_if_running() {
@@ -154,20 +243,15 @@ start_local() {
   info "使用源码部署（Node.js）..."
   ensure_env
   stop_docker_if_running
-
-  if ! command -v node >/dev/null 2>&1; then
-    err "未找到 node，请先安装 Node.js ≥ 20"
-    exit 1
-  fi
-
-  NODE_MAJOR="$(node -p "process.versions.node.split('.')[0]")"
-  if [[ "$NODE_MAJOR" -lt 20 ]]; then
-    err "需要 Node.js ≥ 20，当前: $(node -v)"
-    exit 1
-  fi
-
+  ensure_node
   ensure_pnpm
   mkdir -p "$ROOT/data" "$DEPLOY_DIR/run"
+
+  # better-sqlite3 等原生模块需要编译工具
+  if ! command -v g++ >/dev/null 2>&1 || ! command -v make >/dev/null 2>&1; then
+    warn "未检测到 g++/make。若 pnpm install 失败，请先安装编译工具："
+    echo "  dnf install -y gcc-c++ make python3"
+  fi
 
   info "安装依赖..."
   pnpm install
@@ -188,10 +272,6 @@ start_local() {
   fi
 
   DB_PATH="$ROOT/data/starconverge.db"
-  # 相对路径时放到仓库根
-  if [[ "${DATABASE_PATH:-}" == ./* ]] || [[ -z "${DATABASE_PATH:-}" ]]; then
-    :
-  fi
   if [[ ! -f "$DB_PATH" ]]; then
     info "初始化数据库并生成演示密钥..."
     pnpm db:seed | tee "$DEPLOY_DIR/run/seed.log"
@@ -206,12 +286,13 @@ start_local() {
   set +a
   export PORT="${PORT}"
   export HOST="${HOST:-0.0.0.0}"
-  # 统一数据库到仓库 data 目录
   if [[ "${DATABASE_PATH:-}" == "./data/"* ]] || [[ "${DATABASE_PATH:-}" == "data/"* ]] || [[ -z "${DATABASE_PATH:-}" ]]; then
     export DATABASE_PATH="$ROOT/data/starconverge.db"
   fi
 
-  nohup node "$ROOT/server/dist/index.js" \
+  # 确保后台进程也能找到 runtime node（better-sqlite3 等已编译进 node_modules）
+  use_runtime_node
+  nohup env PATH="$PATH" node "$ROOT/server/dist/index.js" \
     > "$DEPLOY_DIR/run/server.log" 2>&1 &
   echo $! > "$DEPLOY_DIR/run/server.pid"
 
@@ -226,6 +307,7 @@ start_local() {
 
   echo ""
   echo -e "  模式           : ${CYAN}源码部署${NC}"
+  echo -e "  Node           : ${CYAN}$(node -v)${NC}"
   echo -e "  管理后台 / API : ${CYAN}http://0.0.0.0:${PORT}${NC}（外网用服务器公网 IP）"
   echo -e "  健康检查       : ${CYAN}http://127.0.0.1:${PORT}/health${NC}"
   echo -e "  默认账号       : ${YELLOW}admin / admin123${NC}"
@@ -247,15 +329,6 @@ case "$MODE" in
     start_local
     ;;
   auto)
-    # 仍以源码优先；仅无 Node 时才尝试 Docker
-    if command -v node >/dev/null 2>&1; then
-      start_local
-    elif have_docker; then
-      warn "未检测到 Node，改用 Docker"
-      start_docker
-    else
-      err "需要 Node.js ≥ 20 或 Docker"
-      exit 1
-    fi
+    start_local
     ;;
 esac
