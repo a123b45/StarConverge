@@ -45,32 +45,23 @@ curl http://127.0.0.1:8787/v1/chat/completions \
 
 在管理后台启用「上游通道」并填入真实上游 Base URL / API Key 后再测通。
 
-## Docker
-
-推荐使用一键脚本（拉取阿里云预构建镜像，无需本地构建）：
+## 生产部署（源码）
 
 ```bash
-# 私有仓库先登录
-docker login crpi-h49so3m1b8wov228.cn-hangzhou.personal.cr.aliyuncs.com
-
+git clone https://github.com/a123b45/StarConverge.git
+cd StarConverge
 chmod +x deploy/*.sh
-./deploy/start.sh              # 首次自动拉取，之后直接启动
-./deploy/start.sh --rebuild    # 强制重新拉取
+bash deploy/start.sh              # 默认源码部署
+# bash deploy/start.sh --rebuild  # 更新代码后重建
 ```
 
-镜像：
-
-```
-crpi-h49so3m1b8wov228.cn-hangzhou.personal.cr.aliyuncs.com/yxl_image_registry/starconverge:v1.0.0
-```
-
-也可直接：
-
-```bash
-docker compose -f deploy/docker-compose.yml --project-directory . up -d
-```
+- 管理后台 / API：`http://服务器IP:8787`
+- 默认账号：`admin` / `admin123`
+- 日志：`bash deploy/logs.sh` · 停止：`bash deploy/stop.sh`
 
 详见 [deploy/README.md](deploy/README.md)。
+
+可选 Docker：`bash deploy/start.sh docker`（非默认）。
 
 ## 目录结构
 
