@@ -24,7 +24,8 @@ export default function TokensPage() {
   const [revealId, setRevealId] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: "",
-    quota: -1,
+    quotaUnlimited: true,
+    quota: 1000000,
     rateUnlimited: false,
     rateLimit: 60,
     allowedModels: [] as string[],
@@ -70,7 +71,7 @@ export default function TokensPage() {
         method: "POST",
         body: JSON.stringify({
           name: form.name,
-          quota: Number(form.quota),
+          quota: form.quotaUnlimited ? -1 : Number(form.quota),
           rateLimit: form.rateUnlimited ? 0 : Number(form.rateLimit),
           allowedModels: form.allowedModels,
           remark: form.remark,
@@ -79,7 +80,8 @@ export default function TokensPage() {
       setOpen(false);
       setForm({
         name: "",
-        quota: -1,
+        quotaUnlimited: true,
+        quota: 1000000,
         rateUnlimited: false,
         rateLimit: 60,
         allowedModels: [],
@@ -305,12 +307,29 @@ export default function TokensPage() {
                 />
               </label>
               <label>
-                配额（Token 数，-1 无限）
-                <input
-                  type="number"
-                  value={form.quota}
-                  onChange={(e) => setForm({ ...form, quota: Number(e.target.value) })}
-                />
+                配额（Token 数）
+                <div className="rate-row">
+                  <label className="check-inline">
+                    <input
+                      type="checkbox"
+                      checked={form.quotaUnlimited}
+                      onChange={(e) =>
+                        setForm({ ...form, quotaUnlimited: e.target.checked })
+                      }
+                    />
+                    不限额
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    disabled={form.quotaUnlimited}
+                    value={form.quota}
+                    onChange={(e) =>
+                      setForm({ ...form, quota: Number(e.target.value) })
+                    }
+                    placeholder="Token 上限"
+                  />
+                </div>
               </label>
               <label>
                 每分钟限流
