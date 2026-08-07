@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
 import ModelPicker from "../components/ModelPicker";
+import { IconCopy, IconEye, IconEyeOff } from "../components/Icons";
 
 type Token = {
   id: string;
@@ -24,6 +25,7 @@ export default function TokensPage() {
   const [form, setForm] = useState({
     name: "",
     quota: -1,
+    rateUnlimited: false,
     rateLimit: 60,
     allowedModels: [] as string[],
     remark: "",
@@ -69,13 +71,20 @@ export default function TokensPage() {
         body: JSON.stringify({
           name: form.name,
           quota: Number(form.quota),
-          rateLimit: Number(form.rateLimit),
+          rateLimit: form.rateUnlimited ? 0 : Number(form.rateLimit),
           allowedModels: form.allowedModels,
           remark: form.remark,
         }),
       });
       setOpen(false);
-      setForm({ name: "", quota: -1, rateLimit: 60, allowedModels: [], remark: "" });
+      setForm({
+        name: "",
+        quota: -1,
+        rateUnlimited: false,
+        rateLimit: 60,
+        allowedModels: [],
+        remark: "",
+      });
       flash("令牌已创建，可在列表中查看/复制");
       await load();
     } catch (err) {
@@ -163,12 +172,13 @@ export default function TokensPage() {
                     : Math.min(100, Math.round((r.usedQuota / Math.max(1, r.quota)) * 100));
                 const fillClass =
                   r.quota < 0 ? "" : pct >= 90 ? "danger" : pct >= 70 ? "warn" : "";
+                const revealed = revealId === r.id && !!r.key;
                 const shown =
-                  revealId === r.id && r.key
+                  revealed && r.key
                     ? r.key
                     : r.key
                       ? `${r.keyPrefix}••••••••`
-                      : `${r.keyPrefix}…（旧令牌不可回看）`;
+                      : `${r.keyPrefix}…`;
                 return (
                   <tr key={r.id}>
                     <td>
@@ -183,28 +193,38 @@ export default function TokensPage() {
                         </div>
                       )}
                     </td>
-                    <td style={{ maxWidth: 280 }}>
-                      <div className="mono" style={{ fontSize: "0.78rem", wordBreak: "break-all" }}>
-                        {shown}
-                      </div>
-                      <div className="row-actions" style={{ marginTop: 6 }}>
+                    <td style={{ maxWidth: 320 }}>
+                      <div className="key-cell">
+                        <span
+                          className="key-pill mono"
+                          style={revealed ? { maxWidth: "none", whiteSpace: "normal", wordBreak: "break-all" } : undefined}
+                        >
+                          {shown}
+                        </span>
                         {r.key ? (
-                          <>
+                          <span className="key-actions">
                             <button
-                              className="btn ghost sm"
+                              type="button"
+                              className="icon-btn"
+                              title={revealId === r.id ? "隐藏密钥" : "显示密钥"}
                               onClick={() =>
                                 setRevealId((id) => (id === r.id ? null : r.id))
                               }
                             >
-                              {revealId === r.id ? "隐藏" : "查看"}
+                              {revealId === r.id ? <IconEyeOff /> : <IconEye />}
                             </button>
-                            <button className="btn ghost sm" onClick={() => copyKey(r.key!)}>
-                              复制
+                            <button
+                              type="button"
+                              className="icon-btn"
+                              title="复制密钥"
+                              onClick={() => copyKey(r.key!)}
+                            >
+                              <IconCopy />
                             </button>
-                          </>
+                          </span>
                         ) : (
                           <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
-                            创建于明文存储上线前
+                            旧令牌不可回看
                           </span>
                         )}
                       </div>
@@ -225,7 +245,13 @@ export default function TokensPage() {
                         ) : null}
                       </div>
                     </td>
-                    <td className="mono">{r.rateLimit}/min</td>
+                    <td className="mono">
+                      {r.rateLimit <= 0 ? (
+                        <span className="badge">不限流</span>
+                      ) : (
+                        `${r.rateLimit}/min`
+                      )}
+                    </td>
                     <td>
                       <span className={`badge ${r.enabled ? "on" : "off"}`}>
                         {r.enabled ? "启用" : "禁用"}
@@ -287,11 +313,28 @@ export default function TokensPage() {
               </label>
               <label>
                 每分钟限流
-                <input
-                  type="number"
-                  value={form.rateLimit}
-                  onChange={(e) => setForm({ ...form, rateLimit: Number(e.target.value) })}
-                />
+                <div className="rate-row">
+                  <label className="check-inline">
+                    <input
+                      type="checkbox"
+                      checked={form.rateUnlimited}
+                      onChange={(e) =>
+                        setForm({ ...form, rateUnlimited: e.target.checked })
+                      }
+                    />
+                    不限流
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    disabled={form.rateUnlimited}
+                    value={form.rateLimit}
+                    onChange={(e) =>
+                      setForm({ ...form, rateLimit: Number(e.target.value) })
+                    }
+                    placeholder="次/分钟"
+                  />
+                </div>
               </label>
               <label>
                 允许模型
