@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
 import ModelPicker from "../components/ModelPicker";
-import { IconCopy, IconEye, IconEyeOff } from "../components/Icons";
+import { IconCopy, IconEye, IconEyeOff } from "../components/icons";
 
 type Token = {
   id: string;

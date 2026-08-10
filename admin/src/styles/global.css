@@ -1687,7 +1687,7 @@ code,
   border: none;
   border-radius: 10px;
   background: #f3f4f6;
-  color: #6d5efc;
+  color: #6b7280;
   display: grid;
   place-items: center;
   padding: 0;
@@ -1695,7 +1695,7 @@ code,
 }
 .portal-tool-btn:hover {
   background: #ebe4ff;
-  color: #5b4cf0;
+  color: #6d5efc;
 }
 .portal-top-left .portal-tool-btn {
   background: transparent;

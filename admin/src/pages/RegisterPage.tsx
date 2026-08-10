@@ -1,7 +1,13 @@
 import { FormEvent, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { authApi, getRole, getToken, setSession } from "../lib/api";
-import { IconEyeOff, IconEyeOpen } from "../components/AuthIcons";
+import {
+  IconEyeOff,
+  IconEyeOpen,
+  IconFile,
+  IconLock,
+  IconPerson,
+} from "../components/icons";
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -97,12 +103,7 @@ export default function RegisterPage() {
           <label className="auth-field">
             <span>用户名</span>
             <div className="auth-input">
-              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
-                <path
-                  fill="currentColor"
-                  d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-4.42 0-8 2.24-8 5v1h16v-1c0-2.76-3.58-5-8-5Z"
-                />
-              </svg>
+              <IconPerson />
               <input
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
@@ -117,12 +118,7 @@ export default function RegisterPage() {
           <label className="auth-field">
             <span>显示名（可选）</span>
             <div className="auth-input">
-              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
-                <path
-                  fill="currentColor"
-                  d="M5 4h14v2H5zm0 7h14v2H5zm0 7h9v2H5z"
-                />
-              </svg>
+              <IconFile size={18} />
               <input
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
@@ -134,12 +130,7 @@ export default function RegisterPage() {
           <label className="auth-field">
             <span>密码</span>
             <div className="auth-input">
-              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
-                <path
-                  fill="currentColor"
-                  d="M17 8h-1V6a4 4 0 0 0-8 0v2H7a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2Zm-7-2a2 2 0 0 1 4 0v2h-4Zm7 12H7v-8h10Z"
-                />
-              </svg>
+              <IconLock />
               <input
                 type={showPwd ? "text" : "password"}
                 value={password}

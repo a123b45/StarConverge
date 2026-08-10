@@ -30,15 +30,6 @@ import {
   IconSettings,
   IconSidebar,
   IconUser,
-} from "./components/PortalChromeIcons";
-import {
-  NavIconChat,
-  NavIconDocs,
-  NavIconKey,
-  NavIconOverview,
-  NavIconUsage,
-} from "./components/PortalSiderIcons";
-import {
   AdminIconChannel,
   AdminIconDash,
   AdminIconKey,
@@ -47,7 +38,12 @@ import {
   AdminIconRoute,
   AdminIconSettings,
   AdminIconUsers,
-} from "./components/AdminSiderIcons";
+  NavIconChat,
+  NavIconDocs,
+  NavIconKey,
+  NavIconOverview,
+  NavIconUsage,
+} from "./components/icons";
 
 const PORTAL_TITLES: Record<string, string> = {
   "/app/models": "模型列表",
