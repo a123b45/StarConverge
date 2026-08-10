@@ -87,7 +87,7 @@ export default function TokensPage() {
         allowedModels: [],
         remark: "",
       });
-      flash("令牌已创建，可在列表中查看/复制");
+      flash("密钥已创建，可在列表中查看/复制");
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "创建失败");
@@ -119,7 +119,7 @@ export default function TokensPage() {
   }
 
   async function remove(row: Token) {
-    if (!confirm(`删除令牌「${row.name}」？`)) return;
+    if (!confirm(`删除密钥「${row.name}」？`)) return;
     await api(`/tokens/${row.id}`, { method: "DELETE" });
     await load();
   }
@@ -133,11 +133,11 @@ export default function TokensPage() {
     <>
       <div className="topbar">
         <div className="page-head">
-          <h2>令牌管理</h2>
+          <h2>密钥管理</h2>
           <p>密钥可随时查看复制；「重置用量」只清零已消耗配额，不改总额度</p>
         </div>
         <button className="btn" onClick={() => setOpen(true)}>
-          创建令牌
+          创建密钥
         </button>
       </div>
 
@@ -227,7 +227,7 @@ export default function TokensPage() {
                           </span>
                         ) : (
                           <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
-                            旧令牌不可回看
+                            旧密钥不可回看
                           </span>
                         )}
                       </div>
@@ -283,7 +283,7 @@ export default function TokensPage() {
               {!filtered.length ? (
                 <tr>
                   <td colSpan={6} className="empty">
-                    暂无令牌
+                    暂无密钥
                   </td>
                 </tr>
               ) : null}
@@ -295,7 +295,7 @@ export default function TokensPage() {
       {open ? (
         <div className="modal-backdrop" onClick={() => setOpen(false)}>
           <form className="modal" onClick={(e) => e.stopPropagation()} onSubmit={onSubmit}>
-            <h3>创建令牌</h3>
+            <h3>创建密钥</h3>
             <div className="form-grid">
               <label>
                 名称

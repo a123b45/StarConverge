@@ -26,6 +26,8 @@ import PortalChatPage from "./pages/portal/PortalChatPage";
 import PortalDocsPage from "./pages/portal/PortalDocsPage";
 import {
   IconBell,
+  IconChart,
+  IconFile,
   IconLang,
   IconSettings,
   IconSidebar,
@@ -36,7 +38,6 @@ import {
   AdminIconLogs,
   AdminIconProxy,
   AdminIconRoute,
-  AdminIconSettings,
   AdminIconUsers,
   NavIconChat,
   NavIconDocs,
@@ -44,6 +45,7 @@ import {
   NavIconOverview,
   NavIconUsage,
 } from "./components/icons";
+import UsagePage from "./pages/UsagePage";
 
 const PORTAL_TITLES: Record<string, string> = {
   "/app/models": "模型列表",
@@ -55,14 +57,15 @@ const PORTAL_TITLES: Record<string, string> = {
 };
 
 const ADMIN_TITLES: Record<string, string> = {
-  "/admin": "数据看板",
+  "/admin": "控制台",
   "/admin/logs": "请求日志",
-  "/admin/channels": "渠道管理",
-  "/admin/tokens": "令牌管理",
-  "/admin/models": "模型路由",
-  "/admin/proxy": "通用代理",
+  "/admin/usage": "用量检测",
+  "/admin/channels": "供应商管理",
+  "/admin/tokens": "密钥管理",
+  "/admin/models": "路由管理",
+  "/admin/proxy": "模型管理",
   "/admin/users": "客户管理",
-  "/admin/settings": "系统设置",
+  "/admin/settings": "API 文档",
 };
 
 function AdminShell() {
@@ -80,7 +83,7 @@ function AdminShell() {
     Object.entries(ADMIN_TITLES).find(([k]) =>
       location.pathname.startsWith(k) && k !== "/admin",
     )?.[1] ||
-    (location.pathname === "/admin" ? "数据看板" : "管理");
+    (location.pathname === "/admin" ? "控制台" : "管理");
 
   return (
     <div className={`app-shell${siderCollapsed ? " sider-collapsed" : ""}`}>
@@ -94,7 +97,11 @@ function AdminShell() {
             <div className="nav-label">运营</div>
             <NavLink to="/admin" end>
               <AdminIconDash />
-              数据看板
+              控制台
+            </NavLink>
+            <NavLink to="/admin/usage">
+              <IconChart />
+              用量检测
             </NavLink>
             <NavLink to="/admin/logs">
               <AdminIconLogs />
@@ -105,19 +112,19 @@ function AdminShell() {
             <div className="nav-label">资源</div>
             <NavLink to="/admin/channels">
               <AdminIconChannel />
-              渠道管理
+              供应商管理
             </NavLink>
             <NavLink to="/admin/tokens">
               <AdminIconKey />
-              令牌管理
+              密钥管理
             </NavLink>
             <NavLink to="/admin/models">
               <AdminIconRoute />
-              模型路由
+              路由管理
             </NavLink>
             <NavLink to="/admin/proxy">
               <AdminIconProxy />
-              通用代理
+              模型管理
             </NavLink>
             <NavLink to="/admin/users">
               <AdminIconUsers />
@@ -127,8 +134,8 @@ function AdminShell() {
           <div className="nav-group">
             <div className="nav-label">系统</div>
             <NavLink to="/admin/settings">
-              <AdminIconSettings />
-              系统设置
+              <IconFile />
+              API 文档
             </NavLink>
           </div>
         </nav>
@@ -161,10 +168,10 @@ function AdminShell() {
             <button
               type="button"
               className="portal-tool-btn"
-              title="系统设置"
+              title="API 文档"
               onClick={() => navigate("/admin/settings")}
             >
-              <IconSettings />
+              <IconFile size={18} />
             </button>
             <div className="portal-user-menu">
               <button
@@ -182,7 +189,7 @@ function AdminShell() {
                     <span>admin</span>
                   </div>
                   <button type="button" onClick={() => navigate("/admin/settings")}>
-                    系统设置
+                    API 文档
                   </button>
                   <button
                     type="button"
@@ -417,6 +424,7 @@ export default function App() {
         <Route path="models" element={<ModelsPage />} />
         <Route path="proxy" element={<ProxyRoutesPage />} />
         <Route path="logs" element={<LogsPage />} />
+        <Route path="usage" element={<UsagePage />} />
         <Route path="users" element={<UsersPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>

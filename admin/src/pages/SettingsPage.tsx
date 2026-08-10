@@ -29,7 +29,7 @@ export default function SettingsPage() {
   }
 
   const curl = `curl ${origin}/v1/chat/completions \\
-  -H "Authorization: Bearer sk-sc-你的令牌" \\
+  -H "Authorization: Bearer sk-sc-你的密钥" \\
   -H "Content-Type: application/json" \\
   -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"你好"}]}'`;
 
@@ -37,7 +37,7 @@ export default function SettingsPage() {
     <>
       <div className="topbar">
         <div className="page-head">
-          <h2>系统设置</h2>
+          <h2>API 文档</h2>
           <p>接入说明与站点信息（管理员密码请改 deploy/.env）</p>
         </div>
       </div>
@@ -104,7 +104,7 @@ export default function SettingsPage() {
               </tr>
               <tr>
                 <td style={{ color: "var(--muted)" }}>API Key</td>
-                <td>在「令牌管理」创建后填入 Authorization Bearer</td>
+                <td>在「密钥管理」创建后填入 Authorization Bearer</td>
               </tr>
             </tbody>
           </table>

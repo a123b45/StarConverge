@@ -57,7 +57,7 @@ export default function ModelsPage() {
   }
 
   async function remove(row: ModelRoute) {
-    if (!confirm(`删除模型路由「${row.model}」？`)) return;
+    if (!confirm(`删除路由「${row.model}」？`)) return;
     await api(`/models/${row.id}`, { method: "DELETE" });
     await load();
   }
@@ -70,8 +70,8 @@ export default function ModelsPage() {
     <>
       <div className="topbar">
         <div className="page-head">
-          <h2>模型路由</h2>
-          <p>指定模型走哪些渠道，可改写上游模型名</p>
+          <h2>路由管理</h2>
+          <p>指定模型走哪些供应商，可改写上游模型名</p>
         </div>
         <button className="btn" onClick={() => setOpen(true)}>
           新建路由
@@ -127,7 +127,7 @@ export default function ModelsPage() {
       {open ? (
         <div className="modal-backdrop" onClick={() => setOpen(false)}>
           <form className="modal" onClick={(e) => e.stopPropagation()} onSubmit={onSubmit}>
-            <h3>新建模型路由</h3>
+            <h3>新建路由</h3>
             <div className="form-grid">
               <label>
                 对外模型名

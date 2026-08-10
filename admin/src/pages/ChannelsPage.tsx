@@ -189,7 +189,7 @@ export default function ChannelsPage() {
   }
 
   async function remove(row: Channel) {
-    if (!confirm(`删除渠道「${row.name}」？`)) return;
+    if (!confirm(`删除供应商「${row.name}」？`)) return;
     await api(`/channels/${row.id}`, { method: "DELETE" });
     await load();
   }
@@ -224,7 +224,7 @@ export default function ChannelsPage() {
       }
     }
     setTesting(null);
-    setTestMsg(results.join(" · ") || "没有启用中的渠道");
+    setTestMsg(results.join(" · ") || "没有启用中的供应商");
   }
 
   const modelsHint = providerById(form.type).modelsHint;
@@ -233,7 +233,7 @@ export default function ChannelsPage() {
     <>
       <div className="topbar">
         <div className="page-head">
-          <h2>渠道管理</h2>
+          <h2>供应商管理</h2>
           <p>接入 OpenAI / Claude / Gemini 等常见上游，支持权重与连通性测试</p>
         </div>
         <div className="row-actions">
@@ -241,7 +241,7 @@ export default function ChannelsPage() {
             测试全部启用
           </button>
           <button className="btn" onClick={startCreate}>
-            添加渠道
+            添加供应商
           </button>
         </div>
       </div>
@@ -343,7 +343,7 @@ export default function ChannelsPage() {
               {!filtered.length ? (
                 <tr>
                   <td colSpan={6} className="empty">
-                    暂无渠道，点击「添加渠道」接入上游
+                    暂无供应商，点击「添加供应商」接入上游
                   </td>
                 </tr>
               ) : null}
@@ -361,10 +361,10 @@ export default function ChannelsPage() {
           >
             <div className="wizard-head">
               <div>
-                <h3>{editing ? "编辑渠道" : "连接 AI 模型"}</h3>
+                <h3>{editing ? "编辑供应商" : "连接 AI 模型"}</h3>
                 <p className="wizard-sub">
                   {editing
-                    ? "修改渠道配置后保存即可生效"
+                    ? "修改供应商配置后保存即可生效"
                     : "添加一个新的 AI 提供商到中转平台"}
                 </p>
               </div>
@@ -419,7 +419,7 @@ export default function ChannelsPage() {
             {(editing || step >= 1) && (editing || step === 1) ? (
               <div className="form-grid">
                 <label>
-                  渠道名称
+                  供应商名称
                   <input
                     required
                     value={form.name}
@@ -486,7 +486,7 @@ export default function ChannelsPage() {
                   />
                 </label>
                 <p className="field-hint">
-                  逗号分隔；留空表示不按模型过滤该渠道；填写 * 表示匹配全部模型名
+                  逗号分隔；留空表示不按模型过滤该供应商；填写 * 表示匹配全部模型名
                 </p>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
                   <label>
@@ -523,7 +523,7 @@ export default function ChannelsPage() {
                 </label>
                 <div className="switch-row">
                   <div>
-                    <strong>启用渠道</strong>
+                    <strong>启用供应商</strong>
                     <div className="field-hint" style={{ margin: 0 }}>
                       关闭后不会参与路由转发
                     </div>

@@ -57,7 +57,7 @@ export default function DashboardPage() {
     <>
       <div className="topbar">
         <div className="page-head">
-          <h2>数据看板</h2>
+          <h2>控制台</h2>
           <p>近 24 小时流量、资源规模与调用趋势</p>
         </div>
         <div className="copy-inline">
@@ -84,20 +84,20 @@ export default function DashboardPage() {
           <div className="hint">累计 {fmt(data?.allTime.tokens)}</div>
         </div>
         <div className="stat">
-          <div className="label">渠道</div>
+          <div className="label">供应商</div>
           <div className="value">
             {data ? `${data.counts.channelsEnabled}/${data.counts.channels}` : "—"}
           </div>
           <div className="hint">启用 / 全部</div>
         </div>
         <div className="stat">
-          <div className="label">令牌 · 模型</div>
+          <div className="label">密钥 · 路由</div>
           <div className="value" style={{ fontSize: "1.25rem" }}>
             {data
               ? `${data.counts.tokensEnabled}/${data.counts.tokens} · ${data.counts.models}`
               : "—"}
           </div>
-          <div className="hint">启用令牌 / 全部 · 路由数</div>
+          <div className="hint">启用密钥 / 全部 · 路由数</div>
         </div>
       </div>
 
