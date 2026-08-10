@@ -10,6 +10,7 @@ import {
   chromeCopy,
   getLang,
   getTheme,
+  LANG_OPTIONS,
   setLang as persistLang,
   setTheme as persistTheme,
   type LangMode,
@@ -46,6 +47,7 @@ export default function TopTools({
   );
   const [userOpen, setUserOpen] = useState(false);
   const [notifyOpen, setNotifyOpen] = useState(false);
+  const [langOpen, setLangOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [displayName, setDisplayName] = useState(user.displayName || "");
   const [password, setPassword] = useState("");
@@ -69,6 +71,7 @@ export default function TopTools({
       if (!el?.closest(".chrome-menu")) {
         setUserOpen(false);
         setNotifyOpen(false);
+        setLangOpen(false);
       }
     }
     document.addEventListener("click", onDocClick);
@@ -105,14 +108,46 @@ export default function TopTools({
     <>
       <div className="portal-top-right chrome-tools">
         {leading}
-        <button
-          type="button"
-          className="portal-tool-btn"
-          title={t.lang}
-          onClick={() => setLang(persistLang(lang === "zh" ? "en" : "zh"))}
-        >
-          <IconLang />
-        </button>
+        <div className="chrome-menu">
+          <button
+            type="button"
+            className="portal-tool-btn"
+            title={t.lang}
+            aria-expanded={langOpen}
+            onClick={(e) => {
+              e.stopPropagation();
+              setLangOpen((v) => !v);
+              setNotifyOpen(false);
+              setUserOpen(false);
+            }}
+          >
+            <IconLang />
+          </button>
+          {langOpen ? (
+            <div className="portal-user-dropdown chrome-dropdown chrome-lang-menu">
+              <div className="portal-user-meta">
+                <strong>{t.lang}</strong>
+                <span>
+                  {LANG_OPTIONS.find((o) => o.id === lang)?.label || lang}
+                </span>
+              </div>
+              {LANG_OPTIONS.map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  className={lang === opt.id ? "is-active" : undefined}
+                  onClick={() => {
+                    setLang(persistLang(opt.id));
+                    setLangOpen(false);
+                  }}
+                >
+                  <span>{opt.label}</span>
+                  <em>{opt.native}</em>
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
         <button
           type="button"
           className={`portal-tool-btn theme-toggle${theme === "dark" ? " is-dark" : ""}`}
@@ -135,6 +170,7 @@ export default function TopTools({
               e.stopPropagation();
               setNotifyOpen((v) => !v);
               setUserOpen(false);
+              setLangOpen(false);
             }}
           >
             <IconBell />
@@ -159,6 +195,7 @@ export default function TopTools({
               e.stopPropagation();
               setUserOpen((v) => !v);
               setNotifyOpen(false);
+              setLangOpen(false);
             }}
           >
             <span className="portal-avatar">

@@ -1,6 +1,7 @@
 import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { portalApi } from "../../lib/api";
+import { IconSidebar } from "../../components/icons";
 
 type Msg = { role: "user" | "assistant"; content: string; at: number; model?: string };
 type Session = { id: string; title: string; messages: Msg[] };
@@ -29,6 +30,7 @@ export default function PortalChatPage() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [sideCollapsed, setSideCollapsed] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const active = useMemo(
@@ -157,7 +159,7 @@ export default function PortalChatPage() {
   }
 
   return (
-    <div className="ds-chat">
+    <div className={`ds-chat${sideCollapsed ? " side-collapsed" : ""}`}>
       <aside className="ds-side">
         <button className="ds-new" type="button" onClick={newChat}>
           <span>+</span> 开启新对话
@@ -185,6 +187,15 @@ export default function PortalChatPage() {
       <section className="ds-main">
         <header className="ds-toolbar">
           <div className="ds-title">
+            <button
+              type="button"
+              className="ds-side-toggle"
+              title={sideCollapsed ? "展开历史对话" : "收起历史对话"}
+              aria-label={sideCollapsed ? "展开历史对话" : "收起历史对话"}
+              onClick={() => setSideCollapsed((v) => !v)}
+            >
+              <IconSidebar />
+            </button>
             <h1>{active?.title || "对话测试"}</h1>
             <span className="ds-online">
               <i />

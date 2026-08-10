@@ -1834,8 +1834,55 @@ html[data-theme="dark"] .portal-user-dropdown button:hover {
   background: var(--accent-soft);
   color: var(--accent);
 }
-.theme-toggle.is-dark {
-  color: #fbbf24;
+.chrome-lang-menu {
+  width: 220px;
+}
+.chrome-lang-menu button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.chrome-lang-menu button em {
+  font-style: normal;
+  font-size: 12px;
+  color: var(--muted);
+}
+.chrome-lang-menu button.is-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+.chrome-lang-menu button.is-active em {
+  color: var(--accent);
+}
+
+.ds-chat.side-collapsed {
+  grid-template-columns: 0 minmax(0, 1fr);
+}
+.ds-chat.side-collapsed .ds-side {
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  border-right: none;
+  padding: 0;
+  width: 0;
+}
+.ds-side-toggle {
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  flex-shrink: 0;
+}
+.ds-side-toggle:hover {
+  background: var(--bg-soft);
+  color: var(--accent);
 }
 .portal-tool-badge.dot {
   position: absolute;
