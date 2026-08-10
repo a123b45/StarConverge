@@ -1,4 +1,5 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { portalApi } from "../../lib/api";
 
 type Msg = { role: "user" | "assistant"; content: string; at: number; model?: string };
@@ -24,10 +25,11 @@ export default function PortalChatPage() {
   const [models, setModels] = useState<string[]>([]);
   const [model, setModel] = useState("");
   const [apiKey, setApiKey] = useState("");
-  const [keys, setKeys] = useState<{ id: string; name: string; key: string | null }[]>([]);
+  const [keys, setKeys] = useState<{ id: string; name: string }[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const bottomRef = useRef<HTMLDivElement>(null);
 
   const active = useMemo(
     () => sessions.find((s) => s.id === activeId) ?? null,
@@ -40,16 +42,18 @@ export default function PortalChatPage() {
       setModels(ids);
       if (ids[0]) setModel(ids[0]);
     });
-    portalApi<{ data: { id: string; name: string; key: string | null }[] }>("/keys").then(
-      async (r) => {
-        setKeys(r.data);
-        if (r.data[0]) {
-          const full = await portalApi<{ key: string | null }>(`/keys/${r.data[0].id}`);
-          if (full.key) setApiKey(full.key);
-        }
-      },
-    );
+    portalApi<{ data: { id: string; name: string }[] }>("/keys").then(async (r) => {
+      setKeys(r.data);
+      if (r.data[0]) {
+        const full = await portalApi<{ key: string | null }>(`/keys/${r.data[0].id}`);
+        if (full.key) setApiKey(full.key);
+      }
+    });
   }, []);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [active?.messages.length, busy]);
 
   function persist(next: Session[]) {
     setSessions(next);
@@ -62,9 +66,9 @@ export default function PortalChatPage() {
       title: "新对话",
       messages: [],
     };
-    const next = [s, ...sessions];
-    persist(next);
+    persist([s, ...sessions]);
     setActiveId(s.id);
+    setError("");
   }
 
   async function pickKey(id: string) {
@@ -72,19 +76,34 @@ export default function PortalChatPage() {
     if (full.key) setApiKey(full.key);
   }
 
-  async function send(e: FormEvent) {
-    e.preventDefault();
-    if (!input.trim() || !active || !apiKey || !model) return;
+  async function send(e?: FormEvent) {
+    e?.preventDefault();
+    if (!input.trim() || !apiKey || !model) return;
+    let current = active;
+    if (!current) {
+      current = { id: `s_${Date.now()}`, title: "新对话", messages: [] };
+      persist([current, ...sessions]);
+      setActiveId(current.id);
+    }
+
     setBusy(true);
     setError("");
     const userMsg: Msg = { role: "user", content: input.trim(), at: Date.now() };
-    const withUser = {
-      ...active,
-      title: active.messages.length ? active.title : userMsg.content.slice(0, 24),
-      messages: [...active.messages, userMsg],
+    const withUser: Session = {
+      ...current,
+      title: current.messages.length ? current.title : userMsg.content.slice(0, 28),
+      messages: [...current.messages, userMsg],
     };
-    persist(sessions.map((s) => (s.id === active.id ? withUser : s)));
+    setSessions((prev) => {
+      const exists = prev.some((s) => s.id === withUser.id);
+      const next = exists
+        ? prev.map((s) => (s.id === withUser.id ? withUser : s))
+        : [withUser, ...prev];
+      saveSessions(next);
+      return next;
+    });
     setInput("");
+
     try {
       const res = await fetch("/v1/chat/completions", {
         method: "POST",
@@ -119,7 +138,7 @@ export default function PortalChatPage() {
         messages: [...withUser.messages, assistant],
       };
       setSessions((prev) => {
-        const next = prev.map((s) => (s.id === active.id ? final : s));
+        const next = prev.map((s) => (s.id === final.id ? final : s));
         saveSessions(next);
         return next;
       });
@@ -130,83 +149,146 @@ export default function PortalChatPage() {
     }
   }
 
+  function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      void send();
+    }
+  }
+
   return (
-    <div className="portal-chat">
-      <aside className="portal-chat-side">
-        <button className="portal-btn" type="button" onClick={newChat}>
-          + 新对话
+    <div className="ds-chat">
+      <aside className="ds-side">
+        <button className="ds-new" type="button" onClick={newChat}>
+          <span>+</span> 开启新对话
         </button>
-        <div className="portal-chat-list">
-          {sessions.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              className={s.id === activeId ? "active" : ""}
-              onClick={() => setActiveId(s.id)}
-            >
-              {s.title || "未命名"}
-            </button>
-          ))}
-        </div>
-      </aside>
-      <section className="portal-chat-main">
-        <header>
-          <div>
-            <strong>StarConverge 助手</strong>
-            <span className="ok-dot">系统在线</span>
-          </div>
-          <div className="portal-chat-controls">
-            <select value={model} onChange={(e) => setModel(e.target.value)}>
-              {models.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
-            <select
-              onChange={(e) => void pickKey(e.target.value)}
-              defaultValue={keys[0]?.id}
-            >
-              {keys.map((k) => (
-                <option key={k.id} value={k.id}>
-                  {k.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </header>
-        {error ? <div className="alert">{error}</div> : null}
-        <div className="portal-chat-messages">
-          {!active?.messages.length ? (
-            <div className="portal-empty">选择模型后开始对话测试</div>
+        <div className="ds-side-label">历史对话</div>
+        <div className="ds-session-list">
+          {sessions.length === 0 ? (
+            <p className="ds-side-empty">暂无会话</p>
           ) : (
-            active.messages.map((m, i) => (
-              <div key={i} className={`bubble ${m.role}`}>
-                <div className="content">{m.content}</div>
-                <div className="meta">
-                  {new Date(m.at).toLocaleTimeString()}
-                  {m.model ? ` · ${m.model}` : ""}
-                </div>
-              </div>
+            sessions.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                className={s.id === activeId ? "active" : ""}
+                onClick={() => setActiveId(s.id)}
+                title={s.title}
+              >
+                {s.title || "未命名"}
+              </button>
             ))
           )}
         </div>
-        <form className="portal-chat-input" onSubmit={send}>
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={model ? `发送消息给 ${model}…` : "请先选择模型"}
-            disabled={busy || !apiKey}
-          />
-          <button className="portal-btn" disabled={busy || !apiKey}>
-            发送
-          </button>
-        </form>
-        {!apiKey ? (
-          <p className="muted" style={{ padding: "0 16px 12px" }}>
-            请先在「API 密钥」创建密钥后再测试
-          </p>
-        ) : null}
+      </aside>
+
+      <section className="ds-main">
+        <header className="ds-toolbar">
+          <div className="ds-title">
+            <h1>{active?.title || "对话测试"}</h1>
+            <span className="ds-online">
+              <i />
+              在线
+            </span>
+          </div>
+          <div className="ds-toolbar-right">
+            <label className="ds-select">
+              <span>模型</span>
+              <select value={model} onChange={(e) => setModel(e.target.value)}>
+                {models.length === 0 ? <option value="">暂无模型</option> : null}
+                {models.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="ds-select">
+              <span>密钥</span>
+              <select
+                defaultValue={keys[0]?.id}
+                onChange={(e) => void pickKey(e.target.value)}
+              >
+                {keys.length === 0 ? <option value="">未创建</option> : null}
+                {keys.map((k) => (
+                  <option key={k.id} value={k.id}>
+                    {k.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </header>
+
+        <div className="ds-messages">
+          {!active?.messages.length ? (
+            <div className="ds-welcome">
+              <div className="ds-welcome-mark">SC</div>
+              <h2>开始一次对话测试</h2>
+              <p>选择模型与 API 密钥后，在下方输入消息即可调用网关。</p>
+              {!apiKey ? (
+                <p className="ds-hint">
+                  还没有密钥？先去 <Link to="/app/keys">API 密钥</Link> 创建。
+                </p>
+              ) : null}
+            </div>
+          ) : (
+            <div className="ds-thread">
+              {active.messages.map((m, i) => (
+                <div key={i} className={`ds-msg ${m.role}`}>
+                  <div className="ds-avatar">{m.role === "user" ? "你" : "SC"}</div>
+                  <div className="ds-msg-body">
+                    <div className="ds-msg-text">{m.content}</div>
+                    <div className="ds-msg-meta">
+                      {new Date(m.at).toLocaleTimeString()}
+                      {m.model ? ` · ${m.model}` : ""}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {busy ? (
+                <div className="ds-msg assistant">
+                  <div className="ds-avatar">SC</div>
+                  <div className="ds-msg-body">
+                    <div className="ds-typing">正在生成…</div>
+                  </div>
+                </div>
+              ) : null}
+              <div ref={bottomRef} />
+            </div>
+          )}
+        </div>
+
+        <div className="ds-composer-wrap">
+          {error ? <div className="ds-error">{error}</div> : null}
+          <form className="ds-composer" onSubmit={(e) => void send(e)}>
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={onKeyDown}
+              placeholder={
+                !apiKey
+                  ? "请先创建 API 密钥…"
+                  : model
+                    ? `给 ${model} 发送消息`
+                    : "请先选择模型…"
+              }
+              rows={1}
+              disabled={busy || !apiKey || !model}
+            />
+            <div className="ds-composer-bar">
+              <span className="ds-composer-tip">Enter 发送 · Shift+Enter 换行</span>
+              <button
+                type="submit"
+                className="ds-send"
+                disabled={busy || !apiKey || !model || !input.trim()}
+                aria-label="发送"
+              >
+                ↑
+              </button>
+            </div>
+          </form>
+        </div>
       </section>
     </div>
   );

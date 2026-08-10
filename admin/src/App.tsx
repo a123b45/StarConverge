@@ -127,7 +127,9 @@ function PortalShell() {
           </button>
         </div>
       </header>
-      <Outlet />
+      <div className="portal-body">
+        <Outlet />
+      </div>
     </div>
   );
 }

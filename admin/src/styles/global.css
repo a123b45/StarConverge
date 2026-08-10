@@ -1331,26 +1331,38 @@ code,
 
 /* ---- Portal (distinct from admin) ---- */
 .portal-shell {
-  --p-ink: #07111f;
-  --p-teal: #0d9488;
-  --p-teal-deep: #0f766e;
-  --p-sand: #f3f1eb;
-  --p-line: #d9dde5;
-  min-height: 100vh;
-  background:
-    linear-gradient(180deg, #e8edf3 0%, var(--p-sand) 42%, #ebe7df 100%);
-  font-family: "Space Grotesk", "Plus Jakarta Sans", sans-serif;
+  --p-ink: #1e1b4b;
+  --p-accent: #7c3aed;
+  --p-accent-soft: #8b5cf6;
+  --p-wash: #f5f3ff;
+  --p-line: #e8e6f0;
+  --p-muted: #6b7280;
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: #f7f7fb;
+  font-family: "Plus Jakarta Sans", "Space Grotesk", system-ui, sans-serif;
   color: var(--p-ink);
+}
+.portal-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.portal-body:has(.ds-chat) {
+  overflow: hidden;
 }
 .portal-topbar {
   display: flex;
   align-items: center;
   gap: 20px;
-  padding: 14px 28px;
-  background: var(--p-ink);
-  color: #e2e8f0;
-  position: sticky;
-  top: 0;
+  padding: 12px 22px;
+  background: #fff;
+  border-bottom: 1px solid var(--p-line);
+  color: var(--p-ink);
+  flex-shrink: 0;
   z-index: 20;
 }
 .portal-brand {
@@ -1362,13 +1374,14 @@ code,
 .portal-logo {
   width: 32px;
   height: 32px;
-  border-radius: 8px;
-  background: var(--p-teal);
+  border-radius: 10px;
+  background: linear-gradient(145deg, #a78bfa, #7c3aed);
   color: #fff;
   display: grid;
   place-items: center;
   font-weight: 700;
   font-size: 13px;
+  box-shadow: 0 6px 14px rgba(124, 58, 237, 0.28);
 }
 .portal-nav {
   display: flex;
@@ -1379,14 +1392,14 @@ code,
 }
 .portal-nav a {
   padding: 8px 14px;
-  border-radius: 8px;
-  color: #94a3b8;
+  border-radius: 999px;
+  color: var(--p-muted);
   font-size: 14px;
   font-weight: 500;
 }
 .portal-nav a.active {
-  background: rgba(13, 148, 136, 0.2);
-  color: #5eead4;
+  background: var(--p-wash);
+  color: var(--p-accent);
 }
 .portal-top-right {
   display: flex;
@@ -1395,7 +1408,7 @@ code,
 }
 .portal-user {
   font-size: 13px;
-  color: #cbd5e1;
+  color: #52525b;
 }
 .portal-quota-pill {
   display: inline-flex;
@@ -1403,11 +1416,11 @@ code,
   gap: 8px;
   padding: 6px 12px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(94, 234, 212, 0.25);
+  background: var(--p-wash);
+  border: 1px solid #ddd6fe;
   font-family: "JetBrains Mono", monospace;
   font-size: 12px;
-  color: #99f6e4;
+  color: var(--p-accent);
 }
 .ok-dot {
   width: 8px;
@@ -1415,6 +1428,7 @@ code,
   border-radius: 50%;
   background: #34d399;
   display: inline-block;
+  flex-shrink: 0;
   box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.25);
 }
 .portal-page {
@@ -1712,129 +1726,356 @@ code,
 }
 
 .portal-chat {
+  display: none;
+}
+
+/* DeepSeek-inspired chat workspace */
+.ds-chat {
+  height: 100%;
+  min-height: 0;
   display: grid;
-  grid-template-columns: 260px 1fr;
-  height: calc(100vh - 62px);
-  max-width: 1280px;
-  margin: 0 auto;
-  border-left: 1px solid var(--p-line);
-  border-right: 1px solid var(--p-line);
+  grid-template-columns: 260px minmax(0, 1fr);
   background: #fff;
 }
-.portal-chat-side {
-  border-right: 1px solid var(--p-line);
-  padding: 14px;
-  background: #f8fafc;
+.ds-side {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  padding: 16px 12px;
+  background: #f7f7fb;
+  border-right: 1px solid var(--p-line);
+  min-height: 0;
 }
-.portal-chat-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  overflow: auto;
+.ds-new {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  border: 1px solid #ddd6fe;
+  background: #fff;
+  color: var(--p-accent);
+  border-radius: 999px;
+  padding: 11px 14px;
+  font-weight: 650;
+  font-size: 14px;
+  box-shadow: 0 1px 2px rgba(30, 27, 75, 0.04);
 }
-.portal-chat-list button {
-  text-align: left;
-  border: none;
-  background: transparent;
-  padding: 10px 12px;
-  border-radius: 8px;
-  color: #334155;
+.ds-new span {
+  font-size: 18px;
+  line-height: 1;
 }
-.portal-chat-list button.active {
-  background: #ccfbf1;
-  color: #115e59;
+.ds-new:hover {
+  background: var(--p-wash);
+}
+.ds-side-label {
+  padding: 4px 10px 0;
+  font-size: 12px;
+  color: #9ca3af;
   font-weight: 600;
 }
-.portal-chat-main {
+.ds-session-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-right: 2px;
+}
+.ds-session-list button {
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 10px;
+  color: #374151;
+  font-size: 13.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ds-session-list button:hover {
+  background: #eef2ff;
+}
+.ds-session-list button.active {
+  background: #eff0ff;
+  color: var(--p-accent);
+  font-weight: 650;
+}
+.ds-side-empty {
+  margin: 8px 10px;
+  font-size: 13px;
+  color: #9ca3af;
+}
+.ds-main {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
+  background: #fff;
 }
-.portal-chat-main header {
+.ds-toolbar {
+  flex-shrink: 0;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 14px 18px;
-  border-bottom: 1px solid var(--p-line);
-  gap: 12px;
-  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 22px;
+  border-bottom: 1px solid #f1f0f5;
 }
-.portal-chat-main header .ok-dot {
-  margin-left: 8px;
-}
-.portal-chat-controls {
+.ds-title {
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
 }
-.portal-chat-controls select {
-  border: 1px solid var(--p-line);
-  border-radius: 8px;
-  padding: 8px 10px;
-  background: #fff;
+.ds-title h1 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.portal-chat-messages {
-  flex: 1;
-  overflow: auto;
-  padding: 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  background:
-    radial-gradient(circle at 100% 0%, rgba(13, 148, 136, 0.06), transparent 40%),
-    #fbfaf7;
+.ds-online {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 500;
+  white-space: nowrap;
 }
-.bubble {
-  max-width: min(720px, 92%);
-  padding: 12px 14px;
-  border-radius: 14px;
-  background: #fff;
-  border: 1px solid var(--p-line);
+.ds-online i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.18);
 }
-.bubble.user {
-  align-self: flex-end;
-  background: #0f766e;
-  color: #fff;
-  border-color: transparent;
-}
-.bubble .content {
-  white-space: pre-wrap;
-  line-height: 1.5;
-  font-size: 14px;
-}
-.bubble .meta {
-  margin-top: 8px;
-  font-size: 11px;
-  opacity: 0.7;
-}
-.portal-chat-input {
+.ds-toolbar-right {
   display: flex;
   gap: 10px;
-  padding: 14px 16px;
-  border-top: 1px solid var(--p-line);
-  background: #fff;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
-.portal-chat-input input {
-  flex: 1;
+.ds-select {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #9ca3af;
+  font-weight: 600;
+}
+.ds-select select {
   border: 1px solid var(--p-line);
-  border-radius: 999px;
-  padding: 12px 16px;
+  background: #fafafa;
+  border-radius: 10px;
+  padding: 8px 10px;
+  color: var(--p-ink);
+  font-size: 13px;
+  font-weight: 500;
+  max-width: 180px;
+}
+.ds-messages {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px 0 12px;
+}
+.ds-welcome {
+  height: 100%;
+  min-height: 280px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 32px 20px;
+  color: #6b7280;
+}
+.ds-welcome-mark {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(145deg, #a78bfa, #7c3aed);
+  color: #fff;
+  font-weight: 800;
+  margin-bottom: 16px;
+  box-shadow: 0 12px 28px rgba(124, 58, 237, 0.28);
+}
+.ds-welcome h2 {
+  margin: 0 0 8px;
+  color: var(--p-ink);
+  font-size: 22px;
+  letter-spacing: -0.03em;
+}
+.ds-welcome p {
+  margin: 0;
+  max-width: 420px;
+  line-height: 1.6;
+  font-size: 14px;
+}
+.ds-hint {
+  margin-top: 14px !important;
+}
+.ds-hint a {
+  color: var(--p-accent);
+  font-weight: 700;
+}
+.ds-thread {
+  width: min(760px, calc(100% - 48px));
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 12px 0 8px;
+}
+.ds-msg {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.ds-msg.user {
+  flex-direction: row-reverse;
+}
+.ds-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+  background: var(--p-wash);
+  color: var(--p-accent);
+}
+.ds-msg.user .ds-avatar {
+  background: #eef2ff;
+  color: #4338ca;
+}
+.ds-msg-body {
+  max-width: min(640px, 100%);
+}
+.ds-msg-text {
+  white-space: pre-wrap;
+  line-height: 1.7;
+  font-size: 15px;
+  color: #1f2937;
+}
+.ds-msg.user .ds-msg-text {
+  background: var(--p-wash);
+  border: 1px solid #ddd6fe;
+  border-radius: 16px 16px 4px 16px;
+  padding: 12px 14px;
+}
+.ds-msg-meta {
+  margin-top: 6px;
+  font-size: 11px;
+  color: #9ca3af;
+}
+.ds-msg.user .ds-msg-meta {
+  text-align: right;
+}
+.ds-typing {
+  color: #9ca3af;
+  font-size: 14px;
+}
+.ds-composer-wrap {
+  flex-shrink: 0;
+  padding: 8px 20px 18px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0), #fff 28%);
+}
+.ds-error {
+  width: min(760px, 100%);
+  margin: 0 auto 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 13px;
+}
+.ds-composer {
+  width: min(760px, 100%);
+  margin: 0 auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 22px;
+  background: #fff;
+  padding: 12px 14px 10px;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 12px 28px rgba(30, 27, 75, 0.06);
+}
+.ds-composer textarea {
+  width: 100%;
+  border: none;
+  outline: none;
+  resize: none;
+  min-height: 44px;
+  max-height: 160px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--p-ink);
+  background: transparent;
+  font-family: inherit;
+}
+.ds-composer textarea::placeholder {
+  color: #9ca3af;
+}
+.ds-composer-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+.ds-composer-tip {
+  font-size: 12px;
+  color: #9ca3af;
+}
+.ds-send {
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #8b5cf6, #7c3aed);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 8px 18px rgba(124, 58, 237, 0.32);
+}
+.ds-send:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.portal-topbar .portal-btn.ghost {
+  border-color: #e5e7eb;
+  color: #52525b;
+}
+.portal-btn {
+  background: var(--p-ink);
+}
+.portal-btn.ghost {
+  color: inherit;
 }
 
 @media (max-width: 900px) {
   .portal-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .portal-chat {
+  .ds-chat {
     grid-template-columns: 1fr;
-    height: auto;
-    min-height: calc(100vh - 62px);
   }
-  .portal-chat-side {
-    border-right: none;
-    border-bottom: 1px solid var(--p-line);
+  .ds-side {
+    display: none;
   }
   .row-3 {
     grid-template-columns: 1fr;
