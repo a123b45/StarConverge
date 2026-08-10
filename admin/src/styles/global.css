@@ -467,7 +467,7 @@ code,
 
 .badge.blue {
   background: var(--accent-soft);
-  border-color: #bfdbfe;
+  border-color: #ddd6fe;
   color: var(--accent);
 }
 
