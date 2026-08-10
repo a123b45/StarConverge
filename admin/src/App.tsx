@@ -38,6 +38,16 @@ import {
   NavIconOverview,
   NavIconUsage,
 } from "./components/PortalSiderIcons";
+import {
+  AdminIconChannel,
+  AdminIconDash,
+  AdminIconKey,
+  AdminIconLogs,
+  AdminIconProxy,
+  AdminIconRoute,
+  AdminIconSettings,
+  AdminIconUsers,
+} from "./components/AdminSiderIcons";
 
 const PORTAL_TITLES: Record<string, string> = {
   "/app/models": "模型列表",
@@ -48,58 +58,155 @@ const PORTAL_TITLES: Record<string, string> = {
   "/app": "开发",
 };
 
+const ADMIN_TITLES: Record<string, string> = {
+  "/admin": "数据看板",
+  "/admin/logs": "请求日志",
+  "/admin/channels": "渠道管理",
+  "/admin/tokens": "令牌管理",
+  "/admin/models": "模型路由",
+  "/admin/proxy": "通用代理",
+  "/admin/users": "客户管理",
+  "/admin/settings": "系统设置",
+};
+
 function AdminShell() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [siderCollapsed, setSiderCollapsed] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+
+  useEffect(() => {
+    setUserMenuOpen(false);
+  }, [location.pathname]);
+
+  const pageTitle =
+    ADMIN_TITLES[location.pathname] ||
+    Object.entries(ADMIN_TITLES).find(([k]) =>
+      location.pathname.startsWith(k) && k !== "/admin",
+    )?.[1] ||
+    (location.pathname === "/admin" ? "数据看板" : "管理");
+
   return (
-    <div className="app-shell">
+    <div className={`app-shell${siderCollapsed ? " sider-collapsed" : ""}`}>
       <aside className="sidebar">
         <div className="brand">
-          <div className="brand-mark">SC</div>
-          <h1>StarConverge</h1>
-          <p>管理控制台</p>
+          <span className="brand-mark">S</span>
+          <strong className="brand-name">StarConverge</strong>
         </div>
         <nav className="nav">
           <div className="nav-group">
             <div className="nav-label">运营</div>
             <NavLink to="/admin" end>
+              <AdminIconDash />
               数据看板
             </NavLink>
-            <NavLink to="/admin/logs">请求日志</NavLink>
+            <NavLink to="/admin/logs">
+              <AdminIconLogs />
+              请求日志
+            </NavLink>
           </div>
           <div className="nav-group">
             <div className="nav-label">资源</div>
-            <NavLink to="/admin/channels">渠道管理</NavLink>
-            <NavLink to="/admin/tokens">令牌管理</NavLink>
-            <NavLink to="/admin/models">模型路由</NavLink>
-            <NavLink to="/admin/proxy">通用代理</NavLink>
-            <NavLink to="/admin/users">客户管理</NavLink>
+            <NavLink to="/admin/channels">
+              <AdminIconChannel />
+              渠道管理
+            </NavLink>
+            <NavLink to="/admin/tokens">
+              <AdminIconKey />
+              令牌管理
+            </NavLink>
+            <NavLink to="/admin/models">
+              <AdminIconRoute />
+              模型路由
+            </NavLink>
+            <NavLink to="/admin/proxy">
+              <AdminIconProxy />
+              通用代理
+            </NavLink>
+            <NavLink to="/admin/users">
+              <AdminIconUsers />
+              客户管理
+            </NavLink>
           </div>
           <div className="nav-group">
             <div className="nav-label">系统</div>
-            <NavLink to="/admin/settings">系统设置</NavLink>
+            <NavLink to="/admin/settings">
+              <AdminIconSettings />
+              系统设置
+            </NavLink>
           </div>
         </nav>
-        <div style={{ marginTop: "auto", padding: "0 4px" }}>
-          <button
-            className="btn ghost"
-            style={{
-              width: "100%",
-              background: "transparent",
-              borderColor: "rgba(255,255,255,0.12)",
-              color: "#cbd5e1",
-            }}
-            onClick={() => {
-              setSession(null);
-              navigate("/login");
-            }}
-          >
-            退出登录
-          </button>
+        <div className="sidebar-foot">
+          <div className="sidebar-role">
+            <span>当前角色</span>
+            <strong>管理员</strong>
+          </div>
         </div>
       </aside>
-      <main className="main">
-        <Outlet />
-      </main>
+
+      <div className="admin-main">
+        <header className="admin-topbar">
+          <div className="admin-top-left">
+            <button
+              type="button"
+              className="portal-tool-btn"
+              title={siderCollapsed ? "展开侧栏" : "收起侧栏"}
+              onClick={() => setSiderCollapsed((v) => !v)}
+            >
+              <IconSidebar />
+            </button>
+            <div className="portal-crumb">
+              <span>管理</span>
+              <i>/</i>
+              <strong>{pageTitle}</strong>
+            </div>
+          </div>
+          <div className="admin-top-right">
+            <button
+              type="button"
+              className="portal-tool-btn"
+              title="系统设置"
+              onClick={() => navigate("/admin/settings")}
+            >
+              <IconSettings />
+            </button>
+            <div className="portal-user-menu">
+              <button
+                type="button"
+                className="portal-tool-btn"
+                title="管理员"
+                onClick={() => setUserMenuOpen((v) => !v)}
+              >
+                <IconUser />
+              </button>
+              {userMenuOpen ? (
+                <div className="portal-user-dropdown">
+                  <div className="portal-user-meta">
+                    <strong>管理员</strong>
+                    <span>admin</span>
+                  </div>
+                  <button type="button" onClick={() => navigate("/admin/settings")}>
+                    系统设置
+                  </button>
+                  <button
+                    type="button"
+                    className="danger"
+                    onClick={() => {
+                      setSession(null);
+                      navigate("/login");
+                    }}
+                  >
+                    退出登录
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </header>
+        <main className="main">
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }
