@@ -50,19 +50,73 @@ app.route("/api/portal", portalRoutes);
 app.route("/v1", v1Routes);
 app.route("/proxy", proxyApp);
 
-// Serve admin SPA in production if built
+// Serve admin SPA in production if built.
+// Use absolute paths — serveStatic's relative root breaks when cwd ≠ repo root,
+// and a blind SPA fallback would return index.html for missing /assets/*.css.
 const adminDist = path.resolve(__dirname, "../../admin/dist");
+const mimeByExt: Record<string, string> = {
+  ".css": "text/css; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".mjs": "text/javascript; charset=utf-8",
+  ".html": "text/html; charset=utf-8",
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
+  ".ico": "image/x-icon",
+  ".woff": "font/woff",
+  ".woff2": "font/woff2",
+  ".map": "application/json",
+};
+
+function safeJoin(root: string, reqPath: string): string | null {
+  const cleaned = decodeURIComponent(reqPath.split("?")[0] ?? "").replace(
+    /^\/+/,
+    "",
+  );
+  if (!cleaned || cleaned.includes("\0")) return null;
+  const full = path.resolve(root, cleaned);
+  if (full !== root && !full.startsWith(root + path.sep)) return null;
+  return full;
+}
+
 if (fs.existsSync(adminDist)) {
+  app.get("/assets/*", async (c) => {
+    const rel = c.req.path.replace(/^\/assets\//, "assets/");
+    const full = safeJoin(adminDist, rel);
+    if (!full || !fs.existsSync(full) || !fs.statSync(full).isFile()) {
+      return c.text("Not found", 404);
+    }
+    const ext = path.extname(full).toLowerCase();
+    c.header("Content-Type", mimeByExt[ext] ?? "application/octet-stream");
+    c.header("Cache-Control", "public, max-age=31536000, immutable");
+    return c.body(fs.readFileSync(full));
+  });
+
+  // Optional: other static files at dist root (favicon, etc.)
   app.use(
     "/*",
     serveStatic({
-      root: path.relative(process.cwd(), adminDist),
-      rewriteRequestPath: (p) => (p === "/" ? "/index.html" : p),
+      root: adminDist,
+      rewriteRequestPath: (p) => p,
     }),
   );
+
   app.get("*", async (c) => {
+    const p = c.req.path;
+    if (
+      p.startsWith("/api/") ||
+      p.startsWith("/v1/") ||
+      p.startsWith("/proxy/") ||
+      p.startsWith("/assets/") ||
+      p === "/health"
+    ) {
+      return c.text("Not found", 404);
+    }
     const index = path.join(adminDist, "index.html");
     if (fs.existsSync(index)) {
+      c.header("Cache-Control", "no-cache");
       return c.html(fs.readFileSync(index, "utf8"));
     }
     return c.text("Admin UI not found", 404);

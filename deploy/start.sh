@@ -292,6 +292,8 @@ start_local() {
 
   # 确保后台进程也能找到 runtime node（better-sqlite3 等已编译进 node_modules）
   use_runtime_node
+  # 固定 cwd，避免静态资源相对路径错位
+  cd "$ROOT"
   nohup env PATH="$PATH" node "$ROOT/server/dist/index.js" \
     > "$DEPLOY_DIR/run/server.log" 2>&1 &
   echo $! > "$DEPLOY_DIR/run/server.pid"
