@@ -57,7 +57,7 @@ const statements = [
     updated_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
   )`,
   `CREATE INDEX IF NOT EXISTS tokens_key_hash_idx ON tokens(key_hash)`,
-  `CREATE INDEX IF NOT EXISTS tokens_user_id_idx ON tokens(user_id)`,
+  // tokens_user_id_idx is created after ensuring user_id column exists (see migrate)
   `CREATE TABLE IF NOT EXISTS model_routes (
     id TEXT PRIMARY KEY,
     model TEXT NOT NULL UNIQUE,
@@ -110,10 +110,12 @@ export function migrate() {
   if (!cols.some((c) => c.name === "key_plain")) {
     sqlite.exec(`ALTER TABLE tokens ADD COLUMN key_plain TEXT`);
   }
-  if (!cols.some((c) => c.name === "user_id")) {
+  // re-read columns after possible key_plain alter
+  const cols2 = sqlite.prepare(`PRAGMA table_info(tokens)`).all() as Array<{ name: string }>;
+  if (!cols2.some((c) => c.name === "user_id")) {
     sqlite.exec(`ALTER TABLE tokens ADD COLUMN user_id TEXT`);
-    sqlite.exec(`CREATE INDEX IF NOT EXISTS tokens_user_id_idx ON tokens(user_id)`);
   }
+  sqlite.exec(`CREATE INDEX IF NOT EXISTS tokens_user_id_idx ON tokens(user_id)`);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
