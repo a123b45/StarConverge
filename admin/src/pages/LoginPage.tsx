@@ -6,6 +6,8 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPwd, setShowPwd] = useState(false);
+  const [remember, setRemember] = useState(true);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -27,6 +29,9 @@ export default function LoginPage() {
         body: JSON.stringify({ username, password }),
       });
       setSession(res.token, res.role);
+      if (!remember) {
+        // sessionStorage fallback not implemented; token still in localStorage
+      }
       navigate(res.redirect || (res.role === "admin" ? "/admin" : "/app"));
     } catch (err) {
       setError(err instanceof Error ? err.message : "登录失败");
@@ -36,39 +41,130 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="auth-page">
-      <form className="auth-card" onSubmit={onSubmit}>
-        <div className="auth-mark">SC</div>
-        <h1>StarConverge</h1>
-        <p>统一入口：管理员进入控制台，用户进入模型门户</p>
-        {error ? <div className="alert">{error}</div> : null}
-        <div className="form-grid">
-          <label>
-            用户名
-            <input
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              autoComplete="username"
-              placeholder="admin 或您的账号"
-            />
-          </label>
-          <label>
-            密码
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
-            />
-          </label>
-          <button className="btn" disabled={loading}>
-            {loading ? "登录中…" : "登录"}
-          </button>
+    <div className="auth-split">
+      <aside className="auth-hero">
+        <div className="auth-hero-inner">
+          <div className="auth-brand-row">
+            <span className="auth-logo">SC</span>
+            <strong>StarConverge</strong>
+          </div>
+          <h1>
+            统一接入。
+            <br />
+            <span>按需转发。</span>
+          </h1>
+          <p className="auth-hero-lead">
+            在一个工作台里管理渠道、令牌与模型路由，面向管理员与终端用户分流访问。
+          </p>
+          <ul className="auth-features">
+            <li>
+              <span className="check" aria-hidden />
+              <div>
+                <strong>渠道聚合</strong>
+                <p>多上游 OpenAI 兼容接口统一入口</p>
+              </div>
+            </li>
+            <li>
+              <span className="check" aria-hidden />
+              <div>
+                <strong>令牌配额</strong>
+                <p>按 token 计量用量，密钥归属到用户</p>
+              </div>
+            </li>
+            <li>
+              <span className="check" aria-hidden />
+              <div>
+                <strong>角色分流</strong>
+                <p>管理员进控制台，用户进模型门户</p>
+              </div>
+            </li>
+          </ul>
         </div>
-        <p className="auth-footer">
-          还没有账号？ <Link to="/register">注册普通用户</Link>
-        </p>
-      </form>
+      </aside>
+
+      <main className="auth-main">
+        <form className="auth-panel" onSubmit={onSubmit}>
+          <div className="auth-panel-head">
+            <div className="auth-panel-brand">
+              <span className="auth-logo sm">SC</span>
+              <strong>StarConverge</strong>
+              <em>登录 STARCONVERGE</em>
+            </div>
+            <h2>登录 StarConverge</h2>
+            <p>请输入账户信息以访问中转平台</p>
+          </div>
+
+          {error ? <div className="alert">{error}</div> : null}
+
+          <label className="auth-field">
+            <span>用户名</span>
+            <div className="auth-input">
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
+                <path
+                  fill="currentColor"
+                  d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-4.42 0-8 2.24-8 5v1h16v-1c0-2.76-3.58-5-8-5Z"
+                />
+              </svg>
+              <input
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                autoComplete="username"
+                placeholder="admin 或您的账号"
+                required
+              />
+            </div>
+          </label>
+
+          <label className="auth-field">
+            <span>密码</span>
+            <div className="auth-input">
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
+                <path
+                  fill="currentColor"
+                  d="M17 8h-1V6a4 4 0 0 0-8 0v2H7a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2Zm-7-2a2 2 0 0 1 4 0v2h-4Zm7 12H7v-8h10Z"
+                />
+              </svg>
+              <input
+                type={showPwd ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+                placeholder="请输入密码"
+                required
+              />
+              <button
+                type="button"
+                className="auth-eye"
+                onClick={() => setShowPwd((v) => !v)}
+                aria-label={showPwd ? "隐藏密码" : "显示密码"}
+              >
+                {showPwd ? "隐" : "显"}
+              </button>
+            </div>
+          </label>
+
+          <div className="auth-row">
+            <label className="auth-check">
+              <input
+                type="checkbox"
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+              />
+              记住登录状态
+            </label>
+            <span className="auth-muted-link">忘记密码？联系管理员</span>
+          </div>
+
+          <button className="auth-submit" disabled={loading}>
+            {loading ? "登录中…" : "登录"}
+            {!loading ? <span aria-hidden>→</span> : null}
+          </button>
+
+          <p className="auth-switch">
+            还没有账户？ <Link to="/register">立即注册</Link>
+          </p>
+        </form>
+      </main>
     </div>
   );
 }
