@@ -1466,12 +1466,23 @@ code,
 .portal-body:has(.ds-chat) {
   overflow: hidden;
 }
+.portal-shell.sider-collapsed {
+  grid-template-columns: 0 minmax(0, 1fr);
+}
+.portal-shell.sider-collapsed .portal-sider {
+  overflow: hidden;
+  border-right: none;
+  width: 0;
+  padding: 0;
+  opacity: 0;
+  pointer-events: none;
+}
 .portal-topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 0 22px;
+  padding: 0 18px 0 12px;
   height: 56px;
   background: #fff;
   border-bottom: 1px solid var(--p-line);
@@ -1481,8 +1492,30 @@ code,
 .portal-top-left {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
+}
+.portal-crumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 14px;
+}
+.portal-crumb span {
+  color: #9ca3af;
+  font-weight: 500;
+}
+.portal-crumb i {
+  font-style: normal;
+  color: #d1d5db;
+}
+.portal-crumb strong {
+  color: #111827;
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .portal-page-title {
   margin: 0;
@@ -1494,7 +1527,7 @@ code,
 .portal-top-right {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
 }
 .portal-user {
   font-size: 13px;
@@ -1504,13 +1537,104 @@ code,
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 12px;
+  padding: 5px 10px;
   border-radius: 999px;
   background: var(--p-wash);
   border: 1px solid #ddd6fe;
   font-family: "JetBrains Mono", monospace;
-  font-size: 12px;
+  font-size: 11px;
   color: #4f46e5;
+  margin-right: 4px;
+}
+.portal-tool-btn {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #4b5563;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+.portal-tool-btn:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+.portal-tool-badge.dot {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ef4444;
+  border: 1.5px solid #fff;
+}
+.portal-tool-badge.text {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  font-size: 8px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1;
+  color: #6d5efc;
+  background: #fff;
+  border-radius: 3px;
+  padding: 1px 2px;
+}
+.portal-user-menu {
+  position: relative;
+}
+.portal-user-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  width: 188px;
+  background: #fff;
+  border: 1px solid var(--p-line);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
+  padding: 8px;
+  z-index: 40;
+}
+.portal-user-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px 10px;
+  border-bottom: 1px solid #f3f4f6;
+  margin-bottom: 6px;
+}
+.portal-user-meta strong {
+  font-size: 13px;
+  color: #111827;
+}
+.portal-user-meta span {
+  font-size: 12px;
+  color: #9ca3af;
+}
+.portal-user-dropdown button {
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 9px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #374151;
+}
+.portal-user-dropdown button:hover {
+  background: #f5f3ff;
+  color: #4f46e5;
+}
+.portal-user-dropdown button.danger {
+  color: #dc2626;
+}
+.portal-user-dropdown button.danger:hover {
+  background: #fef2f2;
 }
 .portal-icon-btn {
   border: 1px solid var(--p-line);

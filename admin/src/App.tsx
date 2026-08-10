@@ -24,6 +24,13 @@ import PortalKeysPage from "./pages/portal/PortalKeysPage";
 import PortalUsagePage from "./pages/portal/PortalUsagePage";
 import PortalChatPage from "./pages/portal/PortalChatPage";
 import PortalDocsPage from "./pages/portal/PortalDocsPage";
+import {
+  IconBell,
+  IconLang,
+  IconSettings,
+  IconSidebar,
+  IconUser,
+} from "./components/PortalChromeIcons";
 
 const PORTAL_TITLES: Record<string, string> = {
   "/app/models": "模型列表",
@@ -99,6 +106,9 @@ function PortalShell() {
     usedQuota: number;
     quota: number;
   } | null>(null);
+  const [siderCollapsed, setSiderCollapsed] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [lang, setLang] = useState<"zh" | "en">("zh");
 
   useEffect(() => {
     portalApi<{
@@ -111,6 +121,10 @@ function PortalShell() {
       .catch(() => setMe(null));
   }, []);
 
+  useEffect(() => {
+    setUserMenuOpen(false);
+  }, [location.pathname]);
+
   const pageTitle =
     PORTAL_TITLES[location.pathname] ||
     Object.entries(PORTAL_TITLES).find(([k]) =>
@@ -119,7 +133,7 @@ function PortalShell() {
     "工作台";
 
   return (
-    <div className="portal-shell">
+    <div className={`portal-shell${siderCollapsed ? " sider-collapsed" : ""}`}>
       <aside className="portal-sider">
         <div className="portal-sider-brand">
           <span className="portal-logo">SC</span>
@@ -193,29 +207,82 @@ function PortalShell() {
       <div className="portal-main">
         <header className="portal-topbar">
           <div className="portal-top-left">
-            <h1 className="portal-page-title">{pageTitle}</h1>
+            <button
+              type="button"
+              className="portal-tool-btn"
+              title={siderCollapsed ? "展开侧栏" : "收起侧栏"}
+              onClick={() => setSiderCollapsed((v) => !v)}
+            >
+              <IconSidebar />
+            </button>
+            <div className="portal-crumb">
+              <span>工作台</span>
+              <i>/</i>
+              <strong>{pageTitle}</strong>
+            </div>
           </div>
           <div className="portal-top-right">
-            <span className="portal-quota-pill">
+            <span className="portal-quota-pill" title="Token 配额">
               <span className="ok-dot" />
               {me
                 ? `${formatTokens(me.usedQuota)} / ${formatTokens(me.quota)}`
                 : "—"}
             </span>
-            <span className="portal-user">
-              {me?.displayName || me?.username || "用户"}
-            </span>
             <button
-              className="portal-icon-btn"
               type="button"
-              title="退出登录"
-              onClick={() => {
-                setSession(null);
-                navigate("/login");
-              }}
+              className="portal-tool-btn"
+              title="语言"
+              onClick={() => setLang((v) => (v === "zh" ? "en" : "zh"))}
             >
-              退出
+              <IconLang />
+              <em className="portal-tool-badge text">{lang === "zh" ? "中" : "EN"}</em>
             </button>
+            <button
+              type="button"
+              className="portal-tool-btn"
+              title="设置 / 接入文档"
+              onClick={() => navigate("/app/docs")}
+            >
+              <IconSettings />
+            </button>
+            <button type="button" className="portal-tool-btn" title="通知">
+              <IconBell />
+              <span className="portal-tool-badge dot" />
+            </button>
+            <div className="portal-user-menu">
+              <button
+                type="button"
+                className="portal-tool-btn"
+                title={me?.displayName || me?.username || "用户"}
+                onClick={() => setUserMenuOpen((v) => !v)}
+              >
+                <IconUser />
+              </button>
+              {userMenuOpen ? (
+                <div className="portal-user-dropdown">
+                  <div className="portal-user-meta">
+                    <strong>{me?.displayName || me?.username || "用户"}</strong>
+                    <span>{me?.username || "—"}</span>
+                  </div>
+                  <button type="button" onClick={() => navigate("/app/keys")}>
+                    API 密钥
+                  </button>
+                  <button type="button" onClick={() => navigate("/app/usage")}>
+                    用量统计
+                  </button>
+                  <button
+                    type="button"
+                    className="danger"
+                    onClick={() => {
+                      setSession(null);
+                      navigate("/login");
+                    }}
+                  >
+                    退出登录
+                  </button>
+                </div>
+              ) : null}
+            </div>
           </div>
         </header>
         <div className="portal-body">
