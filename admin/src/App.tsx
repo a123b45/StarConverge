@@ -160,7 +160,6 @@ function AdminShell() {
             </div>
           </div>
           <TopTools
-            onSettings={() => navigate("/admin/settings")}
             user={{ username: "admin", displayName: "管理员" }}
             editable={false}
             onLogout={() => {
@@ -281,7 +280,6 @@ function PortalShell() {
                   : "—"}
               </span>
             }
-            onSettings={() => navigate("/app/docs")}
             user={{
               username: me?.username || "user",
               displayName: me?.displayName || me?.username || "用户",

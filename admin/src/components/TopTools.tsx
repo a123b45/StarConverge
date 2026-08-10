@@ -3,7 +3,6 @@ import {
   IconBell,
   IconLang,
   IconMoon,
-  IconSettings,
   IconSun,
 } from "./icons";
 import {
@@ -25,7 +24,6 @@ type UserInfo = {
 
 type Props = {
   leading?: ReactNode;
-  onSettings: () => void;
   user: UserInfo;
   onLogout: () => void;
   /** Portal users can edit profile via API */
@@ -35,7 +33,6 @@ type Props = {
 
 export default function TopTools({
   leading,
-  onSettings,
   user,
   onLogout,
   editable = false,
@@ -115,14 +112,6 @@ export default function TopTools({
           onClick={() => setLang(persistLang(lang === "zh" ? "en" : "zh"))}
         >
           <IconLang />
-        </button>
-        <button
-          type="button"
-          className="portal-tool-btn"
-          title={t.settings}
-          onClick={onSettings}
-        >
-          <IconSettings />
         </button>
         <button
           type="button"
