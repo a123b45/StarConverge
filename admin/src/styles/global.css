@@ -1548,24 +1548,33 @@ code,
 }
 .portal-tool-btn {
   position: relative;
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   border: none;
-  border-radius: 8px;
-  background: transparent;
-  color: #4b5563;
+  border-radius: 10px;
+  background: #f3f4f6;
+  color: #6d5efc;
   display: grid;
   place-items: center;
   padding: 0;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 .portal-tool-btn:hover {
+  background: #ebe4ff;
+  color: #5b4cf0;
+}
+.portal-top-left .portal-tool-btn {
+  background: transparent;
+  color: #6b7280;
+}
+.portal-top-left .portal-tool-btn:hover {
   background: #f3f4f6;
-  color: #111827;
+  color: #4f46e5;
 }
 .portal-tool-badge.dot {
   position: absolute;
-  top: 7px;
-  right: 7px;
+  top: 6px;
+  right: 6px;
   width: 7px;
   height: 7px;
   border-radius: 50%;
