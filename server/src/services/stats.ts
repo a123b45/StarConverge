@@ -156,6 +156,7 @@ export function publicChannel(row: typeof channels.$inferSelect) {
 export function publicToken(row: typeof tokens.$inferSelect) {
   return {
     id: row.id,
+    userId: row.userId ?? null,
     name: row.name,
     keyPrefix: row.keyPrefix,
     key: row.keyPlain ?? null,

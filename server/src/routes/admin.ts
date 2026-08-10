@@ -8,11 +8,19 @@ import {
   proxyRoutes,
   requestLogs,
   tokens,
+  users,
 } from "../db/schema.js";
 import { requireAdmin } from "../middleware/auth.js";
 import { config } from "../config.js";
-import { safeEqual, generateApiKey, id, toJsonArray, parseJsonArray } from "../utils/crypto.js";
-import { signAdminToken } from "../utils/jwt.js";
+import {
+  safeEqual,
+  generateApiKey,
+  id,
+  toJsonArray,
+  parseJsonArray,
+  hashPassword,
+} from "../utils/crypto.js";
+import { signToken } from "../utils/jwt.js";
 import { getDashboardStats, publicChannel, publicToken } from "../services/stats.js";
 
 export const adminRoutes = new Hono();
@@ -27,8 +35,8 @@ adminRoutes.post("/login", async (c) => {
   ) {
     return c.json({ error: "Invalid credentials" }, 401);
   }
-  const token = signAdminToken(username);
-  return c.json({ token, username });
+  const token = signToken(username, "admin");
+  return c.json({ token, username, role: "admin", redirect: "/admin" });
 });
 
 adminRoutes.use("/*", requireAdmin);
@@ -37,6 +45,112 @@ adminRoutes.get("/me", (c) => c.json({ username: config.adminUsername, role: "ad
 
 adminRoutes.get("/dashboard", async (c) => {
   return c.json(await getDashboardStats());
+});
+
+// ---- Users (customers) ----
+adminRoutes.get("/users", async (c) => {
+  const rows = await db.select().from(users).orderBy(desc(users.createdAt));
+  const data = [];
+  for (const u of rows) {
+    const tks = await db.select().from(tokens).where(eq(tokens.userId, u.id));
+    let usedQuota = 0;
+    let quota = 0;
+    let unlimited = false;
+    for (const t of tks) {
+      usedQuota += t.usedQuota;
+      if (t.quota < 0) unlimited = true;
+      else quota += t.quota;
+    }
+    data.push({
+      id: u.id,
+      username: u.username,
+      displayName: u.displayName,
+      enabled: u.enabled,
+      createdAt: u.createdAt,
+      tokenCount: tks.length,
+      quota: unlimited ? -1 : quota,
+      usedQuota,
+    });
+  }
+  return c.json({ data });
+});
+
+adminRoutes.post("/users", async (c) => {
+  const schema = z.object({
+    username: z
+      .string()
+      .min(3)
+      .max(32)
+      .regex(/^[a-zA-Z0-9_]+$/),
+    password: z.string().min(6).max(128),
+    displayName: z.string().max(64).optional(),
+    enabled: z.boolean().default(true),
+  });
+  const parsed = schema.safeParse(await c.req.json());
+  if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
+  const v = parsed.data;
+  if (safeEqual(v.username, config.adminUsername)) {
+    return c.json({ error: "Username reserved" }, 409);
+  }
+  const existing = await db.query.users.findFirst({
+    where: eq(users.username, v.username),
+  });
+  if (existing) return c.json({ error: "Username already taken" }, 409);
+  const row = {
+    id: id("usr"),
+    username: v.username,
+    passwordHash: hashPassword(v.password),
+    displayName: v.displayName?.trim() || v.username,
+    role: "user",
+    enabled: v.enabled,
+  };
+  await db.insert(users).values(row);
+  return c.json(
+    {
+      data: {
+        id: row.id,
+        username: row.username,
+        displayName: row.displayName,
+        enabled: row.enabled,
+        createdAt: new Date(),
+        tokenCount: 0,
+        quota: 0,
+        usedQuota: 0,
+      },
+    },
+    201,
+  );
+});
+
+adminRoutes.patch("/users/:id", async (c) => {
+  const idParam = c.req.param("id");
+  const existing = await db.query.users.findFirst({ where: eq(users.id, idParam) });
+  if (!existing) return c.json({ error: "Not found" }, 404);
+  const body = await c.req.json();
+  const patch: Partial<typeof users.$inferInsert> = { updatedAt: new Date() };
+  if (body.displayName != null) patch.displayName = String(body.displayName);
+  if (body.enabled != null) patch.enabled = Boolean(body.enabled);
+  if (body.password != null && String(body.password).length >= 6) {
+    patch.passwordHash = hashPassword(String(body.password));
+  }
+  await db.update(users).set(patch).where(eq(users.id, idParam));
+  const row = await db.query.users.findFirst({ where: eq(users.id, idParam) });
+  return c.json({
+    data: {
+      id: row!.id,
+      username: row!.username,
+      displayName: row!.displayName,
+      enabled: row!.enabled,
+      createdAt: row!.createdAt,
+    },
+  });
+});
+
+adminRoutes.delete("/users/:id", async (c) => {
+  const idParam = c.req.param("id");
+  await db.delete(tokens).where(eq(tokens.userId, idParam));
+  await db.delete(users).where(eq(users.id, idParam));
+  return c.json({ ok: true });
 });
 
 // ---- Channels ----
@@ -172,6 +286,7 @@ adminRoutes.get("/tokens", async (c) => {
 adminRoutes.post("/tokens", async (c) => {
   const schema = z.object({
     name: z.string().min(1),
+    userId: z.string().nullable().optional(),
     quota: z.number().int().default(-1),
     rateLimit: z.number().int().min(0).default(60),
     allowedModels: z.array(z.string()).default([]),
@@ -184,6 +299,7 @@ adminRoutes.post("/tokens", async (c) => {
   const key = generateApiKey();
   const row = {
     id: id("tk"),
+    userId: v.userId ?? null,
     name: v.name,
     keyHash: key.hash,
     keyPrefix: key.prefix,

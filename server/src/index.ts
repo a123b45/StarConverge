@@ -9,6 +9,8 @@ import { logger } from "hono/logger";
 import { config } from "./config.js";
 import { migrate } from "./db/push.js";
 import { adminRoutes } from "./routes/admin.js";
+import { authRoutes } from "./routes/auth.js";
+import { portalRoutes } from "./routes/portal.js";
 import { v1Routes } from "./routes/v1.js";
 import { proxyApp } from "./routes/proxy.js";
 
@@ -37,12 +39,14 @@ app.get("/health", (c) =>
   c.json({
     ok: true,
     name: "StarConverge",
-    version: "0.1.0",
+    version: "0.2.0",
     time: new Date().toISOString(),
   }),
 );
 
+app.route("/api/auth", authRoutes);
 app.route("/api/admin", adminRoutes);
+app.route("/api/portal", portalRoutes);
 app.route("/v1", v1Routes);
 app.route("/proxy", proxyApp);
 

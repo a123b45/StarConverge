@@ -9,7 +9,7 @@ services:
       HOST: 0.0.0.0
       DATABASE_PATH: /data/starconverge.db
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-123456}
       ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET:-change-me-in-production}
       CORS_ORIGIN: ${CORS_ORIGIN:-*}
     volumes:

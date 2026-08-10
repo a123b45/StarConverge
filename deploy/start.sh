@@ -310,7 +310,7 @@ start_local() {
   echo -e "  Node           : ${CYAN}$(node -v)${NC}"
   echo -e "  管理后台 / API : ${CYAN}http://0.0.0.0:${PORT}${NC}（外网用服务器公网 IP）"
   echo -e "  健康检查       : ${CYAN}http://127.0.0.1:${PORT}/health${NC}"
-  echo -e "  默认账号       : ${YELLOW}admin / admin123${NC}"
+  echo -e "  默认账号       : ${YELLOW}admin / 123456${NC}"
   echo -e "  运行日志       : ${CYAN}$DEPLOY_DIR/run/server.log${NC}"
   echo ""
   echo "  更新代码后:  git pull && bash deploy/start.sh --rebuild"

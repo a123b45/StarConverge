@@ -1,15 +1,25 @@
 import { createMiddleware } from "hono/factory";
 import { eq } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { tokens, type Token } from "../db/schema.js";
+import { tokens, users, type Token } from "../db/schema.js";
 import { extractBearer, hashKey, parseJsonArray } from "../utils/crypto.js";
-import { verifyAdminToken } from "../utils/jwt.js";
+import { verifyAdminToken, verifyToken } from "../utils/jwt.js";
 import { checkRateLimit } from "../services/rate-limit.js";
 
 export type AuthVars = {
   Variables: {
     token: Token;
     apiKey: string;
+  };
+};
+
+export type SessionVars = {
+  Variables: {
+    auth: {
+      username: string;
+      role: "admin" | "user";
+      userId?: string;
+    };
   };
 };
 
@@ -78,5 +88,28 @@ export const requireAdmin = createMiddleware(async (c, next) => {
   if (!payload) {
     return c.json({ error: "Unauthorized" }, 401);
   }
+  await next();
+});
+
+export const requireUser = createMiddleware<SessionVars>(async (c, next) => {
+  const raw = extractBearer(c.req.header("Authorization"));
+  if (!raw) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+  const payload = verifyToken(raw);
+  if (!payload || payload.role !== "user" || !payload.userId) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+  const user = await db.query.users.findFirst({
+    where: eq(users.id, payload.userId),
+  });
+  if (!user || !user.enabled) {
+    return c.json({ error: "Account disabled" }, 403);
+  }
+  c.set("auth", {
+    username: payload.sub,
+    role: "user",
+    userId: user.id,
+  });
   await next();
 });

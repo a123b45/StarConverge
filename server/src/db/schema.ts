@@ -2,10 +2,28 @@ import {
   sqliteTable,
   text,
   integer,
-  real,
   index,
 } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
+
+export const users = sqliteTable(
+  "users",
+  {
+    id: text("id").primaryKey(),
+    username: text("username").notNull().unique(),
+    passwordHash: text("password_hash").notNull(),
+    displayName: text("display_name").default(""),
+    role: text("role").notNull().default("user"), // user only in table; admin via env
+    enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(unixepoch() * 1000)`),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(unixepoch() * 1000)`),
+  },
+  (t) => [index("users_username_idx").on(t.username)],
+);
 
 export const channels = sqliteTable("channels", {
   id: text("id").primaryKey(),
@@ -31,6 +49,7 @@ export const tokens = sqliteTable(
   "tokens",
   {
     id: text("id").primaryKey(),
+    userId: text("user_id"),
     name: text("name").notNull(),
     keyHash: text("key_hash").notNull().unique(),
     keyPrefix: text("key_prefix").notNull(),
@@ -50,7 +69,10 @@ export const tokens = sqliteTable(
       .notNull()
       .default(sql`(unixepoch() * 1000)`),
   },
-  (t) => [index("tokens_key_hash_idx").on(t.keyHash)],
+  (t) => [
+    index("tokens_key_hash_idx").on(t.keyHash),
+    index("tokens_user_id_idx").on(t.userId),
+  ],
 );
 
 export const modelRoutes = sqliteTable("model_routes", {
@@ -116,6 +138,7 @@ export const proxyRoutes = sqliteTable("proxy_routes", {
     .default(sql`(unixepoch() * 1000)`),
 });
 
+export type User = typeof users.$inferSelect;
 export type Channel = typeof channels.$inferSelect;
 export type Token = typeof tokens.$inferSelect;
 export type ModelRoute = typeof modelRoutes.$inferSelect;

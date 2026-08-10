@@ -28,7 +28,7 @@ pnpm dev              # 同时启动 API(8787) 与管理台(5173)
 ```
 
 - 管理后台：http://127.0.0.1:5173  
-  默认账号见 `server/.env`（`admin` / `admin123`）
+  默认管理员：`admin` / `123456`；普通用户可注册后进入 `/app`
 - API：http://127.0.0.1:8787
 
 ### 调用示例
@@ -56,7 +56,8 @@ bash deploy/start.sh              # 默认源码部署（无 Node 时自动下�
 ```
 
 - 管理后台 / API：`http://服务器IP:8787`
-- 默认账号：`admin` / `admin123`
+- 默认管理员：`admin` / `123456`（控制台 `/admin`）
+- 普通用户：注册后进入门户 `/app`（模型、密钥、用量、对话、文档）
 - 日志：`bash deploy/logs.sh` · 停止：`bash deploy/stop.sh`
 
 详见 [deploy/README.md](deploy/README.md)。
@@ -80,7 +81,7 @@ StarConverge/
 | `PORT` | 服务端口 | `8787` |
 | `DATABASE_PATH` | SQLite 路径 | `./data/starconverge.db` |
 | `ADMIN_USERNAME` | 后台用户名 | `admin` |
-| `ADMIN_PASSWORD` | 后台密码 | `admin123` |
+| `ADMIN_PASSWORD` | 后台密码 | `123456` |
 | `ADMIN_JWT_SECRET` | 后台 JWT 密钥 | 请务必修改 |
 | `CORS_ORIGIN` | CORS | `*` |
 

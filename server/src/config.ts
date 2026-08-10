@@ -13,7 +13,7 @@ export const config = {
   databasePath:
     process.env.DATABASE_PATH ?? path.join(root, "data", "starconverge.db"),
   adminUsername: process.env.ADMIN_USERNAME ?? "admin",
-  adminPassword: process.env.ADMIN_PASSWORD ?? "admin123",
+  adminPassword: process.env.ADMIN_PASSWORD ?? "123456",
   adminJwtSecret:
     process.env.ADMIN_JWT_SECRET ?? "starconverge-change-me-in-production",
   corsOrigin: process.env.CORS_ORIGIN ?? "*",

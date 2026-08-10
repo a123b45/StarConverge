@@ -13,6 +13,17 @@ sqlite.pragma("journal_mode = WAL");
 sqlite.pragma("foreign_keys = ON");
 
 const statements = [
+  `CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    username TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    display_name TEXT DEFAULT '',
+    role TEXT NOT NULL DEFAULT 'user',
+    enabled INTEGER NOT NULL DEFAULT 1,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000),
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
+  )`,
+  `CREATE INDEX IF NOT EXISTS users_username_idx ON users(username)`,
   `CREATE TABLE IF NOT EXISTS channels (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -30,6 +41,7 @@ const statements = [
   )`,
   `CREATE TABLE IF NOT EXISTS tokens (
     id TEXT PRIMARY KEY,
+    user_id TEXT,
     name TEXT NOT NULL,
     key_hash TEXT NOT NULL UNIQUE,
     key_prefix TEXT NOT NULL,
@@ -45,6 +57,7 @@ const statements = [
     updated_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
   )`,
   `CREATE INDEX IF NOT EXISTS tokens_key_hash_idx ON tokens(key_hash)`,
+  `CREATE INDEX IF NOT EXISTS tokens_user_id_idx ON tokens(user_id)`,
   `CREATE TABLE IF NOT EXISTS model_routes (
     id TEXT PRIMARY KEY,
     model TEXT NOT NULL UNIQUE,
@@ -96,6 +109,10 @@ export function migrate() {
   const cols = sqlite.prepare(`PRAGMA table_info(tokens)`).all() as Array<{ name: string }>;
   if (!cols.some((c) => c.name === "key_plain")) {
     sqlite.exec(`ALTER TABLE tokens ADD COLUMN key_plain TEXT`);
+  }
+  if (!cols.some((c) => c.name === "user_id")) {
+    sqlite.exec(`ALTER TABLE tokens ADD COLUMN user_id TEXT`);
+    sqlite.exec(`CREATE INDEX IF NOT EXISTS tokens_user_id_idx ON tokens(user_id)`);
   }
 }
 

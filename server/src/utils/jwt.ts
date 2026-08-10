@@ -1,9 +1,12 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { config } from "../config.js";
 
-type JwtPayload = {
+export type JwtRole = "admin" | "user";
+
+export type JwtPayload = {
   sub: string;
-  role: "admin";
+  role: JwtRole;
+  userId?: string;
   exp: number;
   iat: number;
 };
@@ -21,23 +24,33 @@ function fromB64url(input: string): Buffer {
   return Buffer.from(input.replace(/-/g, "+").replace(/_/g, "/") + pad, "base64");
 }
 
-export function signAdminToken(username: string, ttlSec = 60 * 60 * 24): string {
+export function signToken(
+  username: string,
+  role: JwtRole,
+  userId?: string,
+  ttlSec = 60 * 60 * 24 * 7,
+): string {
   const header = b64url(JSON.stringify({ alg: "HS256", typ: "JWT" }));
   const iat = Math.floor(Date.now() / 1000);
-  const payload = b64url(
-    JSON.stringify({
-      sub: username,
-      role: "admin",
-      iat,
-      exp: iat + ttlSec,
-    } satisfies JwtPayload),
-  );
+  const body: JwtPayload = {
+    sub: username,
+    role,
+    iat,
+    exp: iat + ttlSec,
+  };
+  if (userId) body.userId = userId;
+  const payload = b64url(JSON.stringify(body));
   const data = `${header}.${payload}`;
   const sig = createHmac("sha256", config.adminJwtSecret).update(data).digest();
   return `${data}.${b64url(sig)}`;
 }
 
-export function verifyAdminToken(token: string): JwtPayload | null {
+/** @deprecated use signToken(username, "admin") */
+export function signAdminToken(username: string, ttlSec = 60 * 60 * 24): string {
+  return signToken(username, "admin", undefined, ttlSec);
+}
+
+export function verifyToken(token: string): JwtPayload | null {
   const parts = token.split(".");
   if (parts.length !== 3) return null;
   const [header, payload, sig] = parts;
@@ -50,9 +63,15 @@ export function verifyAdminToken(token: string): JwtPayload | null {
   try {
     const parsed = JSON.parse(fromB64url(payload).toString("utf8")) as JwtPayload;
     if (parsed.exp < Math.floor(Date.now() / 1000)) return null;
-    if (parsed.role !== "admin") return null;
+    if (parsed.role !== "admin" && parsed.role !== "user") return null;
     return parsed;
   } catch {
     return null;
   }
+}
+
+export function verifyAdminToken(token: string): JwtPayload | null {
+  const parsed = verifyToken(token);
+  if (!parsed || parsed.role !== "admin") return null;
+  return parsed;
 }

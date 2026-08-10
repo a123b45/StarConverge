@@ -1,15 +1,37 @@
-const TOKEN_KEY = "sc_admin_token";
+const TOKEN_KEY = "sc_auth_token";
+const ROLE_KEY = "sc_auth_role";
+
+export type AuthRole = "admin" | "user";
 
 export function getToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
+  return localStorage.getItem(TOKEN_KEY) ?? localStorage.getItem("sc_admin_token");
 }
 
+export function getRole(): AuthRole | null {
+  const r = localStorage.getItem(ROLE_KEY);
+  if (r === "admin" || r === "user") return r;
+  return getToken() ? "admin" : null;
+}
+
+export function setSession(token: string | null, role?: AuthRole | null) {
+  if (token) {
+    localStorage.setItem(TOKEN_KEY, token);
+    localStorage.removeItem("sc_admin_token");
+    if (role) localStorage.setItem(ROLE_KEY, role);
+  } else {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(ROLE_KEY);
+    localStorage.removeItem("sc_admin_token");
+  }
+}
+
+/** @deprecated use setSession */
 export function setToken(token: string | null) {
-  if (token) localStorage.setItem(TOKEN_KEY, token);
-  else localStorage.removeItem(TOKEN_KEY);
+  setSession(token, token ? getRole() : null);
 }
 
-export async function api<T = unknown>(
+async function request<T = unknown>(
+  base: string,
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
@@ -20,9 +42,9 @@ export async function api<T = unknown>(
   const token = getToken();
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
-  const res = await fetch(`/api/admin${path}`, { ...options, headers });
-  if (res.status === 401 && !path.startsWith("/login")) {
-    setToken(null);
+  const res = await fetch(`${base}${path}`, { ...options, headers });
+  if (res.status === 401 && !path.includes("/login") && !path.includes("/register")) {
+    setSession(null);
     window.location.href = "/login";
     throw new Error("Unauthorized");
   }
@@ -31,8 +53,30 @@ export async function api<T = unknown>(
     throw new Error(
       typeof data.error === "string"
         ? data.error
-        : data.error?.message || res.statusText || "Request failed",
+        : data.error?.message ||
+            (typeof data.error === "object" ? JSON.stringify(data.error) : null) ||
+            res.statusText ||
+            "Request failed",
     );
   }
   return data as T;
+}
+
+export function api<T = unknown>(path: string, options: RequestInit = {}) {
+  return request<T>("/api/admin", path, options);
+}
+
+export function authApi<T = unknown>(path: string, options: RequestInit = {}) {
+  return request<T>("/api/auth", path, options);
+}
+
+export function portalApi<T = unknown>(path: string, options: RequestInit = {}) {
+  return request<T>("/api/portal", path, options);
+}
+
+export function formatTokens(n: number): string {
+  if (n < 0) return "∞";
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(n % 1_000 === 0 ? 0 : 1)}K`;
+  return String(n);
 }
