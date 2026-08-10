@@ -63,6 +63,16 @@ ensure_env() {
     ok "已创建 server/.env（请按需修改管理员密码）"
   fi
 
+  # 早期示例默认 admin123，与文档 123456 不一致；启动时自动对齐
+  if grep -q '^ADMIN_PASSWORD=admin123$' "$ROOT/server/.env" 2>/dev/null; then
+    warn "检测到旧默认密码 admin123，已改为 123456（可在 server/.env 自行修改）"
+    if [[ "$(uname)" == "Darwin" ]]; then
+      sed -i '' 's/^ADMIN_PASSWORD=admin123$/ADMIN_PASSWORD=123456/' "$ROOT/server/.env"
+    else
+      sed -i 's/^ADMIN_PASSWORD=admin123$/ADMIN_PASSWORD=123456/' "$ROOT/server/.env"
+    fi
+  fi
+
   if [[ ! -f "$DEPLOY_DIR/.env" ]]; then
     cp "$DEPLOY_DIR/.env.example" "$DEPLOY_DIR/.env" 2>/dev/null || true
   fi
@@ -312,7 +322,7 @@ start_local() {
   echo -e "  Node           : ${CYAN}$(node -v)${NC}"
   echo -e "  管理后台 / API : ${CYAN}http://0.0.0.0:${PORT}${NC}（外网用服务器公网 IP）"
   echo -e "  健康检查       : ${CYAN}http://127.0.0.1:${PORT}/health${NC}"
-  echo -e "  默认账号       : ${YELLOW}admin / 123456${NC}"
+  echo -e "  管理员账号     : ${YELLOW}${ADMIN_USERNAME:-admin} / ${ADMIN_PASSWORD:-123456}${NC}"
   echo -e "  运行日志       : ${CYAN}$DEPLOY_DIR/run/server.log${NC}"
   echo ""
   echo "  更新代码后:  git pull && bash deploy/start.sh --rebuild"

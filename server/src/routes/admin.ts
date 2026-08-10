@@ -33,7 +33,7 @@ adminRoutes.post("/login", async (c) => {
     !safeEqual(username, config.adminUsername) ||
     !safeEqual(password, config.adminPassword)
   ) {
-    return c.json({ error: "Invalid credentials" }, 401);
+    return c.json({ error: "用户名或密码错误" }, 401);
   }
   const token = signToken(username, "admin");
   return c.json({ token, username, role: "admin", redirect: "/admin" });

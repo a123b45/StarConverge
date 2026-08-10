@@ -20,7 +20,7 @@ authRoutes.post("/login", async (c) => {
   const username = String(body.username ?? "").trim();
   const password = String(body.password ?? "");
   if (!username || !password) {
-    return c.json({ error: "Username and password required" }, 400);
+    return c.json({ error: "请输入用户名和密码" }, 400);
   }
 
   // Env admin first
@@ -41,10 +41,10 @@ authRoutes.post("/login", async (c) => {
     where: eq(users.username, username),
   });
   if (!user || !verifyPassword(password, user.passwordHash)) {
-    return c.json({ error: "Invalid credentials" }, 401);
+    return c.json({ error: "用户名或密码错误" }, 401);
   }
   if (!user.enabled) {
-    return c.json({ error: "Account disabled" }, 403);
+    return c.json({ error: "账号已禁用，请联系管理员" }, 403);
   }
   const token = signToken(user.username, "user", user.id);
   return c.json({

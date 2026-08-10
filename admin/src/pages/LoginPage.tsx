@@ -1,6 +1,7 @@
 import { FormEvent, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { authApi, getRole, getToken, setSession } from "../lib/api";
+import { IconEyeOff, IconEyeOpen } from "../components/AuthIcons";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -138,7 +139,7 @@ export default function LoginPage() {
                 onClick={() => setShowPwd((v) => !v)}
                 aria-label={showPwd ? "隐藏密码" : "显示密码"}
               >
-                {showPwd ? "隐" : "显"}
+                {showPwd ? <IconEyeOff /> : <IconEyeOpen />}
               </button>
             </div>
           </label>

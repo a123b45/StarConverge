@@ -1188,10 +1188,11 @@ code,
   border: none;
   background: transparent;
   color: #71717a;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 4px 2px;
+  display: grid;
+  place-items: center;
+  padding: 4px;
   border-radius: 6px;
+  line-height: 0;
 }
 .auth-eye:hover {
   color: var(--auth-accent);
