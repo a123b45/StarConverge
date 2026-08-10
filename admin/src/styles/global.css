@@ -1884,6 +1884,9 @@ html[data-theme="dark"] .portal-user-dropdown button:hover {
   background: var(--bg-soft);
   color: var(--accent);
 }
+.theme-toggle.is-dark {
+  color: #fbbf24;
+}
 .portal-tool-badge.dot {
   position: absolute;
   top: 6px;
