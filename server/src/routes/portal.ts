@@ -12,6 +12,7 @@ import {
 import { requireUser, type SessionVars } from "../middleware/auth.js";
 import {
   generateApiKey,
+  hashPassword,
   id,
   parseJsonArray,
   toJsonArray,
@@ -47,6 +48,37 @@ portalRoutes.get("/me", async (c) => {
     quota: unlimited ? -1 : quota,
     usedQuota,
     tokenCount: userTokens.length,
+  });
+});
+
+portalRoutes.patch("/me", async (c) => {
+  const auth = c.get("auth");
+  const schema = z.object({
+    displayName: z.string().max(64).optional(),
+    password: z.string().min(6).max(128).optional(),
+  });
+  const parsed = schema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) {
+    return c.json({ error: "参数无效" }, 400);
+  }
+  const patch: Partial<typeof users.$inferInsert> = { updatedAt: new Date() };
+  if (parsed.data.displayName != null) {
+    patch.displayName = parsed.data.displayName.trim() || null;
+  }
+  if (parsed.data.password) {
+    patch.passwordHash = hashPassword(parsed.data.password);
+  }
+  if (Object.keys(patch).length <= 1) {
+    return c.json({ error: "没有可更新的字段" }, 400);
+  }
+  await db.update(users).set(patch).where(eq(users.id, auth.userId!));
+  const user = await db.query.users.findFirst({
+    where: eq(users.id, auth.userId!),
+  });
+  return c.json({
+    username: user!.username,
+    displayName: user!.displayName,
+    role: "user" as const,
   });
 });
 

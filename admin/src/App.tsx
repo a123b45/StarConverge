@@ -24,14 +24,12 @@ import PortalKeysPage from "./pages/portal/PortalKeysPage";
 import PortalUsagePage from "./pages/portal/PortalUsagePage";
 import PortalChatPage from "./pages/portal/PortalChatPage";
 import PortalDocsPage from "./pages/portal/PortalDocsPage";
+import TopTools from "./components/TopTools";
+import { applyChromePrefs } from "./lib/chrome";
 import {
-  IconBell,
   IconChart,
   IconFile,
-  IconLang,
-  IconSettings,
   IconSidebar,
-  IconUser,
   AdminIconChannel,
   AdminIconDash,
   AdminIconKey,
@@ -46,6 +44,8 @@ import {
   NavIconUsage,
 } from "./components/icons";
 import UsagePage from "./pages/UsagePage";
+
+applyChromePrefs();
 
 const PORTAL_TITLES: Record<string, string> = {
   "/app/models": "模型列表",
@@ -72,11 +72,6 @@ function AdminShell() {
   const navigate = useNavigate();
   const location = useLocation();
   const [siderCollapsed, setSiderCollapsed] = useState(false);
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
-
-  useEffect(() => {
-    setUserMenuOpen(false);
-  }, [location.pathname]);
 
   const pageTitle =
     ADMIN_TITLES[location.pathname] ||
@@ -164,47 +159,15 @@ function AdminShell() {
               <strong>{pageTitle}</strong>
             </div>
           </div>
-          <div className="admin-top-right">
-            <button
-              type="button"
-              className="portal-tool-btn"
-              title="API 文档"
-              onClick={() => navigate("/admin/settings")}
-            >
-              <IconFile size={18} />
-            </button>
-            <div className="portal-user-menu">
-              <button
-                type="button"
-                className="portal-tool-btn"
-                title="管理员"
-                onClick={() => setUserMenuOpen((v) => !v)}
-              >
-                <IconUser />
-              </button>
-              {userMenuOpen ? (
-                <div className="portal-user-dropdown">
-                  <div className="portal-user-meta">
-                    <strong>管理员</strong>
-                    <span>admin</span>
-                  </div>
-                  <button type="button" onClick={() => navigate("/admin/settings")}>
-                    API 文档
-                  </button>
-                  <button
-                    type="button"
-                    className="danger"
-                    onClick={() => {
-                      setSession(null);
-                      navigate("/login");
-                    }}
-                  >
-                    退出登录
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          </div>
+          <TopTools
+            onSettings={() => navigate("/admin/settings")}
+            user={{ username: "admin", displayName: "管理员" }}
+            editable={false}
+            onLogout={() => {
+              setSession(null);
+              navigate("/login");
+            }}
+          />
         </header>
         <main className="main">
           <Outlet />
@@ -224,8 +187,6 @@ function PortalShell() {
     quota: number;
   } | null>(null);
   const [siderCollapsed, setSiderCollapsed] = useState(false);
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [lang, setLang] = useState<"zh" | "en">("zh");
 
   useEffect(() => {
     portalApi<{
@@ -237,10 +198,6 @@ function PortalShell() {
       .then(setMe)
       .catch(() => setMe(null));
   }, []);
-
-  useEffect(() => {
-    setUserMenuOpen(false);
-  }, [location.pathname]);
 
   const pageTitle =
     PORTAL_TITLES[location.pathname] ||
@@ -315,68 +272,33 @@ function PortalShell() {
               <strong>{pageTitle}</strong>
             </div>
           </div>
-          <div className="portal-top-right">
-            <span className="portal-quota-pill" title="Token 配额">
-              <span className="ok-dot" />
-              {me
-                ? `${formatTokens(me.usedQuota)} / ${formatTokens(me.quota)}`
-                : "—"}
-            </span>
-            <button
-              type="button"
-              className="portal-tool-btn"
-              title={lang === "zh" ? "切换为 English" : "切换为中文"}
-              onClick={() => setLang((v) => (v === "zh" ? "en" : "zh"))}
-            >
-              <IconLang />
-            </button>
-            <button
-              type="button"
-              className="portal-tool-btn"
-              title="设置 / 接入文档"
-              onClick={() => navigate("/app/docs")}
-            >
-              <IconSettings />
-            </button>
-            <button type="button" className="portal-tool-btn" title="通知">
-              <IconBell />
-              <span className="portal-tool-badge dot" />
-            </button>
-            <div className="portal-user-menu">
-              <button
-                type="button"
-                className="portal-tool-btn"
-                title={me?.displayName || me?.username || "用户"}
-                onClick={() => setUserMenuOpen((v) => !v)}
-              >
-                <IconUser />
-              </button>
-              {userMenuOpen ? (
-                <div className="portal-user-dropdown">
-                  <div className="portal-user-meta">
-                    <strong>{me?.displayName || me?.username || "用户"}</strong>
-                    <span>{me?.username || "—"}</span>
-                  </div>
-                  <button type="button" onClick={() => navigate("/app/keys")}>
-                    API 密钥
-                  </button>
-                  <button type="button" onClick={() => navigate("/app/usage")}>
-                    用量统计
-                  </button>
-                  <button
-                    type="button"
-                    className="danger"
-                    onClick={() => {
-                      setSession(null);
-                      navigate("/login");
-                    }}
-                  >
-                    退出登录
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          </div>
+          <TopTools
+            leading={
+              <span className="portal-quota-pill" title="Token 配额">
+                <span className="ok-dot" />
+                {me
+                  ? `${formatTokens(me.usedQuota)} / ${formatTokens(me.quota)}`
+                  : "—"}
+              </span>
+            }
+            onSettings={() => navigate("/app/docs")}
+            user={{
+              username: me?.username || "user",
+              displayName: me?.displayName || me?.username || "用户",
+            }}
+            editable
+            onUserUpdated={(u) =>
+              setMe((prev) =>
+                prev
+                  ? { ...prev, displayName: u.displayName, username: u.username }
+                  : prev,
+              )
+            }
+            onLogout={() => {
+              setSession(null);
+              navigate("/login");
+            }}
+          />
         </header>
         <div className="portal-body">
           <Outlet />

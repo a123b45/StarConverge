@@ -154,8 +154,46 @@ export function IconSidebar({ size = 18 }: SizeProps) {
 export function IconLang({ size = 18 }: SizeProps) {
   return (
     <Svg size={size}>
-      <circle cx="12" cy="12" r="8.25" />
-      <path d="M3.8 12h16.4M12 3.75c2.2 2.4 3.3 5.1 3.3 8.25S14.2 17.85 12 20.25M12 3.75C9.8 6.15 8.7 8.85 8.7 12s1.1 5.85 3.3 8.25" />
+      <rect x="3.5" y="3.5" width="17" height="17" rx="3.2" />
+      <text
+        x="7.2"
+        y="11.6"
+        fill="currentColor"
+        stroke="none"
+        fontSize="7.5"
+        fontWeight="700"
+        fontFamily="system-ui, sans-serif"
+      >
+        A
+      </text>
+      <text
+        x="11.2"
+        y="17.8"
+        fill="currentColor"
+        stroke="none"
+        fontSize="7"
+        fontWeight="650"
+        fontFamily="system-ui, 'PingFang SC', 'Noto Sans SC', sans-serif"
+      >
+        文
+      </text>
+    </Svg>
+  );
+}
+
+export function IconSun({ size = 18 }: SizeProps) {
+  return (
+    <Svg size={size}>
+      <circle cx="12" cy="12" r="3.2" />
+      <path d="M12 3.5v2.2M12 18.3v2.2M4.9 6.5l1.55 1.55M17.55 15.95l1.55 1.55M3.5 12h2.2M18.3 12h2.2M4.9 17.5l1.55-1.55M17.55 8.05l1.55-1.55" />
+    </Svg>
+  );
+}
+
+export function IconMoon({ size = 18 }: SizeProps) {
+  return (
+    <Svg size={size}>
+      <path d="M19.2 13.6A7.4 7.4 0 0 1 10.4 4.8 7.5 7.5 0 1 0 19.2 13.6Z" />
     </Svg>
   );
 }
