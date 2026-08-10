@@ -231,11 +231,10 @@ function PortalShell() {
             <button
               type="button"
               className="portal-tool-btn"
-              title="语言"
+              title={lang === "zh" ? "切换为 English" : "切换为中文"}
               onClick={() => setLang((v) => (v === "zh" ? "en" : "zh"))}
             >
               <IconLang />
-              <em className="portal-tool-badge text">{lang === "zh" ? "中" : "EN"}</em>
             </button>
             <button
               type="button"

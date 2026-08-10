@@ -1,21 +1,42 @@
 /** Minimal outline icons for portal chrome (Xinference-style toolbar). */
+
 export function IconLang({ size = 18 }: { size?: number }) {
   return (
-    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden fill="none" stroke="currentColor" strokeWidth="1.7">
-      <path d="M4 5h8M8 5v2a7 7 0 0 0 7 7" strokeLinecap="round" />
-      <path d="M5 19h7l3.5-8H19" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M12 19l2-4.5" strokeLinecap="round" />
+    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden fill="none" stroke="currentColor" strokeWidth="1.6">
+      <rect x="3.5" y="3.5" width="17" height="17" rx="3" />
+      <text
+        x="8.2"
+        y="11.2"
+        fill="currentColor"
+        stroke="none"
+        fontSize="7.5"
+        fontWeight="700"
+        fontFamily="system-ui, sans-serif"
+      >
+        A
+      </text>
+      <text
+        x="11.5"
+        y="17.5"
+        fill="currentColor"
+        stroke="none"
+        fontSize="7"
+        fontWeight="650"
+        fontFamily="system-ui, 'PingFang SC', 'Noto Sans SC', sans-serif"
+      >
+        文
+      </text>
     </svg>
   );
 }
 
 export function IconSettings({ size = 18 }: { size?: number }) {
   return (
-    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden fill="none" stroke="currentColor" strokeWidth="1.7">
-      <circle cx="12" cy="12" r="3" />
+    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden fill="none" stroke="currentColor" strokeWidth="1.6">
+      <circle cx="12" cy="12" r="2.6" />
       <path
-        strokeLinecap="round"
-        d="M12 3.5v1.6M12 18.9v1.6M4.9 6.5l1.2 1.1M17.9 16.4l1.2 1.1M3.5 12h1.6M18.9 12h1.6M4.9 17.5l1.2-1.1M17.9 7.6l1.2-1.1"
+        strokeLinejoin="round"
+        d="M19.4 13.1a1.5 1.5 0 0 0 .3 1.6l.06.06a1.8 1.8 0 1 1-2.55 2.55l-.06-.06a1.5 1.5 0 0 0-1.6-.3 1.5 1.5 0 0 0-.9 1.37V18.5a1.8 1.8 0 1 1-3.6 0v-.08a1.5 1.5 0 0 0-.98-1.37 1.5 1.5 0 0 0-1.6.3l-.06.06a1.8 1.8 0 1 1-2.55-2.55l.06-.06a1.5 1.5 0 0 0 .3-1.6 1.5 1.5 0 0 0-1.37-.9H5.5a1.8 1.8 0 1 1 0-3.6h.08a1.5 1.5 0 0 0 1.37-.98 1.5 1.5 0 0 0-.3-1.6l-.06-.06a1.8 1.8 0 1 1 2.55-2.55l.06.06a1.5 1.5 0 0 0 1.6.3h.02a1.5 1.5 0 0 0 .9-1.37V5.5a1.8 1.8 0 1 1 3.6 0v.08a1.5 1.5 0 0 0 .9 1.37 1.5 1.5 0 0 0 1.6-.3l.06-.06a1.8 1.8 0 1 1 2.55 2.55l-.06.06a1.5 1.5 0 0 0-.3 1.6v.02a1.5 1.5 0 0 0 1.37.9H18.5a1.8 1.8 0 1 1 0 3.6h-.08a1.5 1.5 0 0 0-1.37.9z"
       />
     </svg>
   );
@@ -23,28 +44,29 @@ export function IconSettings({ size = 18 }: { size?: number }) {
 
 export function IconBell({ size = 18 }: { size?: number }) {
   return (
-    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden fill="none" stroke="currentColor" strokeWidth="1.7">
+    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden fill="none" stroke="currentColor" strokeWidth="1.6">
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
-        d="M6.5 16.5h11M7.2 16.2V11a4.8 4.8 0 0 1 9.6 0v5.2M10 16.5a2 2 0 0 0 4 0"
+        d="M6.2 16.2h11.6M7.4 16V11a4.6 4.6 0 0 1 9.2 0v5M10.2 16.2a1.8 1.8 0 0 0 3.6 0"
       />
+      <path strokeLinecap="round" d="M12 4.2v1.2" />
     </svg>
   );
 }
 
 export function IconUser({ size = 18 }: { size?: number }) {
   return (
-    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden fill="none" stroke="currentColor" strokeWidth="1.7">
-      <circle cx="12" cy="9" r="3.2" />
-      <path strokeLinecap="round" d="M5.5 18.5c1.4-2.4 3.5-3.6 6.5-3.6s5.1 1.2 6.5 3.6" />
+    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden fill="none" stroke="currentColor" strokeWidth="1.6">
+      <circle cx="12" cy="8.8" r="3.1" />
+      <path strokeLinecap="round" d="M5.2 18.8c1.5-2.6 3.7-3.9 6.8-3.9s5.3 1.3 6.8 3.9" />
     </svg>
   );
 }
 
 export function IconSidebar({ size = 18 }: { size?: number }) {
   return (
-    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden fill="none" stroke="currentColor" strokeWidth="1.7">
+    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden fill="none" stroke="currentColor" strokeWidth="1.6">
       <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
       <path d="M9 4.5v15" />
     </svg>
