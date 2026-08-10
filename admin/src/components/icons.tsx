@@ -184,8 +184,8 @@ export function IconLang({ size = 18 }: SizeProps) {
 export function IconSun({ size = 18 }: SizeProps) {
   return (
     <Svg size={size}>
-      <circle cx="12" cy="12" r="3.2" />
-      <path d="M12 3.5v2.2M12 18.3v2.2M4.9 6.5l1.55 1.55M17.55 15.95l1.55 1.55M3.5 12h2.2M18.3 12h2.2M4.9 17.5l1.55-1.55M17.55 8.05l1.55-1.55" />
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2.8v1.8M12 19.4v1.8M2.8 12h1.8M19.4 12h1.8M5.4 5.4l1.3 1.3M17.3 17.3l1.3 1.3M5.4 18.6l1.3-1.3M17.3 6.7l1.3-1.3" />
     </Svg>
   );
 }
@@ -193,7 +193,7 @@ export function IconSun({ size = 18 }: SizeProps) {
 export function IconMoon({ size = 18 }: SizeProps) {
   return (
     <Svg size={size}>
-      <path d="M19.2 13.6A7.4 7.4 0 0 1 10.4 4.8 7.5 7.5 0 1 0 19.2 13.6Z" />
+      <path d="M20.2 14.2A8.2 8.2 0 0 1 9.8 3.8 8.4 8.4 0 1 0 20.2 14.2Z" />
     </Svg>
   );
 }

@@ -115,13 +115,16 @@ export default function TopTools({
         </button>
         <button
           type="button"
-          className="portal-tool-btn"
+          className={`portal-tool-btn theme-toggle${theme === "dark" ? " is-dark" : ""}`}
           title={theme === "light" ? t.themeLight : t.themeDark}
-          onClick={() =>
-            setTheme(persistTheme(theme === "light" ? "dark" : "light"))
-          }
+          aria-label={theme === "light" ? t.themeLight : t.themeDark}
+          aria-pressed={theme === "dark"}
+          onClick={() => {
+            const next = persistTheme(theme === "light" ? "dark" : "light");
+            setTheme(next);
+          }}
         >
-          {theme === "light" ? <IconMoon /> : <IconSun />}
+          {theme === "dark" ? <IconSun /> : <IconMoon />}
         </button>
         <div className="chrome-menu">
           <button
