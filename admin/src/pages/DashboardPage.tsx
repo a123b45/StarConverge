@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
+import SoftSelect from "../components/SoftSelect";
+
+type Grain = "hour" | "minute" | "day";
 
 type Dashboard = {
   last24h: { requests: number; tokens: number; errors: number };
@@ -22,25 +25,36 @@ type Dashboard = {
     error: string | null;
   }>;
   byModel: Array<{ model: string; requests: number; tokens: number }>;
+  grain?: Grain;
   hourly: Array<{ hour: string; requests: number; tokens: number }>;
+  trend?: Array<{ hour: string; requests: number; tokens: number }>;
 };
+
+const GRAIN_OPTIONS = [
+  { value: "hour", label: "按小时" },
+  { value: "minute", label: "按分钟" },
+  { value: "day", label: "按天" },
+];
 
 export default function DashboardPage() {
   const [data, setData] = useState<Dashboard | null>(null);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [grain, setGrain] = useState<Grain>("hour");
 
   const endpoint = `${window.location.origin}/v1`;
 
   useEffect(() => {
-    api<Dashboard>("/dashboard")
+    setError("");
+    api<Dashboard>(`/dashboard?grain=${grain}`)
       .then(setData)
       .catch((e) => setError(e.message));
-  }, []);
+  }, [grain]);
 
+  const trend = data?.trend ?? data?.hourly ?? [];
   const maxHour = useMemo(
-    () => Math.max(1, ...(data?.hourly.map((h) => h.requests) ?? [1])),
-    [data],
+    () => Math.max(1, ...trend.map((h) => h.requests), 1),
+    [trend],
   );
   const maxModel = useMemo(
     () => Math.max(1, ...(data?.byModel.map((m) => m.requests) ?? [1])),
@@ -104,13 +118,19 @@ export default function DashboardPage() {
       <div className="dash-grid">
         <div className="panel">
           <div className="panel-head">
-            <strong>24h 请求趋势</strong>
-            <span className="badge">按小时</span>
+            <strong>请求趋势</strong>
+            <SoftSelect
+              className="soft-select-sm soft-select-filter dash-grain-select"
+              ariaLabel="趋势粒度"
+              value={grain}
+              options={GRAIN_OPTIONS}
+              onChange={(v) => setGrain(v as Grain)}
+            />
           </div>
           <div style={{ padding: "12px 16px 16px" }}>
-            {(data?.hourly?.length ?? 0) > 0 ? (
+            {trend.length > 0 ? (
               <div className="chart" title="请求数">
-                {data!.hourly.map((h) => (
+                {trend.map((h) => (
                   <div
                     key={h.hour}
                     className="chart-bar"

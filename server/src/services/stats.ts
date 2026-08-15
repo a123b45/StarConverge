@@ -51,8 +51,17 @@ export async function writeLog(input: {
   }
 }
 
-export async function getDashboardStats() {
+export async function getDashboardStats(
+  grain: "hour" | "minute" | "day" = "hour",
+) {
+  const sinceMs =
+    grain === "minute"
+      ? 60 * 60 * 1000
+      : grain === "day"
+        ? 30 * 24 * 60 * 60 * 1000
+        : 24 * 60 * 60 * 1000;
   const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const sinceTrend = new Date(Date.now() - sinceMs);
   const [totals] = await db
     .select({
       requests: sql<number>`count(*)`,
@@ -104,17 +113,29 @@ export async function getDashboardStats() {
     .orderBy(desc(sql`count(*)`))
     .limit(10);
 
-  // last 24h hourly buckets (UTC)
-  const hourlyRaw = await db
+  const bucketExpr =
+    grain === "minute"
+      ? sql`strftime('%Y-%m-%d %H:%M', ${requestLogs.createdAt} / 1000, 'unixepoch')`
+      : grain === "day"
+        ? sql`strftime('%Y-%m-%d', ${requestLogs.createdAt} / 1000, 'unixepoch')`
+        : sql`strftime('%Y-%m-%d %H:00', ${requestLogs.createdAt} / 1000, 'unixepoch')`;
+
+  const trendRaw = await db
     .select({
-      hour: sql<string>`strftime('%Y-%m-%d %H:00', ${requestLogs.createdAt} / 1000, 'unixepoch')`,
+      bucket: bucketExpr,
       requests: sql<number>`count(*)`,
       tokens: sql<number>`coalesce(sum(${requestLogs.totalTokens}), 0)`,
     })
     .from(requestLogs)
-    .where(gte(requestLogs.createdAt, since24h))
-    .groupBy(sql`strftime('%Y-%m-%d %H:00', ${requestLogs.createdAt} / 1000, 'unixepoch')`)
-    .orderBy(sql`strftime('%Y-%m-%d %H:00', ${requestLogs.createdAt} / 1000, 'unixepoch')`);
+    .where(gte(requestLogs.createdAt, sinceTrend))
+    .groupBy(bucketExpr)
+    .orderBy(bucketExpr);
+
+  const trend = trendRaw.map((r) => ({
+    hour: String(r.bucket),
+    requests: Number(r.requests),
+    tokens: Number(r.tokens),
+  }));
 
   return {
     last24h: {
@@ -139,11 +160,9 @@ export async function getDashboardStats() {
       requests: Number(r.requests),
       tokens: Number(r.tokens),
     })),
-    hourly: hourlyRaw.map((r) => ({
-      hour: r.hour,
-      requests: Number(r.requests),
-      tokens: Number(r.tokens),
-    })),
+    grain,
+    hourly: trend,
+    trend,
   };
 }
 

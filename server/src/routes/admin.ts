@@ -188,7 +188,12 @@ adminRoutes.get("/dashboard", async (c) => {
   if (!hasApiPerm(auth, "api.dashboard.read")) {
     return c.json({ error: "无权限" }, 403);
   }
-  return c.json(await getDashboardStats());
+  const grainRaw = String(c.req.query("grain") ?? "hour");
+  const grain =
+    grainRaw === "minute" || grainRaw === "day" || grainRaw === "hour"
+      ? grainRaw
+      : "hour";
+  return c.json(await getDashboardStats(grain));
 });
 
 // ---- Roles ----

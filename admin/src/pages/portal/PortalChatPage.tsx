@@ -1,17 +1,34 @@
 import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { createPortal } from "react-dom";
 import { portalApi } from "../../lib/api";
-import { IconSidebar } from "../../components/icons";
+import { IconMore, IconSidebar } from "../../components/icons";
 import SoftSelect from "../../components/SoftSelect";
+import { softConfirm, softPrompt } from "../../components/SoftDialog";
 
 type Msg = { role: "user" | "assistant"; content: string; at: number; model?: string };
-type Session = { id: string; title: string; messages: Msg[] };
+type Session = {
+  id: string;
+  title: string;
+  messages: Msg[];
+  pinned?: boolean;
+  updatedAt?: number;
+};
 
 const STORE = "sc_portal_chats";
 
+function sortSessions(list: Session[]): Session[] {
+  return [...list].sort((a, b) => {
+    const ap = a.pinned ? 1 : 0;
+    const bp = b.pinned ? 1 : 0;
+    if (ap !== bp) return bp - ap;
+    return (b.updatedAt ?? 0) - (a.updatedAt ?? 0);
+  });
+}
+
 function loadSessions(): Session[] {
   try {
-    return JSON.parse(localStorage.getItem(STORE) || "[]") as Session[];
+    return sortSessions(JSON.parse(localStorage.getItem(STORE) || "[]") as Session[]);
   } catch {
     return [];
   }
@@ -33,6 +50,9 @@ export default function PortalChatPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [sideCollapsed, setSideCollapsed] = useState(false);
+  const [menuId, setMenuId] = useState<string | null>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const active = useMemo(
@@ -60,9 +80,34 @@ export default function PortalChatPage() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [active?.messages.length, busy]);
 
+  useEffect(() => {
+    if (!menuId) return;
+    function onDoc(e: MouseEvent) {
+      const t = e.target as Node;
+      if (menuRef.current?.contains(t)) return;
+      const el = t as HTMLElement;
+      if (el.closest?.(".ds-session-more")) return;
+      setMenuId(null);
+      setMenuPos(null);
+    }
+    function onEsc(e: globalThis.KeyboardEvent) {
+      if (e.key === "Escape") {
+        setMenuId(null);
+        setMenuPos(null);
+      }
+    }
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onEsc);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onEsc);
+    };
+  }, [menuId]);
+
   function persist(next: Session[]) {
-    setSessions(next);
-    saveSessions(next);
+    const sorted = sortSessions(next);
+    setSessions(sorted);
+    saveSessions(sorted);
   }
 
   function newChat() {
@@ -70,10 +115,12 @@ export default function PortalChatPage() {
       id: `s_${Date.now()}`,
       title: "新对话",
       messages: [],
+      updatedAt: Date.now(),
     };
     persist([s, ...sessions]);
     setActiveId(s.id);
     setError("");
+    setMenuId(null);
   }
 
   async function pickKey(id: string) {
@@ -82,12 +129,88 @@ export default function PortalChatPage() {
     if (full.key) setApiKey(full.key);
   }
 
+  function openSessionMenu(e: React.MouseEvent, id: string) {
+    e.stopPropagation();
+    e.preventDefault();
+    if (menuId === id) {
+      setMenuId(null);
+      setMenuPos(null);
+      return;
+    }
+    const btn = e.currentTarget as HTMLElement;
+    const r = btn.getBoundingClientRect();
+    const width = 148;
+    let left = r.right - width;
+    if (left < 8) left = 8;
+    if (left + width > window.innerWidth - 8) {
+      left = Math.max(8, window.innerWidth - width - 8);
+    }
+    setMenuPos({ top: r.bottom + 4, left });
+    setMenuId(id);
+  }
+
+  async function renameSession(id: string) {
+    setMenuId(null);
+    setMenuPos(null);
+    const cur = sessions.find((s) => s.id === id);
+    if (!cur) return;
+    const name = await softPrompt({
+      title: "重命名对话",
+      message: "输入新的对话标题",
+      defaultValue: cur.title,
+      placeholder: "对话标题",
+      confirmText: "保存",
+      minLength: 1,
+    });
+    if (name == null) return;
+    const title = name.trim();
+    if (!title) return;
+    persist(
+      sessions.map((s) =>
+        s.id === id ? { ...s, title, updatedAt: Date.now() } : s,
+      ),
+    );
+  }
+
+  function togglePin(id: string) {
+    setMenuId(null);
+    setMenuPos(null);
+    persist(
+      sessions.map((s) =>
+        s.id === id ? { ...s, pinned: !s.pinned, updatedAt: Date.now() } : s,
+      ),
+    );
+  }
+
+  async function deleteSession(id: string) {
+    setMenuId(null);
+    setMenuPos(null);
+    const cur = sessions.find((s) => s.id === id);
+    const ok = await softConfirm({
+      title: "删除对话",
+      message: `确定删除「${cur?.title || "未命名"}」吗？此操作不可恢复。`,
+      confirmText: "删除",
+      danger: true,
+    });
+    if (!ok) return;
+    const next = sessions.filter((s) => s.id !== id);
+    persist(next);
+    if (activeId === id) {
+      setActiveId(next[0]?.id ?? "");
+    }
+  }
+
   async function send(e?: FormEvent) {
     e?.preventDefault();
     if (!input.trim() || !apiKey || !model) return;
     let current = active;
     if (!current) {
-      current = { id: `s_${Date.now()}`, title: "新对话", messages: [] };
+      current = {
+        id: `s_${Date.now()}`,
+        title: "新对话",
+        messages: [],
+        updatedAt: Date.now(),
+      };
       persist([current, ...sessions]);
       setActiveId(current.id);
     }
@@ -99,12 +222,15 @@ export default function PortalChatPage() {
       ...current,
       title: current.messages.length ? current.title : userMsg.content.slice(0, 28),
       messages: [...current.messages, userMsg],
+      updatedAt: Date.now(),
     };
     setSessions((prev) => {
       const exists = prev.some((s) => s.id === withUser.id);
-      const next = exists
-        ? prev.map((s) => (s.id === withUser.id ? withUser : s))
-        : [withUser, ...prev];
+      const next = sortSessions(
+        exists
+          ? prev.map((s) => (s.id === withUser.id ? withUser : s))
+          : [withUser, ...prev],
+      );
       saveSessions(next);
       return next;
     });
@@ -142,9 +268,10 @@ export default function PortalChatPage() {
       const final: Session = {
         ...withUser,
         messages: [...withUser.messages, assistant],
+        updatedAt: Date.now(),
       };
       setSessions((prev) => {
-        const next = prev.map((s) => (s.id === final.id ? final : s));
+        const next = sortSessions(prev.map((s) => (s.id === final.id ? final : s)));
         saveSessions(next);
         return next;
       });
@@ -174,15 +301,31 @@ export default function PortalChatPage() {
             <p className="ds-side-empty">暂无会话</p>
           ) : (
             sessions.map((s) => (
-              <button
+              <div
                 key={s.id}
-                type="button"
-                className={s.id === activeId ? "active" : ""}
-                onClick={() => setActiveId(s.id)}
-                title={s.title}
+                className={`ds-session-item${s.id === activeId ? " active" : ""}${
+                  s.pinned ? " pinned" : ""
+                }`}
               >
-                {s.title || "未命名"}
-              </button>
+                <button
+                  type="button"
+                  className="ds-session-main"
+                  onClick={() => setActiveId(s.id)}
+                  title={s.title}
+                >
+                  {s.pinned ? <span className="ds-session-pin" aria-hidden /> : null}
+                  <span className="ds-session-title">{s.title || "未命名"}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`ds-session-more${menuId === s.id ? " open" : ""}`}
+                  aria-label="更多操作"
+                  title="更多操作"
+                  onClick={(e) => openSessionMenu(e, s.id)}
+                >
+                  <IconMore size={14} />
+                </button>
+              </div>
             ))
           )}
         </div>
@@ -308,6 +451,32 @@ export default function PortalChatPage() {
           </form>
         </div>
       </section>
+      {menuId && menuPos
+        ? createPortal(
+            <div
+              ref={menuRef}
+              className="ds-session-menu"
+              style={{ top: menuPos.top, left: menuPos.left }}
+              role="menu"
+            >
+              <button type="button" role="menuitem" onClick={() => void renameSession(menuId)}>
+                重命名
+              </button>
+              <button type="button" role="menuitem" onClick={() => togglePin(menuId)}>
+                {sessions.find((s) => s.id === menuId)?.pinned ? "取消置顶" : "置顶"}
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className="danger"
+                onClick={() => void deleteSession(menuId)}
+              >
+                删除
+              </button>
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

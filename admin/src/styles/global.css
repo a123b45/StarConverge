@@ -408,13 +408,16 @@ code,
   box-shadow: var(--shadow);
 }
 
-.panel-head {
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--line);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
+.panel-head .dash-grain-select {
+  min-width: 104px;
+  flex: 0 0 auto;
+}
+.panel-head .dash-grain-select .soft-select-trigger {
+  background: color-mix(in srgb, var(--brand, #7c3aed) 8%, #fff);
+  border-color: color-mix(in srgb, var(--brand, #7c3aed) 22%, var(--line));
+  color: var(--brand, #7c3aed);
+  font-weight: 600;
+  box-shadow: none;
 }
 
 .panel-head strong {
@@ -3535,25 +3538,108 @@ html[data-theme="dark"] .portal-user-dropdown button:hover {
   gap: 2px;
   padding-right: 2px;
 }
-.ds-session-list button {
+.ds-session-item {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border-radius: 10px;
+  min-width: 0;
+}
+.ds-session-item:hover {
+  background: #eef2ff;
+}
+.ds-session-item.active {
+  background: #eff0ff;
+}
+.ds-session-item.active .ds-session-main {
+  color: var(--p-accent);
+  font-weight: 650;
+}
+.ds-session-main {
+  flex: 1;
+  min-width: 0;
   border: none;
   background: transparent;
   text-align: left;
-  padding: 10px 12px;
+  padding: 10px 6px 10px 12px;
   border-radius: 10px;
   color: var(--text);
   font-size: 13.5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ds-session-title {
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.ds-session-list button:hover {
-  background: #eef2ff;
+.ds-session-pin {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--p-accent, #7c3aed);
 }
-.ds-session-list button.active {
-  background: #eff0ff;
-  color: var(--p-accent);
-  font-weight: 650;
+.ds-session-more {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  margin-right: 4px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #9ca3af;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  padding: 0;
+}
+.ds-session-item:hover .ds-session-more,
+.ds-session-more.open,
+.ds-session-item.active .ds-session-more {
+  opacity: 1;
+}
+.ds-session-more:hover,
+.ds-session-more.open {
+  background: color-mix(in srgb, var(--p-accent, #7c3aed) 12%, #fff);
+  color: var(--p-accent, #7c3aed);
+}
+.ds-session-menu {
+  position: fixed;
+  z-index: 260;
+  min-width: 148px;
+  padding: 6px;
+  background: #fff;
+  border: 1px solid color-mix(in srgb, var(--line) 80%, #fff);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.14);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ds-session-menu button {
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 9px 12px;
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.ds-session-menu button:hover {
+  background: #eef2ff;
+  color: var(--p-accent, #7c3aed);
+}
+.ds-session-menu button.danger {
+  color: #dc2626;
+}
+.ds-session-menu button.danger:hover {
+  background: #fef2f2;
+  color: #b91c1c;
 }
 .ds-side-empty {
   margin: 8px 10px;
@@ -3900,7 +3986,7 @@ html[data-theme="dark"] .copy-row code,
 html[data-theme="dark"] .stat .value,
 html[data-theme="dark"] .page-head h2,
 html[data-theme="dark"] .table,
-html[data-theme="dark"] .ds-session-list button,
+html[data-theme="dark"] .ds-session-main,
 html[data-theme="dark"] .ds-msg-text,
 html[data-theme="dark"] .ds-title {
   color: var(--text) !important;
@@ -3934,10 +4020,23 @@ html[data-theme="dark"] .portal-user-dropdown button:hover {
   background: var(--accent-soft) !important;
   color: var(--accent) !important;
 }
-html[data-theme="dark"] .ds-session-list button:hover {
+html[data-theme="dark"] .ds-session-item:hover {
   background: var(--sidebar-hover) !important;
 }
-html[data-theme="dark"] .ds-session-list button.active {
+html[data-theme="dark"] .ds-session-item.active {
+  background: var(--accent-soft) !important;
+}
+html[data-theme="dark"] .ds-session-item.active .ds-session-main {
+  color: var(--accent) !important;
+}
+html[data-theme="dark"] .ds-session-menu {
+  background: var(--bg-elevated) !important;
+  border-color: var(--line) !important;
+}
+html[data-theme="dark"] .ds-session-menu button {
+  color: var(--text) !important;
+}
+html[data-theme="dark"] .ds-session-menu button:hover {
   background: var(--accent-soft) !important;
   color: var(--accent) !important;
 }

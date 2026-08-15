@@ -316,6 +316,16 @@ export function IconMail({ size = 18 }: SizeProps) {
   );
 }
 
+export function IconMore({ size = 16 }: SizeProps) {
+  return (
+    <Svg size={size}>
+      <circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none" />
+    </Svg>
+  );
+}
+
 /* Aliases kept for existing imports */
 export const IconEyeOpen = IconEye;
 export const AdminIconDash = IconGrid;
