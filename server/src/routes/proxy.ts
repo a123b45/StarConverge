@@ -5,6 +5,7 @@ import { proxyRoutes, tokens, type Token } from "../db/schema.js";
 import { extractBearer, hashKey } from "../utils/crypto.js";
 import { checkRateLimit } from "../services/rate-limit.js";
 import { writeLog } from "../services/stats.js";
+import { getRequestClientIp } from "../utils/client-ip.js";
 
 export const proxyApp = new Hono();
 
@@ -135,7 +136,7 @@ proxyApp.all("/*", async (c) => {
       method: c.req.method,
       statusCode: upstream.status,
       durationMs: Date.now() - started,
-      ip: c.req.header("x-forwarded-for")?.split(",")[0]?.trim(),
+      ip: getRequestClientIp(c),
     });
 
     const outHeaders: Record<string, string> = {
@@ -153,6 +154,7 @@ proxyApp.all("/*", async (c) => {
       method: c.req.method,
       statusCode: 502,
       durationMs: Date.now() - started,
+      ip: getRequestClientIp(c),
       error: err instanceof Error ? err.message : String(err),
     });
     return c.json(

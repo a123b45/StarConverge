@@ -12,6 +12,7 @@ import { db } from "../db/index.js";
 import { channels, modelRoutes } from "../db/schema.js";
 import { and, eq } from "drizzle-orm";
 import { parseJsonArray } from "../utils/crypto.js";
+import { getRequestClientIp } from "../utils/client-ip.js";
 
 export const v1Routes = new Hono<AuthVars>();
 
@@ -67,10 +68,7 @@ v1Routes.all("/*", async (c) => {
 async function proxyOpenAI(c: Context<AuthVars>, upstreamPath: string) {
   const token = c.get("token");
   const started = Date.now();
-  const ip =
-    c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ??
-    c.req.header("x-real-ip") ??
-    undefined;
+  const ip = getRequestClientIp(c);
 
   let bodyText = "";
   let model = "unknown";

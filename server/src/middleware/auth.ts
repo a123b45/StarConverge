@@ -8,6 +8,7 @@ import { checkRateLimit } from "../services/rate-limit.js";
 import { ALL_API_KEYS, ALL_MENU_KEYS } from "../rbac/permissions.js";
 import { getRoleById, roleAllowsAdmin } from "../services/roles.js";
 import { isIpAllowed, parseIpRules } from "../utils/ip-allow.js";
+import { getRequestClientIp } from "../utils/client-ip.js";
 
 export type AuthVars = {
   Variables: {
@@ -85,10 +86,7 @@ export const requireApiToken = createMiddleware<AuthVars>(async (c, next) => {
   c.header("X-RateLimit-Limit", String(row.rateLimit));
   c.header("X-RateLimit-Remaining", String(rl.remaining));
 
-  const clientIp =
-    c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ??
-    c.req.header("x-real-ip") ??
-    undefined;
+  const clientIp = getRequestClientIp(c);
   const allow = parseIpRules(row.ipAllowlist ?? "[]");
   if (!isIpAllowed(clientIp, allow)) {
     return c.json(
