@@ -119,13 +119,16 @@ export default function DashboardPage() {
           <div className="hint">启用 / 全部</div>
         </div>
         <div className="stat">
-          <div className="label">密钥 · 路由</div>
-          <div className="value" style={{ fontSize: "1.25rem" }}>
-            {data
-              ? `${data.counts.tokensEnabled}/${data.counts.tokens} · ${data.counts.models}`
-              : "—"}
+          <div className="label">密钥</div>
+          <div className="value">
+            {data ? `${data.counts.tokensEnabled}/${data.counts.tokens}` : "—"}
           </div>
-          <div className="hint">启用密钥 / 全部 · 路由数</div>
+          <div className="hint">启用 / 全部</div>
+        </div>
+        <div className="stat">
+          <div className="label">路由</div>
+          <div className="value">{fmt(data?.counts.models)}</div>
+          <div className="hint">已启用路由</div>
         </div>
       </div>
 

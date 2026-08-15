@@ -368,7 +368,7 @@ code,
 
 .grid-stats {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 14px;
   margin-bottom: 18px;
 }
@@ -2363,6 +2363,12 @@ html[data-theme="dark"] .modal-token .stack-field > span {
 
 .switch input:checked + .switch-slider::before {
   transform: translateX(20px);
+}
+
+@media (max-width: 1200px) {
+  .grid-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 1000px) {
