@@ -922,156 +922,387 @@ code,
   width: min(640px, 100%);
 }
 
-.modal-rbac {
-  width: min(960px, 100%);
-  padding: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  max-height: min(92vh, 880px);
-}
-.modal-rbac-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 20px 22px 12px;
-  border-bottom: 1px solid var(--line);
-}
-.modal-rbac-head h3 {
-  margin: 0 0 4px;
-}
-.modal-rbac-head p {
-  margin: 0;
-}
-.modal-rbac .alert {
-  margin: 12px 22px 0;
-}
-.modal-rbac .rbac-fields {
+/* ── Role management skins ── */
+.rp-skin-picker {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-  padding: 16px 22px 8px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 18px;
 }
-.modal-rbac .rbac-fields label {
-  display: grid;
-  gap: 6px;
+.rp-skin-picker button {
+  text-align: left;
+  border: 1px solid var(--line);
+  background: var(--bg-elevated);
+  border-radius: 14px;
+  padding: 12px 14px;
+  cursor: pointer;
+  color: var(--text);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.rp-skin-picker button strong {
+  display: block;
   font-size: 13px;
+  margin-bottom: 2px;
+}
+.rp-skin-picker button span {
+  font-size: 12px;
   color: var(--muted);
 }
-.modal-rbac .rbac-fields em {
+.rp-skin-picker button.on {
+  border-color: color-mix(in srgb, var(--brand, #7c3aed) 55%, var(--line));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand, #7c3aed) 16%, transparent);
+}
+.rp-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--brand, #7c3aed) 12%, var(--bg));
+  color: var(--brand, #7c3aed);
+  flex-shrink: 0;
+}
+.rp-avatar.lg {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+}
+.rp-fields {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.rp-fields label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.rp-fields label i {
   color: #c0392b;
   font-style: normal;
 }
-.modal-rbac .rbac-fields input {
+.rp-fields input {
   border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 10px 12px;
+  border-radius: 11px;
+  padding: 11px 12px;
   font: inherit;
   background: var(--bg);
   color: var(--text);
 }
-.rbac-split {
+.rp-perm-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 14px;
-  padding: 8px 22px 0;
-  min-height: 0;
-  flex: 1;
-  overflow: hidden;
 }
-.rbac-col {
+.rp-perm {
   border: 1px solid var(--line);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--bg) 80%, var(--bg-elevated));
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
+  border-radius: 16px;
+  background: var(--bg-elevated);
   overflow: hidden;
+  min-height: 0;
 }
-.rbac-col-head {
+.rp-perm-head {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   padding: 12px 14px;
   border-bottom: 1px solid var(--line);
+}
+.rp-perm-ico {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--brand, #7c3aed) 12%, transparent);
+  color: var(--brand, #7c3aed);
+}
+.rp-perm-head strong {
+  display: block;
   font-size: 13px;
 }
-.rbac-groups {
-  padding: 10px 12px 14px;
-  overflow: auto;
-  max-height: min(48vh, 420px);
+.rp-perm-head em {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--muted);
 }
-.rbac-group + .rbac-group {
-  margin-top: 12px;
+.rp-perm-body {
+  padding: 12px 14px 14px;
+  max-height: min(42vh, 380px);
+  overflow: auto;
+}
+.rp-block + .rp-block {
+  margin-top: 14px;
   padding-top: 12px;
   border-top: 1px dashed var(--line);
 }
-.rbac-group-title {
-  display: flex;
+.rp-block-title {
+  display: inline-flex;
   align-items: center;
   gap: 8px;
+  font-size: 12px;
   font-weight: 650;
-  font-size: 13px;
   color: var(--text);
   margin-bottom: 8px;
   cursor: pointer;
 }
-.rbac-items {
-  display: grid;
-  gap: 6px;
-  padding-left: 22px;
+.rp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
-.rbac-item {
+.rp-chip {
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 6px 11px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+.rp-chip:hover {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--brand, #7c3aed) 35%, var(--line));
+}
+.rp-chip.on {
+  background: color-mix(in srgb, var(--brand, #7c3aed) 14%, var(--bg));
+  border-color: color-mix(in srgb, var(--brand, #7c3aed) 40%, var(--line));
+  color: var(--brand, #6d28d9);
+  font-weight: 600;
+}
+
+/* Skin A */
+.rp-a-panel {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--bg-elevated);
+  overflow: hidden;
+}
+.rp-a-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.rp-a-table th,
+.rp-a-table td {
+  text-align: left;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+.rp-a-table th {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 500;
+  background: color-mix(in srgb, var(--bg) 70%, var(--bg-elevated));
+}
+.rp-a-table tr:last-child td {
+  border-bottom: none;
+}
+.rp-a-name {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--muted);
-  cursor: pointer;
-}
-.rbac-item:hover {
-  color: var(--text);
-}
-.modal-rbac .modal-actions {
-  padding: 14px 22px 18px;
-  border-top: 1px solid var(--line);
-  margin-top: 12px;
-}
-.role-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 14px;
-}
-.role-card {
-  border: 1px solid var(--line);
-  background: var(--bg-elevated);
-  border-radius: 16px;
-  padding: 16px;
-  display: grid;
   gap: 12px;
 }
-.role-card-top {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
+.rp-a-name strong {
+  display: block;
+  font-size: 14px;
 }
-.role-card h3 {
-  margin: 0 0 4px;
-  font-size: 1rem;
-}
-.role-card p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1.45;
-}
-.role-meta {
-  display: flex;
-  gap: 12px;
+.rp-a-name p {
+  margin: 2px 0 0;
   font-size: 12px;
   color: var(--muted);
 }
+.rp-meters {
+  display: flex;
+  gap: 18px;
+}
+.rp-meters div {
+  display: grid;
+  gap: 2px;
+}
+.rp-meters span {
+  font-size: 11px;
+  color: var(--muted);
+}
+.rp-meters b {
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+.rp-a-actions {
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Skin B */
+.rp-b-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+.rp-b-card {
+  position: relative;
+  border: 1px solid var(--line);
+  background: var(--bg-elevated);
+  border-radius: 18px;
+  padding: 18px 18px 14px;
+  display: grid;
+  gap: 16px;
+  overflow: hidden;
+}
+.rp-b-accent {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: linear-gradient(180deg, #8b5cf6, #6366f1);
+}
+.rp-b-card header {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.rp-b-card h3 {
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+  letter-spacing: -0.02em;
+}
+.rp-b-card header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.rp-b-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.rp-b-stats > div {
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg) 85%, var(--brand, #7c3aed) 4%);
+  border: 1px solid var(--line);
+  padding: 10px 12px;
+}
+.rp-b-stats span {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.rp-b-stats strong {
+  font-size: 1.25rem;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+.rp-b-card footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 2px;
+}
+.rp-locked {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* Skin C */
+.rp-c-shell {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 14px;
+  min-height: 560px;
+}
+.rp-c-list {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--bg-elevated);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.rp-c-list-head {
+  font-size: 12px;
+  color: var(--muted);
+  padding: 8px 10px 10px;
+}
+.rp-c-item {
+  border: none;
+  background: transparent;
+  text-align: left;
+  border-radius: 12px;
+  padding: 11px 12px;
+  cursor: pointer;
+  color: var(--text);
+}
+.rp-c-item strong {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+.rp-c-item span {
+  font-size: 11px;
+  color: var(--muted);
+}
+.rp-c-item:hover {
+  background: color-mix(in srgb, var(--bg) 80%, #000 2%);
+}
+.rp-c-item.on {
+  background: color-mix(in srgb, var(--brand, #7c3aed) 12%, var(--bg));
+}
+.rp-c-editor {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--bg-elevated);
+  padding: 18px;
+}
+.rp-c-editor-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.rp-c-editor-head h3 {
+  margin: 0 0 4px;
+  font-size: 1.15rem;
+  letter-spacing: -0.02em;
+}
+.rp-c-editor-head p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* Shared modal for A/B */
+.rp-modal {
+  width: min(920px, 100%);
+  max-height: min(92vh, 860px);
+  overflow: auto;
+  padding: 20px 22px 18px;
+}
+.rp-modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.rp-modal-head h3 {
+  margin: 0 0 4px;
+}
+.rp-modal-head p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.rp-modal .alert {
+  margin-bottom: 12px;
+}
+
 .modal-user {
   width: min(480px, 100%);
 }
@@ -1114,9 +1345,11 @@ code,
   display: grid;
   place-items: center;
 }
-@media (max-width: 860px) {
-  .rbac-split,
-  .modal-rbac .rbac-fields {
+@media (max-width: 960px) {
+  .rp-skin-picker,
+  .rp-perm-grid,
+  .rp-fields,
+  .rp-c-shell {
     grid-template-columns: 1fr;
   }
 }
