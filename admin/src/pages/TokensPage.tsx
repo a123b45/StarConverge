@@ -153,7 +153,19 @@ export default function TokensPage() {
   }, [routes]);
 
   const tagValOptions = useMemo(() => {
-    const all = [{ value: "", label: "状态: 全部" }];
+    const allLabel =
+      tagCol === "group"
+        ? "全部分组"
+        : tagCol === "route"
+          ? "全部路由"
+          : tagCol === "model"
+            ? "全部模型"
+            : tagCol === "enabled"
+              ? "全部状态"
+              : tagCol === "ip"
+                ? "全部 IP"
+                : "全部";
+    const all = [{ value: "", label: allLabel }];
     if (!tagCol) return all;
     if (tagCol === "group") {
       return [
@@ -163,30 +175,30 @@ export default function TokensPage() {
       ];
     }
     if (tagCol === "route") {
-      const set = new Set<string>();
-      for (const r of rows) {
-        for (const id of r.routeIds ?? []) {
-          set.add(routeMap.get(id) ?? id);
-        }
-      }
       return [
         ...all,
         { value: "__empty__", label: "（未绑定）" },
-        ...[...set].sort().map((m) => ({ value: m, label: m })),
+        ...routes
+          .map((r) => r.model)
+          .sort()
+          .map((m) => ({ value: m, label: m })),
       ];
     }
     if (tagCol === "model") {
       const set = new Set<string>();
+      for (const r of routes) set.add(r.model);
       for (const r of rows) {
         if (!r.allowedModels.length) set.add("*");
         else r.allowedModels.forEach((m) => set.add(m));
       }
       return [
         ...all,
-        ...[...set].sort().map((m) => ({
-          value: m,
-          label: m === "*" ? "全部模型" : m,
-        })),
+        ...[...set]
+          .sort()
+          .map((m) => ({
+            value: m,
+            label: m === "*" ? "不限模型（空列表）" : m,
+          })),
       ];
     }
     if (tagCol === "enabled") {
@@ -204,7 +216,7 @@ export default function TokensPage() {
       ];
     }
     return all;
-  }, [tagCol, groups, rows, routeMap]);
+  }, [tagCol, groups, rows, routes]);
 
   const stats = useMemo(() => {
     const now = Date.now();

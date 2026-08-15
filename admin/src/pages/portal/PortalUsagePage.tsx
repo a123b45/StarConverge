@@ -62,6 +62,7 @@ export default function PortalUsagePage() {
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [model, setModel] = useState("");
+  const [modelOptions, setModelOptions] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
 
@@ -86,6 +87,15 @@ export default function PortalUsagePage() {
       setSummary(usage.summary);
       setByModel(usage.byModel);
       setDaily(usage.daily ?? []);
+      // Keep full model list for the filter; don't shrink options when a model is selected.
+      if (!model) {
+        setModelOptions(usage.byModel.map((m) => m.model));
+      } else if (!modelOptions.length) {
+        const all = await portalApi<{ byModel: ByModel[] }>(
+          `/usage?from=${Date.now() - 30 * 86400_000}`,
+        );
+        setModelOptions(all.byModel.map((m) => m.model));
+      }
       const req = await portalApi<{
         data: Req[];
         totalPages: number;
@@ -121,7 +131,7 @@ export default function PortalUsagePage() {
             onChange={setModel}
             options={[
               { value: "", label: "全部模型" },
-              ...byModel.map((m) => ({ value: m.model, label: m.model })),
+              ...modelOptions.map((m) => ({ value: m, label: m })),
             ]}
           />
           <button className="portal-btn ghost" onClick={() => void load(page)}>
