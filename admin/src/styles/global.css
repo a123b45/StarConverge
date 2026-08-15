@@ -1192,10 +1192,8 @@ code,
   place-items: center;
 }
 @media (max-width: 960px) {
-  .rp-skin-picker,
   .rp-perm-grid,
-  .rp-fields,
-  .rp-c-shell {
+  .rp-fields {
     grid-template-columns: 1fr;
   }
 }
