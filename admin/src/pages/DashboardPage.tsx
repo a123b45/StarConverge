@@ -53,9 +53,22 @@ export default function DashboardPage() {
   }, [grain]);
 
   const trend = data?.trend ?? data?.hourly ?? [];
-  const maxHour = useMemo(
-    () => Math.max(1, ...trend.map((h) => h.requests), 1),
+  const peakRequests = useMemo(
+    () => Math.max(0, ...trend.map((h) => h.requests)),
     [trend],
+  );
+  const yMax = useMemo(() => niceAxisMax(peakRequests), [peakRequests]);
+  const yTicks = useMemo(() => [yMax, Math.round(yMax / 2), 0], [yMax]);
+  const xLabels = useMemo(
+    () =>
+      trend
+        .map((h, i) => ({
+          i,
+          text: formatTrendLabel(h.hour, grain),
+          show: shouldShowTrendLabel(i, trend.length, grain),
+        }))
+        .filter((x) => x.show),
+    [trend, grain],
   );
   const maxModel = useMemo(
     () => Math.max(1, ...(data?.byModel.map((m) => m.requests) ?? [1])),
@@ -132,9 +145,9 @@ export default function DashboardPage() {
             {trend.length > 0 ? (
               <div className="trend-chart">
                 <div className="trend-y" aria-hidden>
-                  <span>{maxHour}</span>
-                  <span>{Math.round(maxHour / 2)}</span>
-                  <span>0</span>
+                  {yTicks.map((t) => (
+                    <span key={`y-${t}`}>{t}</span>
+                  ))}
                 </div>
                 <div className="trend-plot">
                   <div className="trend-grid" aria-hidden>
@@ -143,12 +156,11 @@ export default function DashboardPage() {
                     <i />
                   </div>
                   <div className="trend-bars">
-                    {trend.map((h, i) => {
+                    {trend.map((h) => {
                       const pct =
                         h.requests > 0
-                          ? Math.max(6, (h.requests / maxHour) * 100)
+                          ? Math.max(4, (h.requests / yMax) * 100)
                           : 0;
-                      const showLabel = shouldShowTrendLabel(i, trend.length, grain);
                       return (
                         <div
                           key={h.hour}
@@ -160,18 +172,27 @@ export default function DashboardPage() {
                               style={{ height: `${pct}%` }}
                             />
                             <div className="trend-tip" role="tooltip">
-                              <strong>{formatTrendLabel(h.hour, grain, true)}</strong>
+                              <strong>{h.hour}</strong>
                               <em>
                                 {h.requests} 次 · {h.tokens.toLocaleString()} tokens
                               </em>
                             </div>
                           </div>
-                          <span className={showLabel ? "" : "is-hidden"}>
-                            {showLabel ? formatTrendLabel(h.hour, grain) : ""}
-                          </span>
                         </div>
                       );
                     })}
+                  </div>
+                  <div className="trend-x" aria-hidden>
+                    {xLabels.map((x) => (
+                      <span
+                        key={`x-${x.i}`}
+                        style={{
+                          left: `${((x.i + 0.5) / Math.max(trend.length, 1)) * 100}%`,
+                        }}
+                      >
+                        {x.text}
+                      </span>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -282,15 +303,29 @@ function formatTime(v: string | Date) {
   return d.toLocaleString();
 }
 
-function formatTrendLabel(bucket: string, grain: Grain, full = false) {
-  if (full) return bucket;
-  if (grain === "day") return bucket.slice(5); // MM-DD
-  if (grain === "minute") return bucket.slice(11); // HH:MM
-  return bucket.slice(11, 16); // HH:00
+function formatTrendLabel(bucket: string, grain: Grain) {
+  if (grain === "day") {
+    const m = bucket.match(/(\d{4})-(\d{2})-(\d{2})/);
+    return m ? `${m[2]}-${m[3]}` : bucket;
+  }
+  const tm = bucket.match(/(\d{2}):(\d{2})/);
+  if (!tm) return bucket;
+  if (grain === "minute") return `${tm[1]}:${tm[2]}`;
+  return `${tm[1]}时`;
 }
 
 function shouldShowTrendLabel(index: number, total: number, grain: Grain) {
-  if (total <= 12) return true;
-  const step = grain === "minute" ? 10 : grain === "hour" ? 3 : 5;
+  if (total <= 8) return true;
+  const step = grain === "minute" ? 12 : grain === "hour" ? 4 : 5;
   return index === 0 || index === total - 1 || index % step === 0;
+}
+
+/** Round up to a clean Y-axis top so ticks stay evenly spaced. */
+function niceAxisMax(peak: number) {
+  if (peak <= 0) return 1;
+  if (peak <= 5) return 5;
+  const exp = 10 ** Math.floor(Math.log10(peak));
+  const f = peak / exp;
+  const nice = f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10;
+  return nice * exp;
 }

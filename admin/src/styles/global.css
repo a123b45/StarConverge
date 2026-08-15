@@ -612,9 +612,9 @@ code,
 
 .trend-chart {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr);
+  grid-template-columns: 36px minmax(0, 1fr);
   gap: 8px;
-  min-height: 180px;
+  min-height: 188px;
   align-items: stretch;
 }
 
@@ -623,7 +623,7 @@ code,
   flex-direction: column;
   justify-content: space-between;
   align-items: flex-end;
-  padding: 4px 0 22px;
+  padding: 4px 0 24px;
   font-size: 10px;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
@@ -639,7 +639,7 @@ code,
 
 .trend-grid {
   position: absolute;
-  inset: 4px 0 22px;
+  inset: 4px 0 24px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -672,7 +672,6 @@ code,
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
   position: relative;
 }
 
@@ -706,19 +705,21 @@ code,
   transform: scaleX(1.08);
 }
 
-.trend-col > span {
-  height: 16px;
-  font-size: 9px;
-  color: var(--muted);
-  white-space: nowrap;
-  line-height: 16px;
-  overflow: hidden;
-  max-width: 100%;
-  text-overflow: clip;
+.trend-x {
+  position: relative;
+  height: 20px;
+  margin-top: 4px;
 }
 
-.trend-col > span.is-hidden {
-  visibility: hidden;
+.trend-x span {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: var(--muted);
+  white-space: nowrap;
+  line-height: 1.2;
+  pointer-events: none;
 }
 
 .trend-tip {
