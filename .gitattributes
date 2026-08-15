@@ -1,0 +1,3 @@
+# Keep shell scripts LF so bash on Linux does not break on `set -o pipefail`
+*.sh text eol=lf
+deploy/*.sh text eol=lf
