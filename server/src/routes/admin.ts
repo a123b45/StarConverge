@@ -191,18 +191,21 @@ adminRoutes.delete("/roles/:id", async (c) => {
     where: eq(roles.id, c.req.param("id")),
   });
   if (!existing) return c.json({ error: "Not found" }, 404);
-  if (existing.isSystem) {
-    return c.json({ error: "系统内置角色不可删除" }, 400);
+
+  const allRoles = await db.select().from(roles);
+  const fallback =
+    allRoles.find((r) => r.id !== existing.id && r.key === "portal_user") ??
+    allRoles.find((r) => r.id !== existing.id);
+  if (!fallback) {
+    return c.json({ error: "至少需保留一个角色，无法删除最后一个" }, 400);
   }
-  const portal = await getPortalUserRole();
-  if (portal) {
-    await db
-      .update(users)
-      .set({ roleId: portal.id, role: portal.name, updatedAt: new Date() })
-      .where(eq(users.roleId, existing.id));
-  }
+
+  await db
+    .update(users)
+    .set({ roleId: fallback.id, role: fallback.name, updatedAt: new Date() })
+    .where(eq(users.roleId, existing.id));
   await db.delete(roles).where(eq(roles.id, existing.id));
-  return c.json({ ok: true });
+  return c.json({ ok: true, fallbackRoleId: fallback.id });
 });
 
 // ---- Users ----

@@ -189,10 +189,16 @@ export default function RolesPage() {
   }
 
   async function remove(row: RoleRow) {
-    if (row.isSystem) return;
-    if (!confirm(`删除角色「${row.name}」？已绑定用户将回退为普通用户。`)) return;
-    await api(`/roles/${row.id}`, { method: "DELETE" });
-    await load();
+    const tip = row.isSystem
+      ? `「${row.name}」为内置角色，删除后已绑定用户将回退到其它角色，且启动时不会自动重建。确定删除？`
+      : `删除角色「${row.name}」？已绑定用户将回退到其它角色。`;
+    if (!confirm(tip)) return;
+    try {
+      await api(`/roles/${row.id}`, { method: "DELETE" });
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "删除失败");
+    }
   }
 
   return (
@@ -227,7 +233,11 @@ export default function RolesPage() {
               </span>
               <div>
                 <h3>{r.name}</h3>
-                <p>{r.description || "暂无描述"}</p>
+                <p>
+                  {r.isSystem
+                    ? `【内置角色】${r.description?.trim() || "系统预置角色，可修改权限"}`
+                    : r.description || "暂无描述"}
+                </p>
               </div>
             </header>
             <div className="rp-b-stats">
@@ -244,13 +254,9 @@ export default function RolesPage() {
               <button type="button" className="btn ghost sm" onClick={() => startEdit(r)}>
                 编辑权限
               </button>
-              {!r.isSystem ? (
-                <button type="button" className="btn danger sm" onClick={() => void remove(r)}>
-                  删除
-                </button>
-              ) : (
-                <span className="rp-locked">内置 · 可改权限</span>
-              )}
+              <button type="button" className="btn danger sm" onClick={() => void remove(r)}>
+                删除
+              </button>
             </footer>
           </article>
         ))}

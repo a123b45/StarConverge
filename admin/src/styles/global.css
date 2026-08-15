@@ -1718,7 +1718,26 @@ html[data-theme="dark"] .soft-select-item.on {
 }
 
 .modal-user {
-  width: min(480px, 100%);
+  width: min(560px, 100%);
+  max-height: min(90vh, 720px);
+  overflow: auto;
+}
+.modal-user-head {
+  margin-bottom: 14px;
+}
+.modal-user-head h3 {
+  margin: 0 0 6px;
+  font-size: 18px;
+}
+.modal-user-head p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.modal-user-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 14px;
 }
 .stack-field {
   display: grid;
@@ -1726,6 +1745,12 @@ html[data-theme="dark"] .soft-select-item.on {
   margin-bottom: 12px;
   font-size: 13px;
   color: var(--muted);
+}
+.stack-field > span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  line-height: 1.3;
 }
 .stack-field em {
   color: #c0392b;
@@ -1739,6 +1764,11 @@ html[data-theme="dark"] .soft-select-item.on {
   font: inherit;
   background: var(--bg);
   color: var(--text);
+}
+@media (max-width: 560px) {
+  .modal-user-grid {
+    grid-template-columns: 1fr;
+  }
 }
 .pwd-wrap {
   position: relative;

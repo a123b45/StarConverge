@@ -263,81 +263,91 @@ export default function UsersPage() {
             onClick={(e) => e.stopPropagation()}
             onSubmit={createUser}
           >
-            <h3>创建用户</h3>
-            <p className="muted" style={{ marginTop: -8, marginBottom: 16 }}>
-              填写账号信息并选择角色，将自动继承该角色权限
-            </p>
+            <div className="modal-user-head">
+              <h3>创建用户</h3>
+              <p>填写账号信息并选择角色，将自动继承该角色权限</p>
+            </div>
             {error ? <div className="alert">{error}</div> : null}
 
-            <label className="stack-field">
-              名称 <em>*</em>
-              <input
-                value={form.displayName}
-                onChange={(e) => setForm({ ...form, displayName: e.target.value })}
-                placeholder="显示名称"
-              />
-            </label>
-            <label className="stack-field">
-              用户名 <em>*</em>
-              <input
-                value={form.username}
-                onChange={(e) => setForm({ ...form, username: e.target.value })}
-                required
-                minLength={3}
-                placeholder="登录用户名"
-              />
-            </label>
-            <label className="stack-field">
-              邮箱
-              <input
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-                placeholder="用于找回密码（可选）"
-              />
-            </label>
-            <label className="stack-field">
-              密码 <em>*</em>
-              <div className="pwd-wrap">
+            <div className="modal-user-grid">
+              <label className="stack-field">
+                <span>
+                  名称 <em>*</em>
+                </span>
+                <input
+                  value={form.displayName}
+                  onChange={(e) => setForm({ ...form, displayName: e.target.value })}
+                  placeholder="显示名称"
+                />
+              </label>
+              <label className="stack-field">
+                <span>
+                  用户名 <em>*</em>
+                </span>
+                <input
+                  value={form.username}
+                  onChange={(e) => setForm({ ...form, username: e.target.value })}
+                  required
+                  minLength={3}
+                  placeholder="登录用户名"
+                />
+              </label>
+              <label className="stack-field">
+                <span>邮箱</span>
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  placeholder="用于找回密码（可选）"
+                />
+              </label>
+              <div className="stack-field">
+                <span>
+                  角色 <em>*</em>
+                </span>
+                <SoftSelect
+                  className="soft-select-filter"
+                  ariaLabel="角色"
+                  value={form.roleId}
+                  onChange={(v) => setForm({ ...form, roleId: v })}
+                  options={roles.map((r) => ({ value: r.id, label: r.name }))}
+                />
+              </div>
+              <label className="stack-field">
+                <span>
+                  密码 <em>*</em>
+                </span>
+                <div className="pwd-wrap">
+                  <input
+                    type={showPwd ? "text" : "password"}
+                    value={form.password}
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    required
+                    minLength={6}
+                    placeholder="至少 6 位"
+                  />
+                  <button
+                    type="button"
+                    className="pwd-toggle"
+                    onClick={() => setShowPwd((v) => !v)}
+                  >
+                    {showPwd ? <IconEyeOff /> : <IconEye />}
+                  </button>
+                </div>
+              </label>
+              <label className="stack-field">
+                <span>
+                  确认密码 <em>*</em>
+                </span>
                 <input
                   type={showPwd ? "text" : "password"}
-                  value={form.password}
-                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  value={form.confirm}
+                  onChange={(e) => setForm({ ...form, confirm: e.target.value })}
                   required
                   minLength={6}
-                  placeholder="至少 6 位"
+                  placeholder="再次输入密码"
                 />
-                <button
-                  type="button"
-                  className="pwd-toggle"
-                  onClick={() => setShowPwd((v) => !v)}
-                >
-                  {showPwd ? <IconEyeOff /> : <IconEye />}
-                </button>
-              </div>
-            </label>
-            <label className="stack-field">
-              确认密码 <em>*</em>
-              <input
-                type={showPwd ? "text" : "password"}
-                value={form.confirm}
-                onChange={(e) => setForm({ ...form, confirm: e.target.value })}
-                required
-                minLength={6}
-                placeholder="再次输入密码"
-              />
-            </label>
-            <div className="stack-field">
-              <span>
-                角色 <em>*</em>
-              </span>
-              <SoftSelect
-                className="soft-select-filter"
-                ariaLabel="角色"
-                value={form.roleId}
-                onChange={(v) => setForm({ ...form, roleId: v })}
-                options={roles.map((r) => ({ value: r.id, label: r.name }))}
-              />
+              </label>
             </div>
 
             <div className="modal-actions">
