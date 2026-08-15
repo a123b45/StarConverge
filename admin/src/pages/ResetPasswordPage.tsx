@@ -14,7 +14,7 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false);
 
   if (getToken()) {
-    return <Navigate to={getRole() === "user" ? "/app" : "/admin"} replace />;
+    return <Navigate to={getRole() === "user" ? "/app/models" : "/admin"} replace />;
   }
 
   async function onSubmit(e: FormEvent) {

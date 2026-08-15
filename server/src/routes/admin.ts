@@ -24,6 +24,7 @@ import {
 import { signToken } from "../utils/jwt.js";
 import { getDashboardStats, publicChannel, publicToken } from "../services/stats.js";
 import {
+  explicitChannelModels,
   fetchUpstreamModels,
   isUnrestrictedModels,
   modelsUrl,
@@ -54,6 +55,87 @@ function bodyToIpRules(body: {
     return parseIpRules(String(body.ipAllowlist));
   }
   return null;
+}
+
+/** Remove channel from all model_routes; delete routes left with no channels. */
+async function detachChannelFromModelRoutes(channelId: string) {
+  const rows = await db.select().from(modelRoutes);
+  for (const r of rows) {
+    const ids = parseJsonArray(r.channelIds).filter((cid) => cid !== channelId);
+    if (ids.length === 0) {
+      await db.delete(modelRoutes).where(eq(modelRoutes.id, r.id));
+    } else if (ids.length !== parseJsonArray(r.channelIds).length) {
+      await db
+        .update(modelRoutes)
+        .set({ channelIds: toJsonArray(ids), updatedAt: new Date() })
+        .where(eq(modelRoutes.id, r.id));
+    }
+  }
+  await pruneOrphanModelRoutes();
+}
+
+/** Keep model_routes in sync with this channel's model list; drop orphan routes. */
+async function syncChannelModelRoutes(channelId: string, models: string[]) {
+  const keep = new Set(models.filter((m) => m && m !== "*"));
+  const rows = await db.select().from(modelRoutes);
+
+  for (const r of rows) {
+    const ids = parseJsonArray(r.channelIds);
+    const has = ids.includes(channelId);
+    if (keep.has(r.model)) {
+      if (!has) {
+        await db
+          .update(modelRoutes)
+          .set({
+            channelIds: toJsonArray([...ids, channelId]),
+            enabled: true,
+            updatedAt: new Date(),
+          })
+          .where(eq(modelRoutes.id, r.id));
+      }
+    } else if (has) {
+      const next = ids.filter((cid) => cid !== channelId);
+      if (next.length === 0) {
+        await db.delete(modelRoutes).where(eq(modelRoutes.id, r.id));
+      } else {
+        await db
+          .update(modelRoutes)
+          .set({ channelIds: toJsonArray(next), updatedAt: new Date() })
+          .where(eq(modelRoutes.id, r.id));
+      }
+    }
+  }
+
+  const existingModels = new Set(
+    (await db.select().from(modelRoutes)).map((r) => r.model),
+  );
+  for (const m of keep) {
+    if (existingModels.has(m)) continue;
+    await db.insert(modelRoutes).values({
+      id: id("mr"),
+      model: m,
+      channelIds: toJsonArray([channelId]),
+      rewriteModel: null,
+      enabled: true,
+    });
+  }
+  await pruneOrphanModelRoutes();
+}
+
+/** Drop routes with no channels, or models not listed on any channel. */
+async function pruneOrphanModelRoutes() {
+  const chRows = await db.select().from(channels);
+  const catalog = new Set<string>();
+  for (const ch of chRows) {
+    for (const m of explicitChannelModels(ch.models)) catalog.add(m);
+  }
+  const routes = await db.select().from(modelRoutes);
+  for (const r of routes) {
+    const ids = parseJsonArray(r.channelIds);
+    if (!ids.length || !catalog.has(r.model)) {
+      await db.delete(modelRoutes).where(eq(modelRoutes.id, r.id));
+    }
+  }
 }
 import {
   getRoleById,
@@ -88,6 +170,7 @@ adminRoutes.get("/me", (c) => {
   return c.json({
     username: auth.username,
     role: "admin",
+    roleName: auth.roleName ?? (auth.isSuper ? "超级管理员" : "管理员"),
     userId: auth.userId ?? null,
     isSuper: auth.isSuper,
     menuPerms: auth.menuPerms,
@@ -431,13 +514,37 @@ adminRoutes.post("/channels/:id/sync-models", async (c) => {
   const idParam = c.req.param("id");
   const row = await db.query.channels.findFirst({ where: eq(channels.id, idParam) });
   if (!row) return c.json({ error: "Not found" }, 404);
+
+  const previous = explicitChannelModels(row.models);
+
+  // Disabled channel: clear catalog for users + detach from routes
+  if (!row.enabled) {
+    await db
+      .update(channels)
+      .set({ models: toJsonArray([]), updatedAt: new Date() })
+      .where(eq(channels.id, row.id));
+    await detachChannelFromModelRoutes(row.id);
+    return c.json({
+      ok: true,
+      cleared: true,
+      modelCount: previous.length,
+      models: [] as string[],
+    });
+  }
+
   try {
     const models = await fetchUpstreamModels(row.baseUrl, row.apiKey, row.timeoutMs);
     await db
       .update(channels)
       .set({ models: toJsonArray(models), updatedAt: new Date() })
       .where(eq(channels.id, row.id));
-    return c.json({ ok: true, modelCount: models.length, models: models.slice(0, 100) });
+    await syncChannelModelRoutes(row.id, models);
+    return c.json({
+      ok: true,
+      cleared: false,
+      modelCount: models.length,
+      models: models.slice(0, 100),
+    });
   } catch (err) {
     return c.json(
       { ok: false, error: err instanceof Error ? err.message : String(err) },

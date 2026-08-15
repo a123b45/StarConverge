@@ -222,15 +222,23 @@ export default function ChannelsPage() {
     setTesting(row.id);
     setTestMsg("");
     try {
-      const res = await api<{ ok: boolean; modelCount: number; error?: string }>(
-        `/channels/${row.id}/sync-models`,
-        { method: "POST" },
-      );
-      setTestMsg(
-        res.ok
-          ? `「${row.name}」已同步 ${res.modelCount} 个模型（写入供应商模型列表；启用后对用户可见）`
-          : `同步失败：${res.error || "未知错误"}`,
-      );
+      const res = await api<{
+        ok: boolean;
+        cleared?: boolean;
+        modelCount: number;
+        error?: string;
+      }>(`/channels/${row.id}/sync-models`, { method: "POST" });
+      if (!res.ok) {
+        setTestMsg(`同步失败：${res.error || "未知错误"}`);
+      } else if (res.cleared) {
+        setTestMsg(
+          `「${row.name}」已清除 ${res.modelCount} 个模型在用户模型列表`,
+        );
+      } else {
+        setTestMsg(
+          `「${row.name}」已同步 ${res.modelCount} 个模型到用户模型列表`,
+        );
+      }
       if (res.ok) await load();
     } catch (err) {
       setTestMsg(err instanceof Error ? err.message : "同步失败");
@@ -276,7 +284,15 @@ export default function ChannelsPage() {
 
       {error && !open ? <div className="alert">{error}</div> : null}
       {testMsg ? (
-        <div className={`alert ${testMsg.includes("失败") || testMsg.includes("FAIL") ? "" : "ok"}`}>
+        <div
+          className={`alert ${
+            testMsg.includes("失败") ||
+            testMsg.includes("FAIL") ||
+            testMsg.includes("已清除")
+              ? ""
+              : "ok"
+          }`}
+        >
           {testMsg}
         </div>
       ) : null}

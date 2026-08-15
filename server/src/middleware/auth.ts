@@ -6,7 +6,7 @@ import { extractBearer, hashKey, parseJsonArray } from "../utils/crypto.js";
 import { verifyAdminToken, verifyToken } from "../utils/jwt.js";
 import { checkRateLimit } from "../services/rate-limit.js";
 import { ALL_API_KEYS, ALL_MENU_KEYS } from "../rbac/permissions.js";
-import { getRoleById } from "../services/roles.js";
+import { getRoleById, roleAllowsAdmin } from "../services/roles.js";
 import { isIpAllowed, parseIpRules } from "../utils/ip-allow.js";
 
 export type AuthVars = {
@@ -33,6 +33,7 @@ export type AdminVars = {
       username: string;
       userId?: string;
       isSuper: boolean;
+      roleName?: string;
       menuPerms: string[];
       apiPerms: string[];
     };
@@ -130,7 +131,8 @@ export const requireAdmin = createMiddleware<AdminVars>(async (c, next) => {
     c.set("adminAuth", {
       username: payload.sub,
       isSuper: true,
-      menuPerms: [...ALL_MENU_KEYS],
+      roleName: "超级管理员",
+      menuPerms: ALL_MENU_KEYS.filter((k) => !k.startsWith("menu.portal.")),
       apiPerms: [...ALL_API_KEYS],
     });
     await next();
@@ -144,13 +146,17 @@ export const requireAdmin = createMiddleware<AdminVars>(async (c, next) => {
     return c.json({ error: "Account disabled" }, 403);
   }
   const role = await getRoleById(user.roleId);
+  if (!roleAllowsAdmin(role)) {
+    return c.json({ error: "无管理端权限" }, 403);
+  }
   const menuPerms = role ? parseJsonArray(role.menuPerms) : [];
   const apiPerms = role ? parseJsonArray(role.apiPerms) : [];
   c.set("adminAuth", {
     username: user.username,
     userId: user.id,
     isSuper: false,
-    menuPerms,
+    roleName: role?.name ?? "管理员",
+    menuPerms: menuPerms.filter((k) => !k.startsWith("menu.portal.")),
     apiPerms,
   });
   await next();
@@ -170,10 +176,7 @@ export const requireUser = createMiddleware<SessionVars>(async (c, next) => {
     return c.json({ error: "Unauthorized" }, 401);
   }
   const payload = verifyToken(raw);
-  if (!payload || !payload.userId) {
-    return c.json({ error: "Unauthorized" }, 401);
-  }
-  if (payload.role !== "user" && payload.role !== "admin") {
+  if (!payload || !payload.userId || payload.role !== "user") {
     return c.json({ error: "Unauthorized" }, 401);
   }
   const user = await db.query.users.findFirst({
@@ -183,14 +186,10 @@ export const requireUser = createMiddleware<SessionVars>(async (c, next) => {
     return c.json({ error: "Account disabled" }, 403);
   }
   const role = await getRoleById(user.roleId);
-  const menuPerms = role ? parseJsonArray(role.menuPerms) : [];
-  // Admin-capable accounts may also use portal APIs when granted portal menus
-  if (payload.role === "admin") {
-    const hasPortal = menuPerms.some((k) => k.startsWith("menu.portal."));
-    if (!hasPortal) {
-      return c.json({ error: "无用户门户权限" }, 403);
-    }
+  if (roleAllowsAdmin(role)) {
+    return c.json({ error: "请使用管理端登录" }, 403);
   }
+  const menuPerms = role ? parseJsonArray(role.menuPerms) : [];
   c.set("auth", {
     username: payload.sub,
     role: "user",

@@ -21,7 +21,7 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
 
   if (getToken()) {
-    return <Navigate to={getRole() === "user" ? "/app" : "/admin"} replace />;
+    return <Navigate to={getRole() === "user" ? "/app/models" : "/admin"} replace />;
   }
 
   async function onSubmit(e: FormEvent) {
@@ -38,7 +38,7 @@ export default function RegisterPage() {
         body: JSON.stringify({ username, password, displayName, email }),
       });
       setSession(res.token, res.role);
-      navigate(res.redirect || "/app");
+      navigate(res.redirect || "/app/models");
     } catch (err) {
       setError(err instanceof Error ? err.message : "注册失败");
     } finally {

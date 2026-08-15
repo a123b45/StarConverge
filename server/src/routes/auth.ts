@@ -73,7 +73,7 @@ authRoutes.post("/login", async (c) => {
       role: "admin" as const,
       userId: user.id,
       displayName: user.displayName,
-      roleName: role?.name,
+      roleName: role?.name ?? "管理员",
       redirect: "/admin",
     });
   }
@@ -85,8 +85,8 @@ authRoutes.post("/login", async (c) => {
     role: "user" as const,
     userId: user.id,
     displayName: user.displayName,
-    roleName: role?.name ?? "普通用户",
-    redirect: "/app",
+    roleName: role?.name ?? "用户",
+    redirect: "/app/models",
   });
 });
 
@@ -138,7 +138,7 @@ authRoutes.post("/register", async (c) => {
       role: "user" as const,
       userId: row.id,
       displayName: row.displayName,
-      redirect: "/app",
+      redirect: "/app/models",
     },
     201,
   );
@@ -262,6 +262,6 @@ authRoutes.get("/me", async (c) => {
     quota: unlimited ? -1 : quota,
     usedQuota,
     tokenCount: userTokens.length,
-    redirect: "/app",
+    redirect: "/app/models",
   });
 });

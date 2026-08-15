@@ -90,10 +90,13 @@ function AdminShell() {
       menuPerms: string[];
       isSuper: boolean;
       username: string;
+      roleName?: string | null;
     }>("/me")
       .then((me) => {
         setMenuPerms(me.menuPerms);
-        setRoleLabel(me.isSuper ? "超级管理员" : me.username);
+        setRoleLabel(
+          me.isSuper ? "超级管理员" : me.roleName?.trim() || "管理员",
+        );
       })
       .catch(() => setMenuPerms([]));
   }, []);
@@ -199,45 +202,6 @@ function AdminShell() {
               </NavLink>
             ) : null}
           </div>
-          {can("menu.portal.models") ||
-          can("menu.portal.keys") ||
-          can("menu.portal.usage") ||
-          can("menu.portal.chat") ||
-          can("menu.portal.docs") ? (
-            <div className="nav-group">
-              <div className="nav-label">用户门户</div>
-              {can("menu.portal.models") ? (
-                <NavLink to="/app/models">
-                  <NavIconOverview />
-                  模型列表
-                </NavLink>
-              ) : null}
-              {can("menu.portal.keys") ? (
-                <NavLink to="/app/keys">
-                  <NavIconKey />
-                  API 密钥
-                </NavLink>
-              ) : null}
-              {can("menu.portal.usage") ? (
-                <NavLink to="/app/usage">
-                  <NavIconUsage />
-                  用量
-                </NavLink>
-              ) : null}
-              {can("menu.portal.chat") ? (
-                <NavLink to="/app/chat">
-                  <NavIconChat />
-                  对话测试
-                </NavLink>
-              ) : null}
-              {can("menu.portal.docs") ? (
-                <NavLink to="/app/docs">
-                  <NavIconDocs />
-                  API 文档
-                </NavLink>
-              ) : null}
-            </div>
-          ) : null}
         </nav>
         <div className="sidebar-foot">
           <div className="sidebar-role">
@@ -319,7 +283,7 @@ function PortalShell() {
 
   useEffect(() => {
     if (menuPerms && !hasAnyPortal) {
-      navigate(getRole() === "admin" ? "/admin" : "/login", { replace: true });
+      navigate("/login", { replace: true });
     }
   }, [menuPerms, hasAnyPortal, navigate]);
 
@@ -449,13 +413,13 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
 
 function RequireUser({ children }: { children: React.ReactNode }) {
   if (!getToken()) return <Navigate to="/login" replace />;
-  // Admin JWT may also open portal when role has menu.portal.* grants
+  if (getRole() === "admin") return <Navigate to="/admin" replace />;
   return <>{children}</>;
 }
 
 function HomeRedirect() {
   if (!getToken()) return <Navigate to="/login" replace />;
-  return <Navigate to={getRole() === "user" ? "/app" : "/admin"} replace />;
+  return <Navigate to={getRole() === "user" ? "/app/models" : "/admin"} replace />;
 }
 
 export default function App() {

@@ -13,7 +13,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   if (getToken()) {
-    return <Navigate to={getRole() === "user" ? "/app" : "/admin"} replace />;
+    return <Navigate to={getRole() === "user" ? "/app/models" : "/admin"} replace />;
   }
 
   async function onSubmit(e: FormEvent) {
@@ -33,7 +33,7 @@ export default function LoginPage() {
       if (!remember) {
         // sessionStorage fallback not implemented; token still in localStorage
       }
-      navigate(res.redirect || (res.role === "admin" ? "/admin" : "/app"));
+      navigate(res.redirect || (res.role === "admin" ? "/admin" : "/app/models"));
     } catch (err) {
       setError(err instanceof Error ? err.message : "登录失败");
     } finally {

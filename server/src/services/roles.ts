@@ -45,6 +45,9 @@ export async function getPortalUserRole() {
 
 export function roleAllowsAdmin(role: Role | null | undefined): boolean {
   if (!role) return false;
+  // Fixed identities: never treat 用户 as admin even if perms were corrupted
+  if (role.key === "portal_user") return false;
+  if (role.key === "admin") return true;
   return isAdminCapable(parseJsonArray(role.menuPerms));
 }
 
