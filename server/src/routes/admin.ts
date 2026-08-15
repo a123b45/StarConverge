@@ -57,6 +57,23 @@ function bodyToIpRules(body: {
   return null;
 }
 
+/** Auto 1:1 catalog routes created by「同步模型」; custom alias/strategy routes are untouched. */
+function isAutoCatalogRoute(r: typeof modelRoutes.$inferSelect): boolean {
+  let hasTargets = false;
+  try {
+    const raw = JSON.parse(r.targets || "[]") as unknown;
+    hasTargets = Array.isArray(raw) && raw.length > 0;
+  } catch {
+    hasTargets = false;
+  }
+  if (hasTargets) return false;
+  const strategy = String(r.strategy || "full").toLowerCase();
+  if (strategy !== "full") return false;
+  if (r.smartSimpleModel || r.smartComplexModel) return false;
+  if (r.rewriteModel && r.rewriteModel !== r.model) return false;
+  return true;
+}
+
 /** Remove channel from all model_routes; delete routes left with no channels. */
 async function detachChannelFromModelRoutes(channelId: string) {
   const rows = await db.select().from(modelRoutes);
@@ -78,10 +95,24 @@ async function detachChannelFromModelRoutes(channelId: string) {
       targets = [];
     }
 
+    const custom = !isAutoCatalogRoute(r);
+
     if (targets.length > 0) {
       const next = targets.filter((t) => t.channelId !== channelId);
       if (next.length === 0) {
-        await db.delete(modelRoutes).where(eq(modelRoutes.id, r.id));
+        if (custom) {
+          // Keep manual routes; clear targets so admin can rebind later.
+          await db
+            .update(modelRoutes)
+            .set({
+              targets: "[]",
+              channelIds: toJsonArray([]),
+              updatedAt: new Date(),
+            })
+            .where(eq(modelRoutes.id, r.id));
+        } else {
+          await db.delete(modelRoutes).where(eq(modelRoutes.id, r.id));
+        }
       } else if (next.length !== targets.length) {
         const channelIds = [...new Set(next.map((t) => t.channelId))];
         await db
@@ -99,7 +130,16 @@ async function detachChannelFromModelRoutes(channelId: string) {
 
     const ids = parseJsonArray(r.channelIds).filter((cid) => cid !== channelId);
     if (ids.length === 0) {
-      await db.delete(modelRoutes).where(eq(modelRoutes.id, r.id));
+      if (custom) {
+        if (parseJsonArray(r.channelIds).includes(channelId)) {
+          await db
+            .update(modelRoutes)
+            .set({ channelIds: toJsonArray([]), updatedAt: new Date() })
+            .where(eq(modelRoutes.id, r.id));
+        }
+      } else if (parseJsonArray(r.channelIds).includes(channelId)) {
+        await db.delete(modelRoutes).where(eq(modelRoutes.id, r.id));
+      }
     } else if (ids.length !== parseJsonArray(r.channelIds).length) {
       await db
         .update(modelRoutes)
@@ -110,12 +150,16 @@ async function detachChannelFromModelRoutes(channelId: string) {
   await pruneOrphanModelRoutes();
 }
 
-/** Keep model_routes in sync with this channel's model list; drop orphan routes. */
+/**
+ * Sync only auto catalog routes with this channel's upstream model list.
+ * Never create/delete/detach manually configured routes in「路由管理」.
+ */
 async function syncChannelModelRoutes(channelId: string, models: string[]) {
   const keep = new Set(models.filter((m) => m && m !== "*"));
   const rows = await db.select().from(modelRoutes);
 
   for (const r of rows) {
+    if (!isAutoCatalogRoute(r)) continue;
     const ids = parseJsonArray(r.channelIds);
     const has = ids.includes(channelId);
     if (keep.has(r.model)) {
@@ -152,6 +196,8 @@ async function syncChannelModelRoutes(channelId: string, models: string[]) {
       model: m,
       channelIds: toJsonArray([channelId]),
       rewriteModel: null,
+      strategy: "full",
+      targets: "[]",
       enabled: true,
       published: false,
     });
@@ -159,7 +205,7 @@ async function syncChannelModelRoutes(channelId: string, models: string[]) {
   await pruneOrphanModelRoutes();
 }
 
-/** Drop routes with no remaining channels. Keep alias routes (rewrite / multi-target). */
+/** Drop orphan auto-catalog routes. Manual alias/strategy routes are preserved. */
 async function pruneOrphanModelRoutes() {
   const chRows = await db.select().from(channels);
   const channelIdSet = new Set(chRows.map((c) => c.id));
@@ -169,29 +215,31 @@ async function pruneOrphanModelRoutes() {
   }
   const routes = await db.select().from(modelRoutes);
   for (const r of routes) {
+    const custom = !isAutoCatalogRoute(r);
     const ids = parseJsonArray(r.channelIds).filter((id) => channelIdSet.has(id));
+
     if (!ids.length) {
-      await db.delete(modelRoutes).where(eq(modelRoutes.id, r.id));
+      // Keep manually created routes even if channels were removed.
+      if (!custom) {
+        await db.delete(modelRoutes).where(eq(modelRoutes.id, r.id));
+      } else if (parseJsonArray(r.channelIds).length) {
+        await db
+          .update(modelRoutes)
+          .set({ channelIds: toJsonArray([]), updatedAt: new Date() })
+          .where(eq(modelRoutes.id, r.id));
+      }
       continue;
     }
+
     if (ids.length !== parseJsonArray(r.channelIds).length) {
       await db
         .update(modelRoutes)
         .set({ channelIds: toJsonArray(ids), updatedAt: new Date() })
         .where(eq(modelRoutes.id, r.id));
     }
-    let hasTargets = false;
-    try {
-      const raw = JSON.parse(r.targets || "[]") as unknown;
-      hasTargets = Array.isArray(raw) && raw.length > 0;
-    } catch {
-      hasTargets = false;
-    }
-    const isAlias =
-      hasTargets ||
-      Boolean(r.rewriteModel && r.rewriteModel !== r.model);
+
     // Auto-synced 1:1 routes only: drop if model left the channel catalog.
-    if (!isAlias && !catalog.has(r.model)) {
+    if (!custom && !catalog.has(r.model)) {
       await db.delete(modelRoutes).where(eq(modelRoutes.id, r.id));
     }
   }
