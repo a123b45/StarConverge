@@ -29,6 +29,33 @@ import {
   modelsUrl,
 } from "../services/upstream-models.js";
 import {
+  parseIpRules,
+  serializeIpRules,
+  type IpRule,
+} from "../utils/ip-allow.js";
+
+const ipRuleSchema = z.object({
+  name: z.string().optional(),
+  ip: z.string().min(1),
+  action: z.enum(["ALLOW", "DENY"]).default("ALLOW"),
+});
+
+function bodyToIpRules(body: {
+  ipRules?: unknown;
+  ipAllowlist?: unknown;
+}): IpRule[] | null {
+  if (body.ipRules != null) {
+    return parseIpRules(
+      Array.isArray(body.ipRules) ? body.ipRules : String(body.ipRules),
+    );
+  }
+  if (body.ipAllowlist != null) {
+    if (Array.isArray(body.ipAllowlist)) return parseIpRules(body.ipAllowlist);
+    return parseIpRules(String(body.ipAllowlist));
+  }
+  return null;
+}
+import {
   encodePerms,
   getPortalUserRole,
   getRoleById,
@@ -495,7 +522,8 @@ adminRoutes.post("/tokens", async (c) => {
     concurrency: z.number().int().min(0).default(0),
     allowedModels: z.array(z.string()).default([]),
     groupName: z.string().max(64).optional(),
-    ipAllowlist: z.array(z.string()).default([]),
+    ipAllowlist: z.array(z.union([z.string(), ipRuleSchema])).optional(),
+    ipRules: z.array(ipRuleSchema).optional(),
     routeIds: z.array(z.string()).default([]),
     expiresAt: z.number().nullable().optional(),
     remark: z.string().optional(),
@@ -505,6 +533,9 @@ adminRoutes.post("/tokens", async (c) => {
   if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
   const v = parsed.data;
   const key = generateApiKey();
+  const ipRules =
+    bodyToIpRules(v) ??
+    parseIpRules([]);
   const row = {
     id: id("tk"),
     userId: v.userId ?? null,
@@ -519,7 +550,7 @@ adminRoutes.post("/tokens", async (c) => {
     enabled: v.enabled ?? true,
     allowedModels: toJsonArray(v.allowedModels),
     groupName: (v.groupName ?? "").trim(),
-    ipAllowlist: toJsonArray(v.ipAllowlist),
+    ipAllowlist: serializeIpRules(ipRules),
     routeIds: toJsonArray(v.routeIds),
     expiresAt: v.expiresAt ? new Date(v.expiresAt) : null,
     remark: v.remark ?? "",
@@ -569,14 +600,9 @@ adminRoutes.put("/tokens/:id", async (c) => {
   if (body.enabled != null) patch.enabled = Boolean(body.enabled);
   if (body.allowedModels != null) patch.allowedModels = toJsonArray(body.allowedModels);
   if (body.groupName != null) patch.groupName = String(body.groupName).trim();
-  if (body.ipAllowlist != null) {
-    const list = Array.isArray(body.ipAllowlist)
-      ? body.ipAllowlist.map(String)
-      : String(body.ipAllowlist)
-          .split(/[\n,]+/)
-          .map((s) => s.trim())
-          .filter(Boolean);
-    patch.ipAllowlist = toJsonArray(list);
+  const ipRules = bodyToIpRules(body);
+  if (ipRules != null) {
+    patch.ipAllowlist = serializeIpRules(ipRules);
   }
   if (body.routeIds != null) {
     const list = Array.isArray(body.routeIds)

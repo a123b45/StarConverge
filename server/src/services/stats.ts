@@ -2,6 +2,7 @@ import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { channels, modelRoutes, requestLogs, tokens } from "../db/schema.js";
 import { id, parseJsonArray } from "../utils/crypto.js";
+import { parseIpRules } from "../utils/ip-allow.js";
 
 export async function writeLog(input: {
   tokenId?: string | null;
@@ -177,7 +178,10 @@ export function publicToken(row: typeof tokens.$inferSelect) {
     enabled: row.enabled,
     allowedModels: parseJsonArray(row.allowedModels),
     groupName: row.groupName ?? "",
-    ipAllowlist: parseJsonArray(row.ipAllowlist ?? "[]"),
+    ipRules: parseIpRules(row.ipAllowlist ?? "[]"),
+    ipAllowlist: parseIpRules(row.ipAllowlist ?? "[]")
+      .filter((r) => r.action === "ALLOW")
+      .map((r) => r.ip),
     routeIds: parseJsonArray(row.routeIds ?? "[]"),
     lastUsedAt: row.lastUsedAt ?? null,
     expiresAt: row.expiresAt,

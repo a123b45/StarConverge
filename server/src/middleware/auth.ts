@@ -7,7 +7,7 @@ import { verifyAdminToken, verifyToken } from "../utils/jwt.js";
 import { checkRateLimit } from "../services/rate-limit.js";
 import { ALL_API_KEYS, ALL_MENU_KEYS } from "../rbac/permissions.js";
 import { getRoleById } from "../services/roles.js";
-import { isIpAllowed } from "../utils/ip-allow.js";
+import { isIpAllowed, parseIpRules } from "../utils/ip-allow.js";
 
 export type AuthVars = {
   Variables: {
@@ -88,7 +88,7 @@ export const requireApiToken = createMiddleware<AuthVars>(async (c, next) => {
     c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ??
     c.req.header("x-real-ip") ??
     undefined;
-  const allow = parseJsonArray(row.ipAllowlist ?? "[]");
+  const allow = parseIpRules(row.ipAllowlist ?? "[]");
   if (!isIpAllowed(clientIp, allow)) {
     return c.json(
       { error: { message: "IP not allowed for this key", type: "permission_error" } },

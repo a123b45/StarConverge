@@ -1,13 +1,20 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
 import ModelPicker from "../components/ModelPicker";
+import SoftSelect from "../components/SoftSelect";
+import SoftToast from "../components/SoftToast";
 import { IconPencil, IconTrash } from "../components/icons";
+import {
+  type IpRule,
+  normalizeIpRules,
+  parseIpRulesImport,
+  rulesToImportJson,
+  summarizeIpRules,
+} from "../lib/ip-rules";
 
 type Token = {
   id: string;
   name: string;
-  keyPrefix: string;
-  key: string | null;
   quota: number;
   usedQuota: number;
   remainingQuota: number;
@@ -16,11 +23,11 @@ type Token = {
   enabled: boolean;
   allowedModels: string[];
   groupName: string;
+  ipRules?: IpRule[];
   ipAllowlist: string[];
   routeIds: string[];
   lastUsedAt: string | Date | null;
   expiresAt: string | Date | null;
-  remark: string | null;
   createdAt: string | Date;
 };
 
@@ -33,17 +40,16 @@ type FormState = {
   quota: number;
   rateUnlimited: boolean;
   rateLimit: number;
+  concurrencyUnlimited: boolean;
   concurrency: number;
   allowedModels: string[];
   routeIds: string[];
-  ipAllowlistText: string;
-  remark: string;
+  ipRules: IpRule[];
   enabled: boolean;
 };
 
-type Skin = "a" | "b" | "c";
-
-const SKIN_KEY = "sc-key-mgmt-skin";
+type IpSkin = "a" | "b" | "c";
+const IP_SKIN_KEY = "sc-ip-editor-skin";
 
 const emptyForm = (): FormState => ({
   name: "",
@@ -52,24 +58,22 @@ const emptyForm = (): FormState => ({
   quota: 1_000_000,
   rateUnlimited: false,
   rateLimit: 60,
-  concurrency: 0,
+  concurrencyUnlimited: true,
+  concurrency: 50,
   allowedModels: [],
   routeIds: [],
-  ipAllowlistText: "",
-  remark: "",
+  ipRules: [],
   enabled: true,
 });
 
-function parseIpText(text: string): string[] {
-  return text
-    .split(/[\n,]+/)
-    .map((s) => s.trim())
-    .filter(Boolean);
+function loadIpSkin(): IpSkin {
+  const v = localStorage.getItem(IP_SKIN_KEY);
+  return v === "b" || v === "c" ? v : "a";
 }
 
-function loadSkin(): Skin {
-  const v = localStorage.getItem(SKIN_KEY);
-  return v === "b" || v === "c" ? v : "a";
+function tokenRules(t: Token): IpRule[] {
+  if (t.ipRules?.length) return normalizeIpRules(t.ipRules);
+  return normalizeIpRules(t.ipAllowlist ?? []);
 }
 
 export default function TokensPage() {
@@ -80,13 +84,19 @@ export default function TokensPage() {
   const [kwDraft, setKwDraft] = useState("");
   const [groupFilter, setGroupFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "on" | "off">("all");
-  const [sort, setSort] = useState<"created_desc" | "created_asc" | "used_desc" | "name">("created_desc");
-  const [skin, setSkin] = useState<Skin>(loadSkin);
+  const [sort, setSort] = useState<"created_desc" | "created_asc" | "used_desc" | "name">(
+    "created_desc",
+  );
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Token | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm());
   const [error, setError] = useState("");
-  const [toast, setToast] = useState("");
+  const [toast, setToast] = useState<string | null>(null);
+  const [ipSkin, setIpSkin] = useState<IpSkin>(loadIpSkin);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importText, setImportText] = useState("");
+  const [importError, setImportError] = useState("");
+  const [jsonDraft, setJsonDraft] = useState("");
 
   async function load() {
     const [tok, models, mrs] = await Promise.all([
@@ -98,6 +108,7 @@ export default function TokensPage() {
       tok.data.map((t) => ({
         ...t,
         groupName: t.groupName ?? "",
+        ipRules: tokenRules(t),
         ipAllowlist: t.ipAllowlist ?? [],
         routeIds: t.routeIds ?? [],
         concurrency: t.concurrency ?? 0,
@@ -114,9 +125,9 @@ export default function TokensPage() {
     load().catch((e) => setError(e.message));
   }, []);
 
-  function pickSkin(s: Skin) {
-    setSkin(s);
-    localStorage.setItem(SKIN_KEY, s);
+  function pickIpSkin(s: IpSkin) {
+    setIpSkin(s);
+    localStorage.setItem(IP_SKIN_KEY, s);
   }
 
   const groups = useMemo(() => {
@@ -150,13 +161,7 @@ export default function TokensPage() {
         if (!Number.isNaN(t) && t >= now && t <= soon) expiring += 1;
       }
     }
-    return {
-      total: rows.length,
-      enabled,
-      disabled,
-      unbound,
-      expiring,
-    };
+    return { total: rows.length, enabled, disabled, unbound, expiring };
   }, [rows]);
 
   const filtered = useMemo(() => {
@@ -169,7 +174,6 @@ export default function TokensPage() {
         const hit =
           r.name.toLowerCase().includes(q) ||
           (r.groupName ?? "").toLowerCase().includes(q) ||
-          (r.remark ?? "").toLowerCase().includes(q) ||
           r.allowedModels.some((m) => m.toLowerCase().includes(q)) ||
           routeNames.toLowerCase().includes(q) ||
           String(r.enabled ? "启用" : "禁用").includes(q);
@@ -195,11 +199,6 @@ export default function TokensPage() {
     return list;
   }, [rows, kw, groupFilter, statusFilter, sort, routeMap]);
 
-  function flash(msg: string) {
-    setToast(msg);
-    setTimeout(() => setToast(""), 2000);
-  }
-
   function applySearch() {
     setKw(kwDraft.trim());
   }
@@ -213,6 +212,7 @@ export default function TokensPage() {
   }
 
   function startEdit(row: Token) {
+    const rules = tokenRules(row);
     setEditing(row);
     setForm({
       name: row.name,
@@ -221,30 +221,80 @@ export default function TokensPage() {
       quota: row.quota < 0 ? 1_000_000 : row.quota,
       rateUnlimited: row.rateLimit <= 0,
       rateLimit: row.rateLimit <= 0 ? 60 : row.rateLimit,
-      concurrency: row.concurrency ?? 0,
+      concurrencyUnlimited: !row.concurrency,
+      concurrency: row.concurrency || 50,
       allowedModels: [...row.allowedModels],
       routeIds: [...(row.routeIds ?? [])],
-      ipAllowlistText: (row.ipAllowlist ?? []).join("\n"),
-      remark: row.remark || "",
+      ipRules: rules,
       enabled: row.enabled,
     });
+    setJsonDraft(rulesToImportJson(rules));
+    setImportError("");
     setOpen(true);
+  }
+
+  function setRules(next: IpRule[]) {
+    setForm((f) => ({ ...f, ipRules: next }));
+    setJsonDraft(rulesToImportJson(next));
+  }
+
+  function addEmptyRule() {
+    setRules([...form.ipRules, { name: "", ip: "", action: "ALLOW" }]);
+  }
+
+  function updateRule(i: number, patch: Partial<IpRule>) {
+    setRules(form.ipRules.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  }
+
+  function removeRule(i: number) {
+    setRules(form.ipRules.filter((_, idx) => idx !== i));
+  }
+
+  function applyImport(replace: boolean) {
+    setImportError("");
+    try {
+      const imported = parseIpRulesImport(importText);
+      if (!imported.length) throw new Error("未解析到有效规则");
+      const next = replace ? imported : [...form.ipRules, ...imported];
+      setRules(next);
+      setImportOpen(false);
+      setImportText("");
+      setToast("规则已导入");
+    } catch (e) {
+      setImportError(e instanceof Error ? e.message : "导入失败");
+    }
+  }
+
+  function syncJsonDraft() {
+    setImportError("");
+    try {
+      setRules(parseIpRulesImport(jsonDraft));
+      setToast("JSON 已同步到规则");
+    } catch (e) {
+      setImportError(e instanceof Error ? e.message : "JSON 无效");
+    }
   }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (!editing) return;
     setError("");
+    const cleaned = form.ipRules
+      .map((r) => ({
+        name: (r.name ?? "").trim(),
+        ip: r.ip.trim(),
+        action: r.action === "DENY" ? ("DENY" as const) : ("ALLOW" as const),
+      }))
+      .filter((r) => r.ip);
     const payload = {
       name: form.name,
       groupName: form.groupName,
       quota: form.quotaUnlimited ? -1 : Number(form.quota),
       rateLimit: form.rateUnlimited ? 0 : Number(form.rateLimit),
-      concurrency: Number(form.concurrency) || 0,
+      concurrency: form.concurrencyUnlimited ? 0 : Number(form.concurrency) || 0,
       allowedModels: form.allowedModels,
       routeIds: form.routeIds,
-      ipAllowlist: parseIpText(form.ipAllowlistText),
-      remark: form.remark,
+      ipRules: cleaned,
       enabled: form.enabled,
     };
     try {
@@ -252,7 +302,7 @@ export default function TokensPage() {
         method: "PUT",
         body: JSON.stringify(payload),
       });
-      flash("策略已更新");
+      setToast("策略已更新");
       setOpen(false);
       setEditing(null);
       await load();
@@ -280,143 +330,236 @@ export default function TokensPage() {
     return `${models.slice(0, 2).join(", ")} +${models.length - 2}`;
   }
 
-  function ipLabel(list: string[]) {
-    if (!list.length) return "不限";
-    if (list.length <= 2) return list.join(", ");
-    return `${list[0]} 等${list.length}条`;
-  }
-
   function quotaLabel(r: Token) {
     const remaining = r.quota < 0 ? "∞" : (r.remainingQuota ?? 0).toLocaleString();
     const total = r.quota < 0 ? "∞" : r.quota.toLocaleString();
     return `${remaining} / ${total}`;
   }
 
-  const table = (
-    <div className="panel">
-      <div className="table-wrap">
-        <table className="table km-table">
-          <thead>
-            <tr>
-              <th>名称</th>
-              <th>所属分组</th>
-              <th>路由</th>
-              <th>可用模型</th>
-              <th>IP 限制</th>
-              <th>QPS</th>
-              <th>并发限制</th>
-              <th>剩余额度 / 总额度</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((r) => (
-              <tr key={r.id}>
-                <td>
-                  <strong>{r.name}</strong>
-                  <div className="tk-sub">
-                    <span className={`badge ${r.enabled ? "on" : "off"}`}>
-                      {r.enabled ? "启用" : "禁用"}
-                    </span>
-                    {r.remark ? ` · ${r.remark}` : ""}
-                  </div>
-                </td>
-                <td>{r.groupName?.trim() || "—"}</td>
-                <td title={(r.routeIds ?? []).map((id) => routeMap.get(id) ?? id).join(", ")}>
-                  {routeLabel(r.routeIds ?? [])}
-                </td>
-                <td title={r.allowedModels.join(", ") || "全部模型"}>
-                  <span className="tk-models">{modelsLabel(r.allowedModels)}</span>
-                </td>
-                <td className="mono" title={(r.ipAllowlist ?? []).join("\n")}>
-                  {ipLabel(r.ipAllowlist ?? [])}
-                </td>
-                <td className="mono">{r.rateLimit <= 0 ? "不限" : r.rateLimit}</td>
-                <td className="mono">{!r.concurrency ? "不限" : r.concurrency}</td>
-                <td className="mono">{quotaLabel(r)}</td>
-                <td>
-                  <div className="tk-ops">
-                    <button
-                      type="button"
-                      className="icon-btn"
-                      title="修改策略"
-                      onClick={() => startEdit(r)}
-                    >
-                      <IconPencil />
-                    </button>
+  const sampleJson = `{
+  "rules": [
+    {
+      "name": "允许公司内部办公网段",
+      "ip": "192.168.1.0/24",
+      "action": "ALLOW"
+    },
+    {
+      "name": "允许特定的VPN出口IP",
+      "ip": "203.0.113.25",
+      "action": "ALLOW"
+    },
+    {
+      "name": "阻止来自恶意IP的访问",
+      "ip": "198.51.100.0/24",
+      "action": "DENY"
+    }
+  ]
+}`;
+
+  const ruleEditor = (
+    <div className="ip-editor">
+      <div className="km-skin-picker ip-skin-picker">
+        <span>IP 编辑版本</span>
+        <button
+          type="button"
+          className={`km-skin-btn${ipSkin === "a" ? " on" : ""}`}
+          onClick={() => pickIpSkin("a")}
+        >
+          A · 规则卡片
+        </button>
+        <button
+          type="button"
+          className={`km-skin-btn${ipSkin === "b" ? " on" : ""}`}
+          onClick={() => pickIpSkin("b")}
+        >
+          B · 双栏 JSON
+        </button>
+        <button
+          type="button"
+          className={`km-skin-btn${ipSkin === "c" ? " on" : ""}`}
+          onClick={() => pickIpSkin("c")}
+        >
+          C · 紧凑行表
+        </button>
+      </div>
+      <p className="km-skin-hint">
+        {ipSkin === "a" && "方案 A：卡片列表 + 导入 JSON 弹窗（推荐）"}
+        {ipSkin === "b" && "方案 B：左侧规则、右侧 JSON 实时对照，适合批量改"}
+        {ipSkin === "c" && "方案 C：紧凑表格行，适合规则很多时快速扫"}
+      </p>
+
+      <div className="ip-toolbar">
+        <button type="button" className="btn ghost" onClick={addEmptyRule}>
+          添加规则
+        </button>
+        <button
+          type="button"
+          className="btn ghost"
+          onClick={() => {
+            setImportText(sampleJson);
+            setImportError("");
+            setImportOpen(true);
+          }}
+        >
+          导入 JSON
+        </button>
+        <span className="ip-hint">支持单 IP 与 CIDR 网段；空规则 = 不限制</span>
+      </div>
+
+      {ipSkin === "a" ? (
+        <div className="ip-cards">
+          {form.ipRules.map((r, i) => (
+            <div key={i} className={`ip-card ${r.action === "DENY" ? "deny" : "allow"}`}>
+              <input
+                className="ip-card-name"
+                placeholder="规则名称（可选）"
+                value={r.name ?? ""}
+                onChange={(e) => updateRule(i, { name: e.target.value })}
+              />
+              <input
+                className="ip-card-ip mono"
+                placeholder="IP 或 CIDR，如 192.168.1.0/24"
+                value={r.ip}
+                onChange={(e) => updateRule(i, { ip: e.target.value })}
+              />
+              <SoftSelect
+                value={r.action}
+                onChange={(action) =>
+                  updateRule(i, { action: action === "DENY" ? "DENY" : "ALLOW" })
+                }
+                options={[
+                  { value: "ALLOW", label: "允许 ALLOW" },
+                  { value: "DENY", label: "拒绝 DENY" },
+                ]}
+              />
+              <button type="button" className="icon-btn danger" onClick={() => removeRule(i)}>
+                <IconTrash />
+              </button>
+            </div>
+          ))}
+          {!form.ipRules.length ? (
+            <div className="ip-empty">暂无 IP 规则，点击「添加规则」或「导入 JSON」</div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {ipSkin === "b" ? (
+        <div className="ip-split">
+          <div className="ip-cards">
+            {form.ipRules.map((r, i) => (
+              <div key={i} className={`ip-card ${r.action === "DENY" ? "deny" : "allow"}`}>
+                <input
+                  placeholder="名称"
+                  value={r.name ?? ""}
+                  onChange={(e) => updateRule(i, { name: e.target.value })}
+                />
+                <input
+                  className="mono"
+                  placeholder="IP/CIDR"
+                  value={r.ip}
+                  onChange={(e) => updateRule(i, { ip: e.target.value })}
+                />
+                <SoftSelect
+                  value={r.action}
+                  onChange={(action) =>
+                    updateRule(i, { action: action === "DENY" ? "DENY" : "ALLOW" })
+                  }
+                  options={[
+                    { value: "ALLOW", label: "ALLOW" },
+                    { value: "DENY", label: "DENY" },
+                  ]}
+                />
+                <button type="button" className="icon-btn danger" onClick={() => removeRule(i)}>
+                  <IconTrash />
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="ip-json-pane">
+            <textarea
+              className="tk-ip-area mono"
+              rows={12}
+              value={jsonDraft}
+              onChange={(e) => setJsonDraft(e.target.value)}
+            />
+            <button type="button" className="btn" onClick={syncJsonDraft}>
+              同步 JSON → 规则
+            </button>
+            {importError ? <div className="alert">{importError}</div> : null}
+          </div>
+        </div>
+      ) : null}
+
+      {ipSkin === "c" ? (
+        <div className="ip-table-wrap">
+          <table className="table ip-table">
+            <thead>
+              <tr>
+                <th>名称</th>
+                <th>IP / 网段</th>
+                <th>动作</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {form.ipRules.map((r, i) => (
+                <tr key={i}>
+                  <td>
+                    <input
+                      value={r.name ?? ""}
+                      onChange={(e) => updateRule(i, { name: e.target.value })}
+                      placeholder="可选"
+                    />
+                  </td>
+                  <td>
+                    <input
+                      className="mono"
+                      value={r.ip}
+                      onChange={(e) => updateRule(i, { ip: e.target.value })}
+                      placeholder="1.2.3.4 或 10.0.0.0/8"
+                    />
+                  </td>
+                  <td>
+                    <SoftSelect
+                      value={r.action}
+                      onChange={(action) =>
+                        updateRule(i, { action: action === "DENY" ? "DENY" : "ALLOW" })
+                      }
+                      options={[
+                        { value: "ALLOW", label: "ALLOW" },
+                        { value: "DENY", label: "DENY" },
+                      ]}
+                    />
+                  </td>
+                  <td>
                     <button
                       type="button"
                       className="icon-btn danger"
-                      title="删除"
-                      onClick={() => void remove(r)}
+                      onClick={() => removeRule(i)}
                     >
                       <IconTrash />
                     </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {!filtered.length ? (
-              <tr>
-                <td colSpan={9} className="empty">
-                  没有匹配的密钥策略
-                </td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
-      </div>
+                  </td>
+                </tr>
+              ))}
+              {!form.ipRules.length ? (
+                <tr>
+                  <td colSpan={4} className="empty">
+                    暂无规则
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
     </div>
-  );
-
-  const searchFields = (
-    <>
-      <input
-        className="search"
-        placeholder="按名称、分组、路由、状态或模型搜索"
-        value={kwDraft}
-        onChange={(e) => setKwDraft(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") applySearch();
-        }}
-      />
-      <select
-        value={groupFilter}
-        onChange={(e) => setGroupFilter(e.target.value)}
-        aria-label="按标签/分组"
-      >
-        <option value="">标签: 全部</option>
-        {groups.map((g) => (
-          <option key={g} value={g}>
-            {g}
-          </option>
-        ))}
-      </select>
-      <select
-        value={statusFilter}
-        onChange={(e) => setStatusFilter(e.target.value as "all" | "on" | "off")}
-      >
-        <option value="all">状态: 全部</option>
-        <option value="on">启用</option>
-        <option value="off">禁用</option>
-      </select>
-      <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
-        <option value="created_desc">排序: 创建时间 (新→旧)</option>
-        <option value="created_asc">排序: 创建时间 (旧→新)</option>
-        <option value="used_desc">排序: 最近使用</option>
-        <option value="name">排序: 名称</option>
-      </select>
-      <button type="button" className="btn" onClick={applySearch}>
-        查询
-      </button>
-      <button type="button" className="btn ghost" onClick={resetSearch}>
-        重置
-      </button>
-    </>
   );
 
   return (
     <>
+      <SoftToast message={toast} onDone={() => setToast(null)} />
+
       <div className="topbar">
         <div className="page-head">
           <h2>密钥管理</h2>
@@ -424,135 +567,152 @@ export default function TokensPage() {
         </div>
       </div>
 
-      <div className="km-skin-picker">
-        <span>布局版本（选定后会记住）</span>
-        <button
-          type="button"
-          className={`km-skin-btn${skin === "a" ? " on" : ""}`}
-          onClick={() => pickSkin("a")}
-        >
-          A · 统计卡片
+      {error && !open ? <div className="alert">{error}</div> : null}
+
+      <div className="km-stats">
+        <div className="km-stat">
+          <span>全部</span>
+          <strong>{stats.total}</strong>
+        </div>
+        <div className="km-stat">
+          <span>启用</span>
+          <strong>{stats.enabled}</strong>
+        </div>
+        <div className="km-stat">
+          <span>禁用</span>
+          <strong>{stats.disabled}</strong>
+        </div>
+        <div className="km-stat">
+          <span>未绑定路由</span>
+          <strong>{stats.unbound}</strong>
+        </div>
+        <div className="km-stat">
+          <span>即将过期</span>
+          <strong>{stats.expiring}</strong>
+        </div>
+      </div>
+
+      <div className="km-filters">
+        <input
+          className="search"
+          placeholder="按名称、分组、路由、状态或模型搜索"
+          value={kwDraft}
+          onChange={(e) => setKwDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") applySearch();
+          }}
+        />
+        <SoftSelect
+          ariaLabel="按标签"
+          value={groupFilter}
+          onChange={setGroupFilter}
+          options={[
+            { value: "", label: "标签: 全部" },
+            ...groups.map((g) => ({ value: g, label: g })),
+          ]}
+        />
+        <SoftSelect
+          ariaLabel="状态"
+          value={statusFilter}
+          onChange={(v) => setStatusFilter(v as "all" | "on" | "off")}
+          options={[
+            { value: "all", label: "状态: 全部" },
+            { value: "on", label: "启用" },
+            { value: "off", label: "禁用" },
+          ]}
+        />
+        <SoftSelect
+          ariaLabel="排序"
+          value={sort}
+          onChange={(v) => setSort(v as typeof sort)}
+          options={[
+            { value: "created_desc", label: "排序: 创建时间 (新→旧)" },
+            { value: "created_asc", label: "排序: 创建时间 (旧→新)" },
+            { value: "used_desc", label: "排序: 最近使用" },
+            { value: "name", label: "排序: 名称" },
+          ]}
+        />
+        <button type="button" className="btn" onClick={applySearch}>
+          查询
         </button>
-        <button
-          type="button"
-          className={`km-skin-btn${skin === "b" ? " on" : ""}`}
-          onClick={() => pickSkin("b")}
-        >
-          B · 紧凑数字条
-        </button>
-        <button
-          type="button"
-          className={`km-skin-btn${skin === "c" ? " on" : ""}`}
-          onClick={() => pickSkin("c")}
-        >
-          C · 左侧标签栏
+        <button type="button" className="btn ghost" onClick={resetSearch}>
+          重置
         </button>
       </div>
-      <p className="km-skin-hint">
-        {skin === "a" && "方案 A：顶部五块统计卡 + 工具式筛选条（最接近你给的参考图）"}
-        {skin === "b" && "方案 B：统计收成一行数字，筛选更紧凑，适合小屏"}
-        {skin === "c" && "方案 C：左侧常驻分组标签，右侧表格；适合分组很多时快速切换"}
-      </p>
 
-      {error && !open ? <div className="alert">{error}</div> : null}
-      {toast ? <div className="alert ok">{toast}</div> : null}
-
-      {skin === "a" ? (
-        <>
-          <div className="km-stats">
-            <div className="km-stat">
-              <span>全部</span>
-              <strong>{stats.total}</strong>
-            </div>
-            <div className="km-stat">
-              <span>启用</span>
-              <strong>{stats.enabled}</strong>
-            </div>
-            <div className="km-stat">
-              <span>禁用</span>
-              <strong>{stats.disabled}</strong>
-            </div>
-            <div className="km-stat">
-              <span>未绑定路由</span>
-              <strong>{stats.unbound}</strong>
-            </div>
-            <div className="km-stat">
-              <span>即将过期</span>
-              <strong>{stats.expiring}</strong>
-            </div>
-          </div>
-          <div className="km-filters">{searchFields}</div>
-          {table}
-        </>
-      ) : null}
-
-      {skin === "b" ? (
-        <>
-          <div className="km-strip">
-            <span>
-              全部 <b>{stats.total}</b>
-            </span>
-            <span>
-              启用 <b>{stats.enabled}</b>
-            </span>
-            <span>
-              禁用 <b>{stats.disabled}</b>
-            </span>
-            <span>
-              未绑定 <b>{stats.unbound}</b>
-            </span>
-            <span>
-              即将过期 <b>{stats.expiring}</b>
-            </span>
-          </div>
-          <div className="km-filters km-filters-tight">{searchFields}</div>
-          {table}
-        </>
-      ) : null}
-
-      {skin === "c" ? (
-        <div className="km-split">
-          <aside className="km-side">
-            <div className="km-side-title">分组标签</div>
-            <button
-              type="button"
-              className={`km-side-item${!groupFilter ? " on" : ""}`}
-              onClick={() => setGroupFilter("")}
-            >
-              全部 <em>{stats.total}</em>
-            </button>
-            {groups.map((g) => {
-              const n = rows.filter((r) => (r.groupName || "").trim() === g).length;
-              return (
-                <button
-                  key={g}
-                  type="button"
-                  className={`km-side-item${groupFilter === g ? " on" : ""}`}
-                  onClick={() => setGroupFilter(groupFilter === g ? "" : g)}
-                >
-                  {g} <em>{n}</em>
-                </button>
-              );
-            })}
-            {!groups.length ? <div className="km-side-empty">暂无分组</div> : null}
-            <div className="km-side-stats">
-              <div>
-                启用 <b>{stats.enabled}</b>
-              </div>
-              <div>
-                禁用 <b>{stats.disabled}</b>
-              </div>
-              <div>
-                未绑定 <b>{stats.unbound}</b>
-              </div>
-            </div>
-          </aside>
-          <div className="km-main">
-            <div className="km-filters">{searchFields}</div>
-            {table}
-          </div>
+      <div className="panel">
+        <div className="table-wrap">
+          <table className="table km-table">
+            <thead>
+              <tr>
+                <th>名称</th>
+                <th>所属分组</th>
+                <th>路由</th>
+                <th>可用模型</th>
+                <th>IP 限制</th>
+                <th>QPS</th>
+                <th>并发限制</th>
+                <th>剩余额度 / 总额度</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((r) => (
+                <tr key={r.id}>
+                  <td>
+                    <strong>{r.name}</strong>
+                    <div className="tk-sub">
+                      <span className={`badge ${r.enabled ? "on" : "off"}`}>
+                        {r.enabled ? "启用" : "禁用"}
+                      </span>
+                    </div>
+                  </td>
+                  <td>{r.groupName?.trim() || "—"}</td>
+                  <td title={(r.routeIds ?? []).map((id) => routeMap.get(id) ?? id).join(", ")}>
+                    {routeLabel(r.routeIds ?? [])}
+                  </td>
+                  <td title={r.allowedModels.join(", ") || "全部模型"}>
+                    <span className="tk-models">{modelsLabel(r.allowedModels)}</span>
+                  </td>
+                  <td title={summarizeIpRules(tokenRules(r))}>
+                    {summarizeIpRules(tokenRules(r))}
+                  </td>
+                  <td className="mono">{r.rateLimit <= 0 ? "不限" : r.rateLimit}</td>
+                  <td className="mono">{!r.concurrency ? "不限" : r.concurrency}</td>
+                  <td className="mono">{quotaLabel(r)}</td>
+                  <td>
+                    <div className="tk-ops">
+                      <button
+                        type="button"
+                        className="icon-btn"
+                        title="修改策略"
+                        onClick={() => startEdit(r)}
+                      >
+                        <IconPencil />
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-btn danger"
+                        title="删除"
+                        onClick={() => void remove(r)}
+                      >
+                        <IconTrash />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {!filtered.length ? (
+                <tr>
+                  <td colSpan={9} className="empty">
+                    没有匹配的密钥策略
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
         </div>
-      ) : null}
+      </div>
 
       {open && editing ? (
         <div className="modal-backdrop" onClick={() => setOpen(false)}>
@@ -591,25 +751,17 @@ export default function TokensPage() {
                   ))}
                 </datalist>
               </label>
-              <label className="stack-field">
+              <div className="stack-field">
                 <span>状态</span>
-                <select
+                <SoftSelect
                   value={form.enabled ? "1" : "0"}
-                  onChange={(e) =>
-                    setForm({ ...form, enabled: e.target.value === "1" })
-                  }
-                >
-                  <option value="1">启用</option>
-                  <option value="0">禁用</option>
-                </select>
-              </label>
-              <label className="stack-field">
-                <span>备注</span>
-                <input
-                  value={form.remark}
-                  onChange={(e) => setForm({ ...form, remark: e.target.value })}
+                  onChange={(v) => setForm({ ...form, enabled: v === "1" })}
+                  options={[
+                    { value: "1", label: "启用" },
+                    { value: "0", label: "禁用" },
+                  ]}
                 />
-              </label>
+              </div>
               <label className="stack-field">
                 <span>QPS（每分钟）</span>
                 <div className="rate-row">
@@ -636,15 +788,30 @@ export default function TokensPage() {
               </label>
               <label className="stack-field">
                 <span>并发限制</span>
-                <input
-                  type="number"
-                  min={0}
-                  value={form.concurrency}
-                  onChange={(e) =>
-                    setForm({ ...form, concurrency: Number(e.target.value) })
-                  }
-                  placeholder="0 = 不限"
-                />
+                <div className="rate-row">
+                  <label className="check-inline">
+                    <input
+                      type="checkbox"
+                      checked={form.concurrencyUnlimited}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          concurrencyUnlimited: e.target.checked,
+                        })
+                      }
+                    />
+                    不限
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    disabled={form.concurrencyUnlimited}
+                    value={form.concurrency}
+                    onChange={(e) =>
+                      setForm({ ...form, concurrency: Number(e.target.value) })
+                    }
+                  />
+                </div>
               </label>
               <label className="stack-field">
                 <span>配额（Token）</span>
@@ -671,7 +838,8 @@ export default function TokensPage() {
                 </div>
               </label>
             </div>
-            <label className="stack-field" style={{ marginTop: 12 }}>
+
+            <div className="stack-field" style={{ marginTop: 12 }}>
               <span>绑定路由</span>
               <div className="km-route-picks">
                 {routes.map((rt) => {
@@ -680,7 +848,7 @@ export default function TokensPage() {
                     <button
                       key={rt.id}
                       type="button"
-                      className={`tk-tag${on ? " on" : ""}`}
+                      className={`km-route-chip${on ? " on" : ""}`}
                       onClick={() =>
                         setForm({
                           ...form,
@@ -699,27 +867,22 @@ export default function TokensPage() {
                   <span className="tk-tag-empty">暂无路由，请先在路由管理中创建</span>
                 ) : null}
               </div>
-            </label>
-            <label className="stack-field" style={{ marginTop: 12 }}>
+            </div>
+
+            <div className="stack-field" style={{ marginTop: 12 }}>
               <span>可用模型</span>
               <ModelPicker
                 options={modelOptions}
                 value={form.allowedModels}
                 onChange={(allowedModels) => setForm({ ...form, allowedModels })}
               />
-            </label>
-            <label className="stack-field" style={{ marginTop: 12 }}>
+            </div>
+
+            <div className="stack-field" style={{ marginTop: 12 }}>
               <span>IP 限制</span>
-              <textarea
-                className="tk-ip-area"
-                rows={3}
-                value={form.ipAllowlistText}
-                onChange={(e) =>
-                  setForm({ ...form, ipAllowlistText: e.target.value })
-                }
-                placeholder={"留空不限制\n每行一个 IP 或 CIDR"}
-              />
-            </label>
+              {ruleEditor}
+            </div>
+
             <div className="modal-actions">
               <button type="button" className="btn ghost" onClick={() => setOpen(false)}>
                 取消
@@ -727,6 +890,35 @@ export default function TokensPage() {
               <button className="btn">保存</button>
             </div>
           </form>
+        </div>
+      ) : null}
+
+      {importOpen ? (
+        <div className="modal-backdrop" onClick={() => setImportOpen(false)}>
+          <div className="modal modal-token" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-user-head">
+              <h3>导入 IP 规则 JSON</h3>
+              <p>格式：{`{ "rules": [ { "name", "ip", "action": "ALLOW"|"DENY" } ] }`}</p>
+            </div>
+            {importError ? <div className="alert">{importError}</div> : null}
+            <textarea
+              className="tk-ip-area mono"
+              rows={14}
+              value={importText}
+              onChange={(e) => setImportText(e.target.value)}
+            />
+            <div className="modal-actions">
+              <button type="button" className="btn ghost" onClick={() => setImportOpen(false)}>
+                取消
+              </button>
+              <button type="button" className="btn ghost" onClick={() => applyImport(false)}>
+                追加导入
+              </button>
+              <button type="button" className="btn" onClick={() => applyImport(true)}>
+                覆盖导入
+              </button>
+            </div>
+          </div>
         </div>
       ) : null}
     </>

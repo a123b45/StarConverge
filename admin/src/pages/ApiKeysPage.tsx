@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
+import SoftToast from "../components/SoftToast";
 import { IconCopy, IconEye, IconEyeOff, IconPencil, IconTrash } from "../components/icons";
 
 type Token = {
@@ -8,7 +9,6 @@ type Token = {
   keyPrefix: string;
   key: string | null;
   lastUsedAt: string | Date | null;
-  remark: string | null;
   createdAt: string | Date;
 };
 
@@ -35,10 +35,9 @@ export default function ApiKeysPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Token | null>(null);
   const [name, setName] = useState("");
-  const [remark, setRemark] = useState("");
   const [revealId, setRevealId] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const [toast, setToast] = useState("");
+  const [toast, setToast] = useState<string | null>(null);
   const [createdKey, setCreatedKey] = useState<string | null>(null);
 
   async function load() {
@@ -56,21 +55,14 @@ export default function ApiKeysPage() {
     return rows.filter(
       (r) =>
         r.name.toLowerCase().includes(q) ||
-        (r.remark ?? "").toLowerCase().includes(q) ||
         r.keyPrefix.toLowerCase().includes(q) ||
         (r.key ?? "").toLowerCase().includes(q),
     );
   }, [rows, kw]);
 
-  function flash(msg: string) {
-    setToast(msg);
-    setTimeout(() => setToast(""), 2200);
-  }
-
   function startCreate() {
     setEditing(null);
     setName("");
-    setRemark("");
     setCreatedKey(null);
     setOpen(true);
   }
@@ -78,7 +70,6 @@ export default function ApiKeysPage() {
   function startEdit(row: Token) {
     setEditing(row);
     setName(row.name);
-    setRemark(row.remark || "");
     setCreatedKey(null);
     setOpen(true);
   }
@@ -90,27 +81,24 @@ export default function ApiKeysPage() {
       if (editing) {
         await api(`/tokens/${editing.id}`, {
           method: "PUT",
-          body: JSON.stringify({ name, remark }),
+          body: JSON.stringify({ name }),
         });
-        flash("已保存");
         setOpen(false);
       } else {
         const res = await api<{ data: Token; key: string }>("/tokens", {
           method: "POST",
           body: JSON.stringify({
             name,
-            remark,
             quota: -1,
             rateLimit: 60,
             allowedModels: [],
-            ipAllowlist: [],
+            ipRules: [],
             routeIds: [],
             concurrency: 0,
             enabled: true,
           }),
         });
         setCreatedKey(res.key);
-        flash("密钥已创建，请立即复制保存");
       }
       await load();
     } catch (err) {
@@ -125,12 +113,18 @@ export default function ApiKeysPage() {
   }
 
   async function copyKey(key: string) {
-    await navigator.clipboard.writeText(key);
-    flash("已复制");
+    try {
+      await navigator.clipboard.writeText(key);
+      setToast("复制成功!");
+    } catch {
+      setToast("复制失败");
+    }
   }
 
   return (
     <>
+      <SoftToast message={toast} onDone={() => setToast(null)} />
+
       <div className="topbar">
         <div className="page-head">
           <h2>API 密钥</h2>
@@ -142,12 +136,11 @@ export default function ApiKeysPage() {
       </div>
 
       {error && !open ? <div className="alert">{error}</div> : null}
-      {toast ? <div className="alert ok">{toast}</div> : null}
 
       <div className="ak-toolbar">
         <input
           className="search"
-          placeholder="按名称、备注或密钥前缀搜索"
+          placeholder="按名称或密钥前缀搜索"
           value={kw}
           onChange={(e) => setKw(e.target.value)}
         />
@@ -173,7 +166,6 @@ export default function ApiKeysPage() {
                   <tr key={r.id}>
                     <td>
                       <strong>{r.name}</strong>
-                      {r.remark ? <div className="tk-sub">{r.remark}</div> : null}
                     </td>
                     <td className="key-td">
                       <div className="key-cell">
@@ -269,27 +261,17 @@ export default function ApiKeysPage() {
                 </button>
               </div>
             ) : (
-              <div className="modal-user-grid ak-form-grid">
-                <label className="stack-field">
-                  <span>
-                    名称 <em>*</em>
-                  </span>
-                  <input
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="例如：张三 / 测试"
-                  />
-                </label>
-                <label className="stack-field">
-                  <span>备注</span>
-                  <input
-                    value={remark}
-                    onChange={(e) => setRemark(e.target.value)}
-                    placeholder="可选"
-                  />
-                </label>
-              </div>
+              <label className="stack-field">
+                <span>
+                  名称 <em>*</em>
+                </span>
+                <input
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="例如：张三 / 测试"
+                />
+              </label>
             )}
             <div className="modal-actions">
               {createdKey ? (
