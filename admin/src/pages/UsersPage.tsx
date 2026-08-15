@@ -22,7 +22,6 @@ type UserRow = {
 
 type FormState = {
   username: string;
-  displayName: string;
   email: string;
   password: string;
   confirm: string;
@@ -31,7 +30,6 @@ type FormState = {
 
 const emptyForm = (): FormState => ({
   username: "",
-  displayName: "",
   email: "",
   password: "",
   confirm: "",
@@ -108,7 +106,7 @@ export default function UsersPage() {
         method: "POST",
         body: JSON.stringify({
           username: form.username,
-          displayName: form.displayName || form.username,
+          displayName: form.username,
           email: form.email || null,
           password: form.password,
           roleId: form.roleId,
@@ -268,16 +266,6 @@ export default function UsersPage() {
             <div className="modal-user-grid">
               <label className="stack-field">
                 <span>
-                  名称 <em>*</em>
-                </span>
-                <input
-                  value={form.displayName}
-                  onChange={(e) => setForm({ ...form, displayName: e.target.value })}
-                  placeholder="显示名称"
-                />
-              </label>
-              <label className="stack-field">
-                <span>
                   用户名 <em>*</em>
                 </span>
                 <input
@@ -297,18 +285,6 @@ export default function UsersPage() {
                   placeholder="用于找回密码（可选）"
                 />
               </label>
-              <div className="stack-field">
-                <span>
-                  角色 <em>*</em>
-                </span>
-                <SoftSelect
-                  className="soft-select-filter"
-                  ariaLabel="角色"
-                  value={form.roleId}
-                  onChange={(v) => setForm({ ...form, roleId: v })}
-                  options={roles.map((r) => ({ value: r.id, label: r.name }))}
-                />
-              </div>
               <label className="stack-field">
                 <span>
                   密码 <em>*</em>
@@ -344,6 +320,18 @@ export default function UsersPage() {
                   placeholder="再次输入密码"
                 />
               </label>
+              <div className="stack-field modal-user-span">
+                <span>
+                  角色 <em>*</em>
+                </span>
+                <SoftSelect
+                  className="soft-select-filter"
+                  ariaLabel="角色"
+                  value={form.roleId}
+                  onChange={(v) => setForm({ ...form, roleId: v })}
+                  options={roles.map((r) => ({ value: r.id, label: r.name }))}
+                />
+              </div>
             </div>
 
             <div className="modal-actions">
