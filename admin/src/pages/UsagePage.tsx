@@ -153,7 +153,7 @@ export default function UsagePage() {
             <div className="bar-list">
               {dash!.byModel.map((r) => (
                 <div className="bar-row" key={r.model}>
-                  <span className="mono" style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+                  <span className="mono bar-model" title={r.model}>
                     {r.model}
                   </span>
                   <div className="track">
@@ -179,7 +179,7 @@ export default function UsagePage() {
             <div className="bar-list">
               {dash!.byModel.map((r) => (
                 <div className="bar-row" key={`req-${r.model}`}>
-                  <span className="mono" style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+                  <span className="mono bar-model" title={r.model}>
                     {r.model}
                   </span>
                   <div className="track">
