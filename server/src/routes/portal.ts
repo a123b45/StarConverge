@@ -207,6 +207,23 @@ portalRoutes.get("/keys/:id", async (c) => {
   return c.json({ data: publicToken(row), key: row.keyPlain });
 });
 
+portalRoutes.patch("/keys/:id", async (c) => {
+  const auth = c.get("auth");
+  const row = await db.query.tokens.findFirst({
+    where: and(eq(tokens.id, c.req.param("id")), eq(tokens.userId, auth.userId!)),
+  });
+  if (!row) return c.json({ error: "Not found" }, 404);
+  const schema = z.object({ name: z.string().min(1).max(64) });
+  const parsed = schema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: "参数无效" }, 400);
+  await db
+    .update(tokens)
+    .set({ name: parsed.data.name.trim(), updatedAt: new Date() })
+    .where(eq(tokens.id, row.id));
+  const saved = await db.query.tokens.findFirst({ where: eq(tokens.id, row.id) });
+  return c.json({ data: publicToken(saved!) });
+});
+
 portalRoutes.delete("/keys/:id", async (c) => {
   const auth = c.get("auth");
   const row = await db.query.tokens.findFirst({
