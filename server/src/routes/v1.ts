@@ -122,6 +122,7 @@ async function proxyOpenAI(c: Context<AuthVars>, upstreamPath: string) {
 
   const resolved = await resolveChannelsForModel(model, {
     boundRouteIds: parseJsonArray(token.routeIds ?? "[]"),
+    bodyText,
   });
   if (!resolved || resolved.candidates.length === 0) {
     await writeLog({

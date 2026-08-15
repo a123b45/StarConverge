@@ -132,8 +132,19 @@ export const tokens = sqliteTable(
 export const modelRoutes = sqliteTable("model_routes", {
   id: text("id").primaryKey(),
   model: text("model").notNull().unique(),
-  channelIds: text("channel_ids").notNull().default("[]"), // JSON priority list
-  rewriteModel: text("rewrite_model"), // optional upstream model name
+  channelIds: text("channel_ids").notNull().default("[]"), // JSON priority list (legacy / derived)
+  rewriteModel: text("rewrite_model"), // optional upstream model name (legacy / first target)
+  /** full | random | ratio | smart */
+  strategy: text("strategy").notNull().default("full"),
+  /**
+   * JSON targets: { channelId, upstreamModel, weight }[]
+   * weight used by ratio strategy (relative).
+   */
+  targets: text("targets").notNull().default("[]"),
+  /** smart strategy: upstream model for short input */
+  smartSimpleModel: text("smart_simple_model"),
+  /** smart strategy: upstream model for long/complex input */
+  smartComplexModel: text("smart_complex_model"),
   enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
   /** When true, model appears in user portal + /v1/models */
   published: integer("published", { mode: "boolean" }).notNull().default(false),

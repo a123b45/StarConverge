@@ -61,6 +61,42 @@ function bodyToIpRules(body: {
 async function detachChannelFromModelRoutes(channelId: string) {
   const rows = await db.select().from(modelRoutes);
   for (const r of rows) {
+    let targets: Array<{ channelId: string; upstreamModel: string; weight?: number }> =
+      [];
+    try {
+      const raw = JSON.parse(r.targets || "[]") as unknown;
+      if (Array.isArray(raw)) {
+        targets = raw.filter(
+          (t): t is { channelId: string; upstreamModel: string; weight?: number } =>
+            !!t &&
+            typeof t === "object" &&
+            typeof (t as { channelId?: unknown }).channelId === "string" &&
+            typeof (t as { upstreamModel?: unknown }).upstreamModel === "string",
+        );
+      }
+    } catch {
+      targets = [];
+    }
+
+    if (targets.length > 0) {
+      const next = targets.filter((t) => t.channelId !== channelId);
+      if (next.length === 0) {
+        await db.delete(modelRoutes).where(eq(modelRoutes.id, r.id));
+      } else if (next.length !== targets.length) {
+        const channelIds = [...new Set(next.map((t) => t.channelId))];
+        await db
+          .update(modelRoutes)
+          .set({
+            targets: JSON.stringify(next),
+            channelIds: toJsonArray(channelIds),
+            rewriteModel: next[0]?.upstreamModel ?? null,
+            updatedAt: new Date(),
+          })
+          .where(eq(modelRoutes.id, r.id));
+      }
+      continue;
+    }
+
     const ids = parseJsonArray(r.channelIds).filter((cid) => cid !== channelId);
     if (ids.length === 0) {
       await db.delete(modelRoutes).where(eq(modelRoutes.id, r.id));
@@ -123,17 +159,39 @@ async function syncChannelModelRoutes(channelId: string, models: string[]) {
   await pruneOrphanModelRoutes();
 }
 
-/** Drop routes with no channels, or models not listed on any channel. */
+/** Drop routes with no remaining channels. Keep alias routes (rewrite / multi-target). */
 async function pruneOrphanModelRoutes() {
   const chRows = await db.select().from(channels);
+  const channelIdSet = new Set(chRows.map((c) => c.id));
   const catalog = new Set<string>();
   for (const ch of chRows) {
     for (const m of explicitChannelModels(ch.models)) catalog.add(m);
   }
   const routes = await db.select().from(modelRoutes);
   for (const r of routes) {
-    const ids = parseJsonArray(r.channelIds);
-    if (!ids.length || !catalog.has(r.model)) {
+    const ids = parseJsonArray(r.channelIds).filter((id) => channelIdSet.has(id));
+    if (!ids.length) {
+      await db.delete(modelRoutes).where(eq(modelRoutes.id, r.id));
+      continue;
+    }
+    if (ids.length !== parseJsonArray(r.channelIds).length) {
+      await db
+        .update(modelRoutes)
+        .set({ channelIds: toJsonArray(ids), updatedAt: new Date() })
+        .where(eq(modelRoutes.id, r.id));
+    }
+    let hasTargets = false;
+    try {
+      const raw = JSON.parse(r.targets || "[]") as unknown;
+      hasTargets = Array.isArray(raw) && raw.length > 0;
+    } catch {
+      hasTargets = false;
+    }
+    const isAlias =
+      hasTargets ||
+      Boolean(r.rewriteModel && r.rewriteModel !== r.model);
+    // Auto-synced 1:1 routes only: drop if model left the channel catalog.
+    if (!isAlias && !catalog.has(r.model)) {
       await db.delete(modelRoutes).where(eq(modelRoutes.id, r.id));
     }
   }
@@ -707,14 +765,81 @@ adminRoutes.delete("/tokens/:id", async (c) => {
   return c.json({ ok: true });
 });
 
+const routeTargetSchema = z.object({
+  channelId: z.string().min(1),
+  upstreamModel: z.string().min(1),
+  weight: z.number().positive().optional(),
+});
+
+function serializeModelRoute(r: typeof modelRoutes.$inferSelect) {
+  let targets: Array<{
+    channelId: string;
+    upstreamModel: string;
+    weight?: number;
+  }> = [];
+  try {
+    const raw = JSON.parse(r.targets || "[]") as unknown;
+    if (Array.isArray(raw) && raw.length) {
+      targets = raw
+        .map((t) => {
+          if (!t || typeof t !== "object") return null;
+          const o = t as Record<string, unknown>;
+          const channelId = String(o.channelId ?? "").trim();
+          const upstreamModel = String(o.upstreamModel ?? "").trim();
+          if (!channelId || !upstreamModel) return null;
+          const w = Number(o.weight);
+          return {
+            channelId,
+            upstreamModel,
+            weight: Number.isFinite(w) && w > 0 ? w : 1,
+          };
+        })
+        .filter(Boolean) as typeof targets;
+    }
+  } catch {
+    targets = [];
+  }
+  if (!targets.length) {
+    const ids = parseJsonArray(r.channelIds);
+    const upstream = r.rewriteModel || r.model;
+    if (ids.length && upstream) {
+      targets = ids.map((channelId) => ({
+        channelId,
+        upstreamModel: upstream,
+        weight: 1,
+      }));
+    }
+  }
+  return {
+    ...r,
+    channelIds: parseJsonArray(r.channelIds),
+    targets,
+    strategy: r.strategy || "full",
+  };
+}
+
+function deriveFromTargets(
+  targets: Array<{ channelId: string; upstreamModel: string; weight?: number }>,
+) {
+  const channelIds = [...new Set(targets.map((t) => t.channelId))];
+  return {
+    channelIds,
+    rewriteModel: targets[0]?.upstreamModel ?? null,
+    targetsJson: JSON.stringify(
+      targets.map((t) => ({
+        channelId: t.channelId,
+        upstreamModel: t.upstreamModel,
+        weight: t.weight && t.weight > 0 ? t.weight : 1,
+      })),
+    ),
+  };
+}
+
 // ---- Model routes ----
 adminRoutes.get("/models", async (c) => {
   const rows = await db.select().from(modelRoutes).orderBy(modelRoutes.model);
   return c.json({
-    data: rows.map((r) => ({
-      ...r,
-      channelIds: parseJsonArray(r.channelIds),
-    })),
+    data: rows.map(serializeModelRoute),
   });
 });
 
@@ -723,29 +848,53 @@ adminRoutes.post("/models", async (c) => {
     model: z.string().min(1),
     channelIds: z.array(z.string()).default([]),
     rewriteModel: z.string().nullable().optional(),
+    strategy: z.enum(["full", "random", "ratio", "smart"]).default("full"),
+    targets: z.array(routeTargetSchema).default([]),
+    smartSimpleModel: z.string().nullable().optional(),
+    smartComplexModel: z.string().nullable().optional(),
     enabled: z.boolean().default(true),
     published: z.boolean().default(false),
   });
   const parsed = schema.safeParse(await c.req.json());
   if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
   const v = parsed.data;
+  let targets = v.targets;
+  if (!targets.length && v.channelIds.length && v.rewriteModel) {
+    targets = v.channelIds.map((channelId) => ({
+      channelId,
+      upstreamModel: v.rewriteModel!,
+      weight: 1,
+    }));
+  }
+  if (!targets.length) {
+    return c.json({ error: "请至少选择一个上游真实模型" }, 400);
+  }
+  if (v.strategy === "smart") {
+    if (!v.smartSimpleModel || !v.smartComplexModel) {
+      return c.json({ error: "智能路由需指定简单模型与智能模型" }, 400);
+    }
+  }
+  const derived = deriveFromTargets(targets);
   const row = {
     id: id("mr"),
     model: v.model,
-    channelIds: toJsonArray(v.channelIds),
-    rewriteModel: v.rewriteModel ?? null,
+    channelIds: toJsonArray(derived.channelIds),
+    rewriteModel: derived.rewriteModel,
+    strategy: v.strategy,
+    targets: derived.targetsJson,
+    smartSimpleModel: v.smartSimpleModel ?? null,
+    smartComplexModel: v.smartComplexModel ?? null,
     enabled: v.enabled,
     published: v.published,
   };
   await db.insert(modelRoutes).values(row);
   return c.json(
     {
-      data: {
+      data: serializeModelRoute({
         ...row,
-        channelIds: v.channelIds,
         createdAt: new Date(),
         updatedAt: new Date(),
-      },
+      }),
     },
     201,
   );
@@ -753,17 +902,65 @@ adminRoutes.post("/models", async (c) => {
 
 adminRoutes.put("/models/:id", async (c) => {
   const idParam = c.req.param("id");
-  const body = await c.req.json();
+  const schema = z.object({
+    model: z.string().min(1).optional(),
+    channelIds: z.array(z.string()).optional(),
+    rewriteModel: z.string().nullable().optional(),
+    strategy: z.enum(["full", "random", "ratio", "smart"]).optional(),
+    targets: z.array(routeTargetSchema).optional(),
+    smartSimpleModel: z.string().nullable().optional(),
+    smartComplexModel: z.string().nullable().optional(),
+    enabled: z.boolean().optional(),
+    published: z.boolean().optional(),
+  });
+  const parsed = schema.safeParse(await c.req.json());
+  if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
+  const body = parsed.data;
   const patch: Partial<typeof modelRoutes.$inferInsert> = { updatedAt: new Date() };
-  if (body.model != null) patch.model = String(body.model);
-  if (body.channelIds != null) patch.channelIds = toJsonArray(body.channelIds);
-  if (body.rewriteModel !== undefined) patch.rewriteModel = body.rewriteModel || null;
+  if (body.model != null) patch.model = body.model;
+  if (body.targets != null) {
+    if (!body.targets.length) {
+      return c.json({ error: "请至少选择一个上游真实模型" }, 400);
+    }
+    const derived = deriveFromTargets(body.targets);
+    patch.targets = derived.targetsJson;
+    patch.channelIds = toJsonArray(derived.channelIds);
+    patch.rewriteModel = derived.rewriteModel;
+  } else {
+    if (body.channelIds != null) patch.channelIds = toJsonArray(body.channelIds);
+    if (body.rewriteModel !== undefined) {
+      patch.rewriteModel = body.rewriteModel || null;
+    }
+  }
+  if (body.strategy != null) patch.strategy = body.strategy;
+  if (body.smartSimpleModel !== undefined) {
+    patch.smartSimpleModel = body.smartSimpleModel || null;
+  }
+  if (body.smartComplexModel !== undefined) {
+    patch.smartComplexModel = body.smartComplexModel || null;
+  }
   if (body.enabled != null) patch.enabled = Boolean(body.enabled);
   if (body.published != null) patch.published = Boolean(body.published);
+
+  const strategy = body.strategy;
+  if (strategy === "smart") {
+    const simple =
+      body.smartSimpleModel !== undefined
+        ? body.smartSimpleModel
+        : undefined;
+    const complex =
+      body.smartComplexModel !== undefined
+        ? body.smartComplexModel
+        : undefined;
+    if (simple === null || simple === "" || complex === null || complex === "") {
+      return c.json({ error: "智能路由需指定简单模型与智能模型" }, 400);
+    }
+  }
+
   await db.update(modelRoutes).set(patch).where(eq(modelRoutes.id, idParam));
   const row = await db.query.modelRoutes.findFirst({ where: eq(modelRoutes.id, idParam) });
   if (!row) return c.json({ error: "Not found" }, 404);
-  return c.json({ data: { ...row, channelIds: parseJsonArray(row.channelIds) } });
+  return c.json({ data: serializeModelRoute(row) });
 });
 
 adminRoutes.delete("/models/:id", async (c) => {

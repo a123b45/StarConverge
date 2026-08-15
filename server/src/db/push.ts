@@ -241,6 +241,22 @@ export function migrate() {
       `ALTER TABLE model_routes ADD COLUMN published INTEGER NOT NULL DEFAULT 0`,
     );
   }
+  if (!mrCols.some((c) => c.name === "strategy")) {
+    sqlite.exec(
+      `ALTER TABLE model_routes ADD COLUMN strategy TEXT NOT NULL DEFAULT 'full'`,
+    );
+  }
+  if (!mrCols.some((c) => c.name === "targets")) {
+    sqlite.exec(
+      `ALTER TABLE model_routes ADD COLUMN targets TEXT NOT NULL DEFAULT '[]'`,
+    );
+  }
+  if (!mrCols.some((c) => c.name === "smart_simple_model")) {
+    sqlite.exec(`ALTER TABLE model_routes ADD COLUMN smart_simple_model TEXT`);
+  }
+  if (!mrCols.some((c) => c.name === "smart_complex_model")) {
+    sqlite.exec(`ALTER TABLE model_routes ADD COLUMN smart_complex_model TEXT`);
+  }
 
   // Seed default roles + backfill users without role_id
   seedDefaultRoles(sqlite);

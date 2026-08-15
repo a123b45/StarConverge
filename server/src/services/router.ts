@@ -3,6 +3,18 @@ import { db } from "../db/index.js";
 import { channels, modelRoutes, type Channel, type ModelRoute } from "../db/schema.js";
 import { parseJsonArray } from "../utils/crypto.js";
 
+export type RouteStrategy = "full" | "random" | "ratio" | "smart";
+
+export type RouteTarget = {
+  channelId: string;
+  upstreamModel: string;
+  /** Relative weight for ratio strategy (default 1) */
+  weight?: number;
+};
+
+/** Byte threshold for smart routing (UTF-8). */
+export const SMART_ROUTE_BYTE_THRESHOLD = 50;
+
 export type ResolvedRoute = {
   model: string;
   /** Model name sent to upstream provider */
@@ -10,7 +22,88 @@ export type ResolvedRoute = {
   candidates: Channel[];
   /** True when token.routeIds forced resolution onto a bound route */
   bound?: boolean;
+  strategy?: RouteStrategy;
 };
+
+export function parseRouteTargets(route: ModelRoute): RouteTarget[] {
+  try {
+    const raw = JSON.parse(route.targets || "[]") as unknown;
+    if (Array.isArray(raw) && raw.length > 0) {
+      return raw
+        .map((t) => {
+          if (!t || typeof t !== "object") return null;
+          const o = t as Record<string, unknown>;
+          const channelId = String(o.channelId ?? "").trim();
+          const upstreamModel = String(o.upstreamModel ?? "").trim();
+          if (!channelId || !upstreamModel) return null;
+          const w = Number(o.weight);
+          return {
+            channelId,
+            upstreamModel,
+            weight: Number.isFinite(w) && w > 0 ? w : 1,
+          } satisfies RouteTarget;
+        })
+        .filter(Boolean) as RouteTarget[];
+    }
+  } catch {
+    /* legacy */
+  }
+  const ids = parseJsonArray(route.channelIds);
+  const upstream = (route.rewriteModel || route.model || "").trim();
+  if (!ids.length || !upstream) return [];
+  return ids.map((channelId) => ({
+    channelId,
+    upstreamModel: upstream,
+    weight: 1,
+  }));
+}
+
+export function normalizeRouteStrategy(raw: unknown): RouteStrategy {
+  const s = String(raw ?? "full").toLowerCase();
+  if (s === "random" || s === "ratio" || s === "smart" || s === "full") return s;
+  return "full";
+}
+
+function pickByRatio(targets: RouteTarget[]): RouteTarget {
+  const total = targets.reduce((s, t) => s + Math.max(0, t.weight ?? 1), 0);
+  if (total <= 0) return targets[0]!;
+  let r = Math.random() * total;
+  for (const t of targets) {
+    r -= Math.max(0, t.weight ?? 1);
+    if (r <= 0) return t;
+  }
+  return targets[targets.length - 1]!;
+}
+
+/** Pick one target according to route strategy. */
+export function pickRouteTarget(
+  route: ModelRoute,
+  bodyText?: string,
+): RouteTarget | null {
+  const targets = parseRouteTargets(route);
+  if (!targets.length) return null;
+  const strategy = normalizeRouteStrategy(route.strategy);
+
+  if (strategy === "full") return targets[0]!;
+  if (strategy === "random") {
+    return targets[Math.floor(Math.random() * targets.length)]!;
+  }
+  if (strategy === "ratio") return pickByRatio(targets);
+  // smart: ≤50 bytes → simple model; >50 → complex model
+  const bytes = Buffer.byteLength(bodyText ?? "", "utf8");
+  const want =
+    bytes <= SMART_ROUTE_BYTE_THRESHOLD
+      ? (route.smartSimpleModel || targets[0]!.upstreamModel).trim()
+      : (
+          route.smartComplexModel ||
+          targets[targets.length - 1]!.upstreamModel
+        ).trim();
+  return (
+    targets.find((t) => t.upstreamModel === want) ??
+    targets.find((t) => `${t.channelId}::${t.upstreamModel}` === want) ??
+    targets[0]!
+  );
+}
 
 async function loadBoundRoute(
   boundRouteIds: string[],
@@ -40,7 +133,7 @@ async function loadBoundRoute(
  */
 export async function resolveChannelsForModel(
   model: string,
-  opts?: { boundRouteIds?: string[] },
+  opts?: { boundRouteIds?: string[]; bodyText?: string },
 ): Promise<ResolvedRoute | null> {
   const boundIds = (opts?.boundRouteIds ?? []).filter(Boolean);
   const boundRoute = await loadBoundRoute(boundIds, model);
@@ -51,22 +144,41 @@ export async function resolveChannelsForModel(
       where: and(eq(modelRoutes.model, model), eq(modelRoutes.enabled, true)),
     }));
 
-  // Bound route: upstream uses that route's rewrite/model even if client asked another name.
-  const upstreamModel = boundRoute
-    ? boundRoute.rewriteModel || boundRoute.model
-    : route?.rewriteModel || model;
+  const strategy = route
+    ? normalizeRouteStrategy(route.strategy)
+    : ("full" as RouteStrategy);
+  const picked = route ? pickRouteTarget(route, opts?.bodyText) : null;
+  const allTargets = route ? parseRouteTargets(route) : [];
+
+  const upstreamModel =
+    picked?.upstreamModel ||
+    (boundRoute
+      ? boundRoute.rewriteModel || boundRoute.model
+      : route?.rewriteModel || model);
 
   let candidates: Channel[] = [];
 
-  if (route) {
-    const ids = parseJsonArray(route.channelIds);
-    if (ids.length > 0) {
-      const all = await db
-        .select()
-        .from(channels)
-        .where(eq(channels.enabled, true));
-      const map = new Map(all.map((c) => [c.id, c]));
-      candidates = ids.map((i) => map.get(i)).filter(Boolean) as Channel[];
+  if (route && (picked || allTargets.length)) {
+    const all = await db
+      .select()
+      .from(channels)
+      .where(eq(channels.enabled, true));
+    const map = new Map(all.map((c) => [c.id, c]));
+
+    const targetKey = (t: RouteTarget) => `${t.channelId}::${t.upstreamModel}`;
+    const orderedTargets = picked
+      ? [
+          picked,
+          ...allTargets.filter((t) => targetKey(t) !== targetKey(picked)),
+        ]
+      : allTargets;
+
+    const seen = new Set<string>();
+    for (const t of orderedTargets) {
+      const ch = map.get(t.channelId);
+      if (!ch || seen.has(ch.id)) continue;
+      seen.add(ch.id);
+      candidates.push(ch);
     }
   }
 
@@ -87,17 +199,17 @@ export async function resolveChannelsForModel(
         models.some((m) => matchNames.has(m))
       );
     });
+    candidates = weightedOrder(candidates);
   }
 
   if (candidates.length === 0) return null;
-
-  candidates = weightedOrder(candidates);
 
   return {
     model,
     upstreamModel,
     candidates,
     bound: Boolean(boundRoute),
+    strategy,
   };
 }
 
