@@ -12,8 +12,11 @@ export type RouteTarget = {
   weight?: number;
 };
 
-/** Byte threshold for smart routing (UTF-8). */
-export const SMART_ROUTE_BYTE_THRESHOLD = 50;
+/** Character (字) threshold for smart routing — counts user message text, not raw JSON body. */
+export const SMART_ROUTE_CHAR_THRESHOLD = 50;
+
+/** @deprecated use SMART_ROUTE_CHAR_THRESHOLD */
+export const SMART_ROUTE_BYTE_THRESHOLD = SMART_ROUTE_CHAR_THRESHOLD;
 
 export type ResolvedRoute = {
   model: string;
@@ -24,6 +27,55 @@ export type ResolvedRoute = {
   bound?: boolean;
   strategy?: RouteStrategy;
 };
+
+/** Pull user-visible prompt text from a chat/completions-style body. */
+export function extractSmartRouteInputText(bodyText?: string): string {
+  if (!bodyText) return "";
+  try {
+    const obj = JSON.parse(bodyText) as Record<string, unknown>;
+    const parts: string[] = [];
+
+    const pushContent = (content: unknown) => {
+      if (typeof content === "string") {
+        parts.push(content);
+        return;
+      }
+      if (Array.isArray(content)) {
+        for (const block of content) {
+          if (!block || typeof block !== "object") continue;
+          const b = block as Record<string, unknown>;
+          if (typeof b.text === "string") parts.push(b.text);
+          else if (typeof b.content === "string") parts.push(b.content);
+        }
+      }
+    };
+
+    if (Array.isArray(obj.messages)) {
+      for (const m of obj.messages) {
+        if (!m || typeof m !== "object") continue;
+        const msg = m as Record<string, unknown>;
+        const role = String(msg.role ?? "");
+        if (role && role !== "user") continue;
+        pushContent(msg.content);
+      }
+    } else if (typeof obj.prompt === "string") {
+      parts.push(obj.prompt);
+    } else if (typeof obj.input === "string") {
+      parts.push(obj.input);
+    }
+
+    const joined = parts.join("\n").trim();
+    if (joined) return joined;
+  } catch {
+    /* fall through */
+  }
+  return bodyText.trim();
+}
+
+export function smartRouteInputLength(bodyText?: string): number {
+  // Unicode code points ≈ 字数 for CJK / Latin prompts
+  return [...extractSmartRouteInputText(bodyText)].length;
+}
 
 export function parseRouteTargets(route: ModelRoute): RouteTarget[] {
   try {
@@ -89,10 +141,10 @@ export function pickRouteTarget(
     return targets[Math.floor(Math.random() * targets.length)]!;
   }
   if (strategy === "ratio") return pickByRatio(targets);
-  // smart: ≤50 bytes → simple model; >50 → complex model
-  const bytes = Buffer.byteLength(bodyText ?? "", "utf8");
+  // smart: ≤50 字 → simple model; >50 → complex model (user message text only)
+  const chars = smartRouteInputLength(bodyText);
   const want =
-    bytes <= SMART_ROUTE_BYTE_THRESHOLD
+    chars <= SMART_ROUTE_CHAR_THRESHOLD
       ? (route.smartSimpleModel || targets[0]!.upstreamModel).trim()
       : (
           route.smartComplexModel ||

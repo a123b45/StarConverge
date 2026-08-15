@@ -51,7 +51,7 @@ const STRATEGY_OPTIONS: { value: RouteStrategy; label: string; hint: string }[] 
   {
     value: "smart",
     label: "智能路由",
-    hint: "≤50 字节走简单模型，超过则走智能模型",
+    hint: "≤50 字走简单模型，超过则走智能模型（按用户问题字数，不含请求 JSON）",
   },
 ];
 
@@ -529,7 +529,7 @@ export default function ModelsPage() {
               {form.strategy === "smart" ? (
                 <>
                   <label>
-                    简单模型（≤50 字节）
+                    简单模型（≤50 字）
                     <SoftSelect
                       className="soft-select-filter"
                       ariaLabel="简单模型"
@@ -545,7 +545,7 @@ export default function ModelsPage() {
                     />
                   </label>
                   <label>
-                    智能模型（&gt;50 字节）
+                    智能模型（&gt;50 字）
                     <SoftSelect
                       className="soft-select-filter"
                       ariaLabel="智能模型"
