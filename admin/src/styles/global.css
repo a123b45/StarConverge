@@ -3586,26 +3586,32 @@ html[data-theme="dark"] .portal-bar-tip::after {
   font-size: 13px;
   word-break: break-all;
 }
-.copy-row .portal-btn {
+.copy-row .portal-btn,
+.copy-row .portal-btn.ghost,
+.copy-row .portal-btn.ghost.sm {
   flex: 0 0 auto;
-  background: #fff;
-  color: var(--p-accent, #6d5efc);
-  border: 1px solid color-mix(in srgb, var(--p-accent, #6d5efc) 35%, #c4b5fd);
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+  background: #fff !important;
+  color: var(--p-accent, #6d5efc) !important;
+  border: 1.5px solid var(--p-accent, #6d5efc) !important;
+  box-shadow: 0 1px 3px rgba(109, 94, 252, 0.18) !important;
   font-weight: 650;
 }
-.copy-row .portal-btn:hover {
-  background: color-mix(in srgb, var(--p-accent, #6d5efc) 8%, #fff);
-  border-color: var(--p-accent, #6d5efc);
+.copy-row .portal-btn:hover,
+.copy-row .portal-btn.ghost:hover {
+  background: color-mix(in srgb, var(--p-accent, #6d5efc) 10%, #fff) !important;
+  border-color: color-mix(in srgb, var(--p-accent, #6d5efc) 80%, #4c1d95) !important;
 }
-html[data-theme="dark"] .copy-row .portal-btn {
-  background: var(--bg-elevated);
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+html[data-theme="dark"] .copy-row .portal-btn,
+html[data-theme="dark"] .copy-row .portal-btn.ghost,
+html[data-theme="dark"] .copy-row .portal-btn.ghost.sm {
+  background: var(--bg-elevated) !important;
+  color: var(--accent) !important;
+  border: 1.5px solid var(--accent) !important;
+  box-shadow: none !important;
 }
-html[data-theme="dark"] .copy-row .portal-btn:hover {
-  background: var(--accent-soft);
-  border-color: var(--accent);
+html[data-theme="dark"] .copy-row .portal-btn:hover,
+html[data-theme="dark"] .copy-row .portal-btn.ghost:hover {
+  background: var(--accent-soft) !important;
 }
 .inline-link {
   color: var(--p-teal-deep);
