@@ -13,8 +13,11 @@ export const users = sqliteTable(
     username: text("username").notNull().unique(),
     passwordHash: text("password_hash").notNull(),
     displayName: text("display_name").default(""),
-    role: text("role").notNull().default("user"), // user only in table; admin via env
+    email: text("email"),
+    role: text("role").notNull().default("user"), // legacy label; prefer roleId
+    roleId: text("role_id"),
     enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+    lastLoginAt: integer("last_login_at", { mode: "timestamp_ms" }),
     createdAt: integer("created_at", { mode: "timestamp_ms" })
       .notNull()
       .default(sql`(unixepoch() * 1000)`),
@@ -22,7 +25,49 @@ export const users = sqliteTable(
       .notNull()
       .default(sql`(unixepoch() * 1000)`),
   },
-  (t) => [index("users_username_idx").on(t.username)],
+  (t) => [
+    index("users_username_idx").on(t.username),
+    index("users_email_idx").on(t.email),
+    index("users_role_id_idx").on(t.roleId),
+  ],
+);
+
+export const roles = sqliteTable(
+  "roles",
+  {
+    id: text("id").primaryKey(),
+    key: text("key").notNull().unique(),
+    name: text("name").notNull(),
+    description: text("description").default(""),
+    menuPerms: text("menu_perms").notNull().default("[]"),
+    apiPerms: text("api_perms").notNull().default("[]"),
+    isSystem: integer("is_system", { mode: "boolean" }).notNull().default(false),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(unixepoch() * 1000)`),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(unixepoch() * 1000)`),
+  },
+  (t) => [index("roles_key_idx").on(t.key)],
+);
+
+export const passwordResets = sqliteTable(
+  "password_resets",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+    usedAt: integer("used_at", { mode: "timestamp_ms" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(unixepoch() * 1000)`),
+  },
+  (t) => [
+    index("password_resets_user_idx").on(t.userId),
+    index("password_resets_token_idx").on(t.tokenHash),
+  ],
 );
 
 export const channels = sqliteTable("channels", {
@@ -145,6 +190,7 @@ export const proxyRoutes = sqliteTable("proxy_routes", {
 });
 
 export type User = typeof users.$inferSelect;
+export type Role = typeof roles.$inferSelect;
 export type Channel = typeof channels.$inferSelect;
 export type Token = typeof tokens.$inferSelect;
 export type ModelRoute = typeof modelRoutes.$inferSelect;

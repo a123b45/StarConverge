@@ -5,6 +5,8 @@ import { tokens, users, type Token } from "../db/schema.js";
 import { extractBearer, hashKey, parseJsonArray } from "../utils/crypto.js";
 import { verifyAdminToken, verifyToken } from "../utils/jwt.js";
 import { checkRateLimit } from "../services/rate-limit.js";
+import { ALL_API_KEYS, ALL_MENU_KEYS } from "../rbac/permissions.js";
+import { getRoleById } from "../services/roles.js";
 
 export type AuthVars = {
   Variables: {
@@ -19,6 +21,19 @@ export type SessionVars = {
       username: string;
       role: "admin" | "user";
       userId?: string;
+      menuPerms?: string[];
+    };
+  };
+};
+
+export type AdminVars = {
+  Variables: {
+    adminAuth: {
+      username: string;
+      userId?: string;
+      isSuper: boolean;
+      menuPerms: string[];
+      apiPerms: string[];
     };
   };
 };
@@ -79,7 +94,7 @@ export function assertModelAllowed(token: Token, model: string): boolean {
   return allowed.includes(model) || allowed.includes("*");
 }
 
-export const requireAdmin = createMiddleware(async (c, next) => {
+export const requireAdmin = createMiddleware<AdminVars>(async (c, next) => {
   const raw = extractBearer(c.req.header("Authorization"));
   if (!raw) {
     return c.json({ error: "Unauthorized" }, 401);
@@ -88,8 +103,44 @@ export const requireAdmin = createMiddleware(async (c, next) => {
   if (!payload) {
     return c.json({ error: "Unauthorized" }, 401);
   }
+
+  if (!payload.userId) {
+    c.set("adminAuth", {
+      username: payload.sub,
+      isSuper: true,
+      menuPerms: [...ALL_MENU_KEYS],
+      apiPerms: [...ALL_API_KEYS],
+    });
+    await next();
+    return;
+  }
+
+  const user = await db.query.users.findFirst({
+    where: eq(users.id, payload.userId),
+  });
+  if (!user || !user.enabled) {
+    return c.json({ error: "Account disabled" }, 403);
+  }
+  const role = await getRoleById(user.roleId);
+  const menuPerms = role ? parseJsonArray(role.menuPerms) : [];
+  const apiPerms = role ? parseJsonArray(role.apiPerms) : [];
+  c.set("adminAuth", {
+    username: user.username,
+    userId: user.id,
+    isSuper: false,
+    menuPerms,
+    apiPerms,
+  });
   await next();
 });
+
+export function hasApiPerm(
+  auth: AdminVars["Variables"]["adminAuth"],
+  ...need: string[]
+): boolean {
+  if (auth.isSuper) return true;
+  return need.some((k) => auth.apiPerms.includes(k));
+}
 
 export const requireUser = createMiddleware<SessionVars>(async (c, next) => {
   const raw = extractBearer(c.req.header("Authorization"));
@@ -106,10 +157,12 @@ export const requireUser = createMiddleware<SessionVars>(async (c, next) => {
   if (!user || !user.enabled) {
     return c.json({ error: "Account disabled" }, 403);
   }
+  const role = await getRoleById(user.roleId);
   c.set("auth", {
     username: payload.sub,
     role: "user",
     userId: user.id,
+    menuPerms: role ? parseJsonArray(role.menuPerms) : [],
   });
   await next();
 });

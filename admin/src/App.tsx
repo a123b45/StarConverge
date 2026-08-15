@@ -8,9 +8,11 @@ import {
   useLocation,
   useNavigate,
 } from "react-router-dom";
-import { formatTokens, getRole, getToken, portalApi, setSession } from "./lib/api";
+import { formatTokens, getRole, getToken, portalApi, setSession, api } from "./lib/api";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 import DashboardPage from "./pages/DashboardPage";
 import ChannelsPage from "./pages/ChannelsPage";
 import TokensPage from "./pages/TokensPage";
@@ -19,6 +21,7 @@ import ProxyRoutesPage from "./pages/ProxyRoutesPage";
 import LogsPage from "./pages/LogsPage";
 import SettingsPage from "./pages/SettingsPage";
 import UsersPage from "./pages/UsersPage";
+import RolesPage from "./pages/RolesPage";
 import PortalModelsPage from "./pages/portal/PortalModelsPage";
 import PortalKeysPage from "./pages/portal/PortalKeysPage";
 import PortalUsagePage from "./pages/portal/PortalUsagePage";
@@ -37,6 +40,8 @@ import {
   AdminIconProxy,
   AdminIconRoute,
   AdminIconUsers,
+  IconGear,
+  IconShield,
   NavIconChat,
   NavIconDocs,
   NavIconKey,
@@ -64,7 +69,8 @@ const ADMIN_TITLES: Record<string, string> = {
   "/admin/tokens": "密钥管理",
   "/admin/models": "路由管理",
   "/admin/proxy": "模型管理",
-  "/admin/users": "客户管理",
+  "/admin/users": "用户管理",
+  "/admin/roles": "角色管理",
   "/admin/settings": "API 文档",
 };
 
@@ -72,6 +78,23 @@ function AdminShell() {
   const navigate = useNavigate();
   const location = useLocation();
   const [siderCollapsed, setSiderCollapsed] = useState(false);
+  const [menuPerms, setMenuPerms] = useState<string[] | null>(null);
+  const [roleLabel, setRoleLabel] = useState("管理员");
+
+  useEffect(() => {
+    api<{
+      menuPerms: string[];
+      isSuper: boolean;
+      username: string;
+    }>("/me")
+      .then((me) => {
+        setMenuPerms(me.menuPerms);
+        setRoleLabel(me.isSuper ? "超级管理员" : me.username);
+      })
+      .catch(() => setMenuPerms([]));
+  }, []);
+
+  const can = (key: string) => !menuPerms || menuPerms.includes(key);
 
   const pageTitle =
     ADMIN_TITLES[location.pathname] ||
@@ -90,54 +113,81 @@ function AdminShell() {
         <nav className="nav">
           <div className="nav-group">
             <div className="nav-label">运营</div>
-            <NavLink to="/admin" end>
-              <AdminIconDash />
-              控制台
-            </NavLink>
-            <NavLink to="/admin/usage">
-              <IconChart />
-              用量检测
-            </NavLink>
-            <NavLink to="/admin/logs">
-              <AdminIconLogs />
-              请求日志
-            </NavLink>
+            {can("menu.dashboard") ? (
+              <NavLink to="/admin" end>
+                <AdminIconDash />
+                控制台
+              </NavLink>
+            ) : null}
+            {can("menu.usage") ? (
+              <NavLink to="/admin/usage">
+                <IconChart />
+                用量检测
+              </NavLink>
+            ) : null}
+            {can("menu.logs") ? (
+              <NavLink to="/admin/logs">
+                <AdminIconLogs />
+                请求日志
+              </NavLink>
+            ) : null}
           </div>
           <div className="nav-group">
             <div className="nav-label">资源</div>
-            <NavLink to="/admin/channels">
-              <AdminIconChannel />
-              供应商管理
-            </NavLink>
-            <NavLink to="/admin/tokens">
-              <AdminIconKey />
-              密钥管理
-            </NavLink>
-            <NavLink to="/admin/models">
-              <AdminIconRoute />
-              路由管理
-            </NavLink>
-            <NavLink to="/admin/proxy">
-              <AdminIconProxy />
-              模型管理
-            </NavLink>
-            <NavLink to="/admin/users">
-              <AdminIconUsers />
-              客户管理
-            </NavLink>
+            {can("menu.channels") ? (
+              <NavLink to="/admin/channels">
+                <AdminIconChannel />
+                供应商管理
+              </NavLink>
+            ) : null}
+            {can("menu.routes") ? (
+              <NavLink to="/admin/models">
+                <AdminIconRoute />
+                路由管理
+              </NavLink>
+            ) : null}
+            {can("menu.proxy") ? (
+              <NavLink to="/admin/proxy">
+                <AdminIconProxy />
+                模型管理
+              </NavLink>
+            ) : null}
           </div>
           <div className="nav-group">
-            <div className="nav-label">系统</div>
-            <NavLink to="/admin/settings">
-              <IconFile />
-              API 文档
-            </NavLink>
+            <div className="nav-label nav-label-icon">
+              <IconGear size={14} />
+              系统
+            </div>
+            {can("menu.users") ? (
+              <NavLink to="/admin/users">
+                <AdminIconUsers />
+                用户管理
+              </NavLink>
+            ) : null}
+            {can("menu.roles") ? (
+              <NavLink to="/admin/roles">
+                <IconShield />
+                角色管理
+              </NavLink>
+            ) : null}
+            {can("menu.tokens") ? (
+              <NavLink to="/admin/tokens">
+                <AdminIconKey />
+                密钥管理
+              </NavLink>
+            ) : null}
+            {can("menu.settings") ? (
+              <NavLink to="/admin/settings">
+                <IconFile />
+                API 文档
+              </NavLink>
+            ) : null}
           </div>
         </nav>
         <div className="sidebar-foot">
           <div className="sidebar-role">
             <span>当前角色</span>
-            <strong>管理员</strong>
+            <strong>{roleLabel}</strong>
           </div>
         </div>
       </aside>
@@ -328,6 +378,8 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/" element={<HomeRedirect />} />
 
       <Route
@@ -346,6 +398,7 @@ export default function App() {
         <Route path="logs" element={<LogsPage />} />
         <Route path="usage" element={<UsagePage />} />
         <Route path="users" element={<UsersPage />} />
+        <Route path="roles" element={<RolesPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>
 

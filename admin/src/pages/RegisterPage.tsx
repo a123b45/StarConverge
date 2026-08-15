@@ -6,12 +6,14 @@ import {
   IconEyeOpen,
   IconFile,
   IconLock,
+  IconMail,
   IconPerson,
 } from "../components/icons";
 
 export default function RegisterPage() {
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [showPwd, setShowPwd] = useState(false);
@@ -33,7 +35,7 @@ export default function RegisterPage() {
         redirect: string;
       }>("/register", {
         method: "POST",
-        body: JSON.stringify({ username, password, displayName }),
+        body: JSON.stringify({ username, password, displayName, email }),
       });
       setSession(res.token, res.role);
       navigate(res.redirect || "/app");
@@ -111,6 +113,21 @@ export default function RegisterPage() {
                 placeholder="字母数字下划线，至少 3 位"
                 required
                 minLength={3}
+              />
+            </div>
+          </label>
+
+          <label className="auth-field">
+            <span>邮箱</span>
+            <div className="auth-input">
+              <IconMail />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+                placeholder="用于找回密码"
+                required
               />
             </div>
           </label>

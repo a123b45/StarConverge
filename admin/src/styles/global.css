@@ -181,6 +181,15 @@ code,
   color: #9ca3af;
   opacity: 1;
 }
+.nav-label-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.nav-label-icon svg {
+  color: #9ca3af;
+  flex-shrink: 0;
+}
 
 .nav a {
   display: flex;
@@ -913,6 +922,205 @@ code,
   width: min(640px, 100%);
 }
 
+.modal-rbac {
+  width: min(960px, 100%);
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: min(92vh, 880px);
+}
+.modal-rbac-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 20px 22px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.modal-rbac-head h3 {
+  margin: 0 0 4px;
+}
+.modal-rbac-head p {
+  margin: 0;
+}
+.modal-rbac .alert {
+  margin: 12px 22px 0;
+}
+.modal-rbac .rbac-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  padding: 16px 22px 8px;
+}
+.modal-rbac .rbac-fields label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.modal-rbac .rbac-fields em {
+  color: #c0392b;
+  font-style: normal;
+}
+.modal-rbac .rbac-fields input {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+  background: var(--bg);
+  color: var(--text);
+}
+.rbac-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  padding: 8px 22px 0;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+}
+.rbac-col {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--bg) 80%, var(--bg-elevated));
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.rbac-col-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+.rbac-groups {
+  padding: 10px 12px 14px;
+  overflow: auto;
+  max-height: min(48vh, 420px);
+}
+.rbac-group + .rbac-group {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line);
+}
+.rbac-group-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 650;
+  font-size: 13px;
+  color: var(--text);
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+.rbac-items {
+  display: grid;
+  gap: 6px;
+  padding-left: 22px;
+}
+.rbac-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.rbac-item:hover {
+  color: var(--text);
+}
+.modal-rbac .modal-actions {
+  padding: 14px 22px 18px;
+  border-top: 1px solid var(--line);
+  margin-top: 12px;
+}
+.role-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+}
+.role-card {
+  border: 1px solid var(--line);
+  background: var(--bg-elevated);
+  border-radius: 16px;
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+.role-card-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+.role-card h3 {
+  margin: 0 0 4px;
+  font-size: 1rem;
+}
+.role-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.role-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.modal-user {
+  width: min(480px, 100%);
+}
+.stack-field {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.stack-field em {
+  color: #c0392b;
+  font-style: normal;
+}
+.stack-field input,
+.stack-field select {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+  background: var(--bg);
+  color: var(--text);
+}
+.pwd-wrap {
+  position: relative;
+}
+.pwd-wrap input {
+  width: 100%;
+  padding-right: 42px;
+}
+.pwd-toggle {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+@media (max-width: 860px) {
+  .rbac-split,
+  .modal-rbac .rbac-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
 .wizard-head h3 {
   margin: 0 0 4px;
 }
@@ -1370,6 +1578,10 @@ code,
 .auth-muted-link {
   color: var(--auth-accent);
   font-weight: 600;
+  text-decoration: none;
+}
+.auth-muted-link:hover {
+  text-decoration: underline;
 }
 .auth-submit {
   width: 100%;

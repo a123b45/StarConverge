@@ -114,6 +114,15 @@ export function IconGear({ size = 16 }: SizeProps) {
   );
 }
 
+export function IconShield({ size = 16 }: SizeProps) {
+  return (
+    <Svg size={size}>
+      <path d="M12 3.5 19 6.5v5.2c0 4.2-2.9 7.4-7 8.8-4.1-1.4-7-4.6-7-8.8V6.5L12 3.5Z" />
+      <path d="m9.2 12 1.9 1.9 3.7-3.8" />
+    </Svg>
+  );
+}
+
 export function IconChart({ size = 16 }: SizeProps) {
   return (
     <Svg size={size}>
@@ -263,6 +272,15 @@ export function IconLock({ size = 18 }: SizeProps) {
     <Svg size={size}>
       <rect x="5.5" y="10.5" width="13" height="9" rx="2" />
       <path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5" />
+    </Svg>
+  );
+}
+
+export function IconMail({ size = 18 }: SizeProps) {
+  return (
+    <Svg size={size}>
+      <rect x="3.5" y="6" width="17" height="12" rx="2" />
+      <path d="m4.5 8 7.5 5.5L19.5 8" />
     </Svg>
   );
 }

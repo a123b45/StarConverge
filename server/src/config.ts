@@ -19,4 +19,9 @@ export const config = {
   corsOrigin: process.env.CORS_ORIGIN ?? "*",
   defaultRateLimit: Number(process.env.DEFAULT_RATE_LIMIT ?? 60),
   logLevel: process.env.LOG_LEVEL ?? "info",
+  publicBaseUrl:
+    process.env.PUBLIC_BASE_URL ??
+    `http://127.0.0.1:${Number(process.env.PORT ?? 8787)}`,
+  resendApiKey: process.env.RESEND_API_KEY ?? "",
+  mailFrom: process.env.MAIL_FROM ?? "StarConverge <noreply@starconverge.local>",
 };

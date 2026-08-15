@@ -98,14 +98,14 @@ export default function LoginPage() {
           {error ? <div className="alert">{error}</div> : null}
 
           <label className="auth-field">
-            <span>用户名</span>
+            <span>用户名/邮箱</span>
             <div className="auth-input">
               <IconPerson />
               <input
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 autoComplete="username"
-                placeholder="admin 或您的账号"
+                placeholder="请输入你的用户或者邮箱"
                 required
               />
             </div>
@@ -143,7 +143,9 @@ export default function LoginPage() {
               />
               记住登录状态
             </label>
-            <span className="auth-muted-link">忘记密码？联系管理员</span>
+            <Link className="auth-muted-link" to="/forgot-password">
+              忘记密码？
+            </Link>
           </div>
 
           <button className="auth-submit" disabled={loading}>

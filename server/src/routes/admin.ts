@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { and, desc, eq, gte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db/index.js";
 import {
@@ -7,10 +7,11 @@ import {
   modelRoutes,
   proxyRoutes,
   requestLogs,
+  roles,
   tokens,
   users,
 } from "../db/schema.js";
-import { requireAdmin } from "../middleware/auth.js";
+import { hasApiPerm, requireAdmin, type AdminVars } from "../middleware/auth.js";
 import { config } from "../config.js";
 import {
   safeEqual,
@@ -27,8 +28,18 @@ import {
   isUnrestrictedModels,
   modelsUrl,
 } from "../services/upstream-models.js";
+import {
+  encodePerms,
+  getPortalUserRole,
+  getRoleById,
+  publicRole,
+} from "../services/roles.js";
+import {
+  API_GROUPS,
+  MENU_GROUPS,
+} from "../rbac/permissions.js";
 
-export const adminRoutes = new Hono();
+export const adminRoutes = new Hono<AdminVars>();
 
 adminRoutes.post("/login", async (c) => {
   const body = await c.req.json().catch(() => ({}));
@@ -46,14 +57,133 @@ adminRoutes.post("/login", async (c) => {
 
 adminRoutes.use("/*", requireAdmin);
 
-adminRoutes.get("/me", (c) => c.json({ username: config.adminUsername, role: "admin" }));
+adminRoutes.get("/me", (c) => {
+  const auth = c.get("adminAuth");
+  return c.json({
+    username: auth.username,
+    role: "admin",
+    userId: auth.userId ?? null,
+    isSuper: auth.isSuper,
+    menuPerms: auth.menuPerms,
+    apiPerms: auth.apiPerms,
+  });
+});
+
+adminRoutes.get("/permissions/catalog", (c) => {
+  return c.json({ menuGroups: MENU_GROUPS, apiGroups: API_GROUPS });
+});
 
 adminRoutes.get("/dashboard", async (c) => {
+  const auth = c.get("adminAuth");
+  if (!hasApiPerm(auth, "api.dashboard.read")) {
+    return c.json({ error: "无权限" }, 403);
+  }
   return c.json(await getDashboardStats());
 });
 
-// ---- Users (customers) ----
+// ---- Roles ----
+adminRoutes.get("/roles", async (c) => {
+  const auth = c.get("adminAuth");
+  if (!hasApiPerm(auth, "api.roles.read", "api.users.read")) {
+    return c.json({ error: "无权限" }, 403);
+  }
+  const rows = await db.select().from(roles).orderBy(desc(roles.createdAt));
+  return c.json({ data: rows.map(publicRole) });
+});
+
+adminRoutes.post("/roles", async (c) => {
+  const auth = c.get("adminAuth");
+  if (!hasApiPerm(auth, "api.roles.write")) {
+    return c.json({ error: "无权限" }, 403);
+  }
+  const schema = z.object({
+    name: z.string().min(1).max(64),
+    description: z.string().max(200).optional(),
+    menuPerms: z.array(z.string()).default([]),
+    apiPerms: z.array(z.string()).default([]),
+  });
+  const parsed = schema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: "参数无效" }, 400);
+  const v = parsed.data;
+  const encoded = encodePerms(v.menuPerms, v.apiPerms);
+  const key = `custom_${id("rk").slice(0, 10)}`;
+  const row = {
+    id: id("role"),
+    key,
+    name: v.name.trim(),
+    description: v.description?.trim() || "",
+    menuPerms: encoded.menuPerms,
+    apiPerms: encoded.apiPerms,
+    isSystem: false,
+  };
+  await db.insert(roles).values(row);
+  const saved = await db.query.roles.findFirst({ where: eq(roles.id, row.id) });
+  return c.json({ data: publicRole(saved!) }, 201);
+});
+
+adminRoutes.put("/roles/:id", async (c) => {
+  const auth = c.get("adminAuth");
+  if (!hasApiPerm(auth, "api.roles.write")) {
+    return c.json({ error: "无权限" }, 403);
+  }
+  const existing = await db.query.roles.findFirst({
+    where: eq(roles.id, c.req.param("id")),
+  });
+  if (!existing) return c.json({ error: "Not found" }, 404);
+  const schema = z.object({
+    name: z.string().min(1).max(64).optional(),
+    description: z.string().max(200).optional(),
+    menuPerms: z.array(z.string()).optional(),
+    apiPerms: z.array(z.string()).optional(),
+  });
+  const parsed = schema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: "参数无效" }, 400);
+  const v = parsed.data;
+  const patch: Partial<typeof roles.$inferInsert> = { updatedAt: new Date() };
+  if (v.name != null) patch.name = v.name.trim();
+  if (v.description != null) patch.description = v.description.trim();
+  if (v.menuPerms != null || v.apiPerms != null) {
+    const encoded = encodePerms(
+      v.menuPerms ?? parseJsonArray(existing.menuPerms),
+      v.apiPerms ?? parseJsonArray(existing.apiPerms),
+    );
+    patch.menuPerms = encoded.menuPerms;
+    patch.apiPerms = encoded.apiPerms;
+  }
+  await db.update(roles).set(patch).where(eq(roles.id, existing.id));
+  const saved = await db.query.roles.findFirst({ where: eq(roles.id, existing.id) });
+  return c.json({ data: publicRole(saved!) });
+});
+
+adminRoutes.delete("/roles/:id", async (c) => {
+  const auth = c.get("adminAuth");
+  if (!hasApiPerm(auth, "api.roles.write")) {
+    return c.json({ error: "无权限" }, 403);
+  }
+  const existing = await db.query.roles.findFirst({
+    where: eq(roles.id, c.req.param("id")),
+  });
+  if (!existing) return c.json({ error: "Not found" }, 404);
+  if (existing.isSystem) {
+    return c.json({ error: "系统内置角色不可删除" }, 400);
+  }
+  const portal = await getPortalUserRole();
+  if (portal) {
+    await db
+      .update(users)
+      .set({ roleId: portal.id, role: portal.name, updatedAt: new Date() })
+      .where(eq(users.roleId, existing.id));
+  }
+  await db.delete(roles).where(eq(roles.id, existing.id));
+  return c.json({ ok: true });
+});
+
+// ---- Users ----
 adminRoutes.get("/users", async (c) => {
+  const auth = c.get("adminAuth");
+  if (!hasApiPerm(auth, "api.users.read")) {
+    return c.json({ error: "无权限" }, 403);
+  }
   const rows = await db.select().from(users).orderBy(desc(users.createdAt));
   const data = [];
   for (const u of rows) {
@@ -66,21 +196,31 @@ adminRoutes.get("/users", async (c) => {
       if (t.quota < 0) unlimited = true;
       else quota += t.quota;
     }
+    const role = await getRoleById(u.roleId);
     data.push({
       id: u.id,
       username: u.username,
       displayName: u.displayName,
+      email: u.email,
       enabled: u.enabled,
       createdAt: u.createdAt,
+      lastLoginAt: u.lastLoginAt,
       tokenCount: tks.length,
       quota: unlimited ? -1 : quota,
       usedQuota,
+      roleId: u.roleId,
+      roleName: role?.name ?? u.role,
+      roleKey: role?.key ?? null,
     });
   }
   return c.json({ data });
 });
 
 adminRoutes.post("/users", async (c) => {
+  const auth = c.get("adminAuth");
+  if (!hasApiPerm(auth, "api.users.write")) {
+    return c.json({ error: "无权限" }, 403);
+  }
   const schema = z.object({
     username: z
       .string()
@@ -89,6 +229,8 @@ adminRoutes.post("/users", async (c) => {
       .regex(/^[a-zA-Z0-9_]+$/),
     password: z.string().min(6).max(128),
     displayName: z.string().max(64).optional(),
+    email: z.string().email().max(128).optional().nullable(),
+    roleId: z.string().min(1),
     enabled: z.boolean().default(true),
   });
   const parsed = schema.safeParse(await c.req.json());
@@ -97,16 +239,23 @@ adminRoutes.post("/users", async (c) => {
   if (safeEqual(v.username, config.adminUsername)) {
     return c.json({ error: "Username reserved" }, 409);
   }
+  const role = await getRoleById(v.roleId);
+  if (!role) return c.json({ error: "角色不存在" }, 400);
+  const emailNorm = v.email?.toLowerCase() || null;
   const existing = await db.query.users.findFirst({
-    where: eq(users.username, v.username),
+    where: emailNorm
+      ? or(eq(users.username, v.username), eq(users.email, emailNorm))
+      : eq(users.username, v.username),
   });
-  if (existing) return c.json({ error: "Username already taken" }, 409);
+  if (existing) return c.json({ error: "用户名或邮箱已被占用" }, 409);
   const row = {
     id: id("usr"),
     username: v.username,
     passwordHash: hashPassword(v.password),
     displayName: v.displayName?.trim() || v.username,
-    role: "user",
+    email: emailNorm,
+    role: role.name,
+    roleId: role.id,
     enabled: v.enabled,
   };
   await db.insert(users).values(row);
@@ -116,7 +265,10 @@ adminRoutes.post("/users", async (c) => {
         id: row.id,
         username: row.username,
         displayName: row.displayName,
+        email: row.email,
         enabled: row.enabled,
+        roleId: row.roleId,
+        roleName: role.name,
         createdAt: new Date(),
         tokenCount: 0,
         quota: 0,
@@ -128,30 +280,51 @@ adminRoutes.post("/users", async (c) => {
 });
 
 adminRoutes.patch("/users/:id", async (c) => {
+  const auth = c.get("adminAuth");
+  if (!hasApiPerm(auth, "api.users.write")) {
+    return c.json({ error: "无权限" }, 403);
+  }
   const idParam = c.req.param("id");
   const existing = await db.query.users.findFirst({ where: eq(users.id, idParam) });
   if (!existing) return c.json({ error: "Not found" }, 404);
   const body = await c.req.json();
   const patch: Partial<typeof users.$inferInsert> = { updatedAt: new Date() };
   if (body.displayName != null) patch.displayName = String(body.displayName);
+  if (body.email != null) {
+    patch.email = String(body.email).trim().toLowerCase() || null;
+  }
   if (body.enabled != null) patch.enabled = Boolean(body.enabled);
   if (body.password != null && String(body.password).length >= 6) {
     patch.passwordHash = hashPassword(String(body.password));
   }
+  if (body.roleId != null) {
+    const role = await getRoleById(String(body.roleId));
+    if (!role) return c.json({ error: "角色不存在" }, 400);
+    patch.roleId = role.id;
+    patch.role = role.name;
+  }
   await db.update(users).set(patch).where(eq(users.id, idParam));
   const row = await db.query.users.findFirst({ where: eq(users.id, idParam) });
+  const role = await getRoleById(row!.roleId);
   return c.json({
     data: {
       id: row!.id,
       username: row!.username,
       displayName: row!.displayName,
+      email: row!.email,
       enabled: row!.enabled,
+      roleId: row!.roleId,
+      roleName: role?.name ?? row!.role,
       createdAt: row!.createdAt,
     },
   });
 });
 
 adminRoutes.delete("/users/:id", async (c) => {
+  const auth = c.get("adminAuth");
+  if (!hasApiPerm(auth, "api.users.write")) {
+    return c.json({ error: "无权限" }, 403);
+  }
   const idParam = c.req.param("id");
   await db.delete(tokens).where(eq(tokens.userId, idParam));
   await db.delete(users).where(eq(users.id, idParam));
@@ -160,6 +333,10 @@ adminRoutes.delete("/users/:id", async (c) => {
 
 // ---- Channels ----
 adminRoutes.get("/channels", async (c) => {
+  const auth = c.get("adminAuth");
+  if (!hasApiPerm(auth, "api.channels.read")) {
+    return c.json({ error: "无权限" }, 403);
+  }
   const rows = await db.select().from(channels).orderBy(desc(channels.priority));
   return c.json({ data: rows.map(publicChannel) });
 });
