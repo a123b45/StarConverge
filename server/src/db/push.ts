@@ -329,7 +329,6 @@ function requireRoles() {
     "menu.tokens",
     "menu.routes",
     "menu.proxy",
-    "menu.proxyHttp",
     "menu.users",
     "menu.roles",
     "menu.settings",

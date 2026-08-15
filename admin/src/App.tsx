@@ -19,7 +19,6 @@ import TokensPage from "./pages/TokensPage";
 import ApiKeysPage from "./pages/ApiKeysPage";
 import ModelsPage from "./pages/ModelsPage";
 import ModelCatalogPage from "./pages/ModelCatalogPage";
-import ProxyRoutesPage from "./pages/ProxyRoutesPage";
 import LogsPage from "./pages/LogsPage";
 import SettingsPage from "./pages/SettingsPage";
 import UsersPage from "./pages/UsersPage";
@@ -81,7 +80,6 @@ const ADMIN_TITLES: Record<string, string> = {
   "/admin/api-keys": "API 密钥",
   "/admin/models": "路由管理",
   "/admin/proxy": "模型管理",
-  "/admin/http-proxy": "代理转发",
   "/admin/users": "用户管理",
   "/admin/roles": "角色管理",
   "/admin/settings": "API 文档",
@@ -172,12 +170,6 @@ function AdminShell() {
               <NavLink to="/admin/models">
                 <AdminIconRoute />
                 路由管理
-              </NavLink>
-            ) : null}
-            {can("menu.proxyHttp") ? (
-              <NavLink to="/admin/http-proxy">
-                <IconLayers size={16} />
-                代理转发
               </NavLink>
             ) : null}
             {can("menu.apiKeys") ? (
@@ -474,7 +466,6 @@ export default function App() {
         <Route path="tokens" element={<TokensPage />} />
         <Route path="models" element={<ModelsPage />} />
         <Route path="proxy" element={<ModelCatalogPage />} />
-        <Route path="http-proxy" element={<ProxyRoutesPage />} />
         <Route path="logs" element={<LogsPage />} />
         <Route path="usage" element={<UsagePage />} />
         <Route path="users" element={<UsersPage />} />
