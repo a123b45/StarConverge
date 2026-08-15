@@ -160,6 +160,25 @@ export function IconFile({ size = 16 }: SizeProps) {
   );
 }
 
+export function IconCard({ size = 16 }: SizeProps) {
+  return (
+    <Svg size={size}>
+      <rect x="3.5" y="6.5" width="17" height="11" rx="2" />
+      <path d="M3.5 10.5h17" />
+      <path d="M7 15h3.5" />
+    </Svg>
+  );
+}
+
+export function IconBill({ size = 16 }: SizeProps) {
+  return (
+    <Svg size={size}>
+      <path d="M7 4.5h10a1.5 1.5 0 0 1 1.5 1.5v13l-2.2-1.4-2.3 1.4-2.3-1.4-2.3 1.4-2.2-1.4V6A1.5 1.5 0 0 1 7 4.5Z" />
+      <path d="M9 9h6M9 12.5h6M9 16h4" />
+    </Svg>
+  );
+}
+
 /* ─── Top chrome ─── */
 
 export function IconSidebar({ size = 18 }: SizeProps) {
@@ -341,3 +360,5 @@ export const NavIconKey = IconKey;
 export const NavIconUsage = IconChart;
 export const NavIconChat = IconChat;
 export const NavIconDocs = IconFile;
+export const NavIconRecharge = IconCard;
+export const NavIconBills = IconBill;

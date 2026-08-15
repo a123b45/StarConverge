@@ -317,6 +317,8 @@ function requireRoles() {
     "menu.portal.usage",
     "menu.portal.chat",
     "menu.portal.docs",
+    "menu.portal.recharge",
+    "menu.portal.bills",
   ];
   const adminMenus = [
     "menu.dashboard",
@@ -355,7 +357,7 @@ function requireRoles() {
       {
         key: "portal_user",
         name: "用户",
-        description: "用户门户：模型列表、API 密钥、用量、对话测试、API 文档",
+        description: "用户门户：模型、密钥、用量、对话、文档、充值与账单",
         menuPerms: portalMenus,
         apiPerms: [] as string[],
       },

@@ -49,6 +49,8 @@ export const MENU_GROUPS: PermGroup[] = [
       { key: "menu.portal.usage", label: "用量" },
       { key: "menu.portal.chat", label: "对话测试" },
       { key: "menu.portal.docs", label: "API 文档" },
+      { key: "menu.portal.recharge", label: "充值" },
+      { key: "menu.portal.bills", label: "账单" },
     ],
   },
 ];
@@ -131,4 +133,6 @@ export const MENU_PATH_MAP: Record<string, string> = {
   "menu.portal.usage": "/app/usage",
   "menu.portal.chat": "/app/chat",
   "menu.portal.docs": "/app/docs",
+  "menu.portal.recharge": "/app/recharge",
+  "menu.portal.bills": "/app/bills",
 };

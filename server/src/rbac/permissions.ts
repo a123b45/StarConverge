@@ -57,6 +57,8 @@ export const MENU_GROUPS: PermGroup[] = [
       { key: "menu.portal.usage", label: "用量" },
       { key: "menu.portal.chat", label: "对话测试" },
       { key: "menu.portal.docs", label: "API 文档" },
+      { key: "menu.portal.recharge", label: "充值" },
+      { key: "menu.portal.bills", label: "账单" },
     ],
   },
 ];
@@ -149,6 +151,8 @@ export const MENU_PATH_MAP: Record<string, string> = {
   "menu.portal.usage": "/app/usage",
   "menu.portal.chat": "/app/chat",
   "menu.portal.docs": "/app/docs",
+  "menu.portal.recharge": "/app/recharge",
+  "menu.portal.bills": "/app/bills",
 };
 
 /** Default seed roles — only 管理员 + 用户 */
@@ -158,7 +162,7 @@ export const DEFAULT_ROLES = [
   {
     key: "portal_user",
     name: "用户",
-    description: "用户门户：模型列表、API 密钥、用量、对话测试、API 文档",
+    description: "用户门户：模型、密钥、用量、对话、文档、充值与账单",
     isSystem: true,
     menuPerms: [
       "menu.portal.models",
@@ -166,6 +170,8 @@ export const DEFAULT_ROLES = [
       "menu.portal.usage",
       "menu.portal.chat",
       "menu.portal.docs",
+      "menu.portal.recharge",
+      "menu.portal.bills",
     ],
     apiPerms: [] as string[],
   },

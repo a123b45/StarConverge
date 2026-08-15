@@ -29,6 +29,8 @@ import PortalKeysPage from "./pages/portal/PortalKeysPage";
 import PortalUsagePage from "./pages/portal/PortalUsagePage";
 import PortalChatPage from "./pages/portal/PortalChatPage";
 import PortalDocsPage from "./pages/portal/PortalDocsPage";
+import PortalRechargePage from "./pages/portal/PortalRechargePage";
+import PortalBillsPage from "./pages/portal/PortalBillsPage";
 import TopTools from "./components/TopTools";
 import { applyChromePrefs } from "./lib/chrome";
 import {
@@ -46,10 +48,12 @@ import {
   IconShield,
   IconLayers,
   IconLock,
+  NavIconBills,
   NavIconChat,
   NavIconDocs,
   NavIconKey,
   NavIconOverview,
+  NavIconRecharge,
   NavIconUsage,
 } from "./components/icons";
 import UsagePage from "./pages/UsagePage";
@@ -63,7 +67,9 @@ const PORTAL_TITLES: Record<string, string> = {
   "/app/usage": "用量",
   "/app/chat": "对话测试",
   "/app/docs": "API 文档",
-  "/app": "开发",
+  "/app/recharge": "充值",
+  "/app/bills": "账单",
+  "/app": "服务",
 };
 
 const ADMIN_TITLES: Record<string, string> = {
@@ -301,7 +307,7 @@ function PortalShell() {
     Object.entries(PORTAL_TITLES).find(([k]) =>
       location.pathname.startsWith(k),
     )?.[1] ||
-    "开发";
+    "服务";
 
   return (
     <div className={`portal-shell${siderCollapsed ? " sider-collapsed" : ""}`}>
@@ -312,7 +318,7 @@ function PortalShell() {
         </div>
         <nav className="portal-sider-nav">
           <div className="portal-sider-group">
-            <div className="portal-sider-label">开发</div>
+            <div className="portal-sider-label">服务</div>
             {can("menu.portal.models") ? (
               <NavLink to="/app/models">
                 <NavIconOverview />
@@ -341,6 +347,18 @@ function PortalShell() {
               <NavLink to="/app/docs">
                 <NavIconDocs />
                 API 文档
+              </NavLink>
+            ) : null}
+            {can("menu.portal.recharge") ? (
+              <NavLink to="/app/recharge">
+                <NavIconRecharge />
+                充值
+              </NavLink>
+            ) : null}
+            {can("menu.portal.bills") ? (
+              <NavLink to="/app/bills">
+                <NavIconBills />
+                账单
               </NavLink>
             ) : null}
           </div>
@@ -374,7 +392,7 @@ function PortalShell() {
               <IconSidebar />
             </button>
             <div className="portal-crumb">
-              <span>开发</span>
+              <span>服务</span>
               <i>/</i>
               <strong>{pageTitle}</strong>
             </div>
@@ -478,6 +496,8 @@ export default function App() {
         <Route path="usage" element={<PortalUsagePage />} />
         <Route path="chat" element={<PortalChatPage />} />
         <Route path="docs" element={<PortalDocsPage />} />
+        <Route path="recharge" element={<PortalRechargePage />} />
+        <Route path="bills" element={<PortalBillsPage />} />
       </Route>
 
       <Route path="*" element={<HomeRedirect />} />
