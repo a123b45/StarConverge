@@ -4,7 +4,6 @@ import { authApi, getRole, getToken, setSession } from "../lib/api";
 import {
   IconEyeOff,
   IconEyeOpen,
-  IconFile,
   IconLock,
   IconMail,
   IconPerson,
@@ -15,7 +14,6 @@ export default function RegisterPage() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [displayName, setDisplayName] = useState("");
   const [showPwd, setShowPwd] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -35,7 +33,7 @@ export default function RegisterPage() {
         redirect: string;
       }>("/register", {
         method: "POST",
-        body: JSON.stringify({ username, password, displayName, email }),
+        body: JSON.stringify({ username, password, email }),
       });
       setSession(res.token, res.role);
       navigate(res.redirect || "/app/models");
@@ -96,7 +94,7 @@ export default function RegisterPage() {
               <strong>StarConverge</strong>
               <em>注册 STARCONVERGE</em>
             </div>
-            <h2>注册普通用户</h2>
+            <h2>注册用户</h2>
             <p>填写信息以创建门户账号</p>
           </div>
 
@@ -128,18 +126,6 @@ export default function RegisterPage() {
                 autoComplete="email"
                 placeholder="用于找回密码"
                 required
-              />
-            </div>
-          </label>
-
-          <label className="auth-field">
-            <span>显示名（可选）</span>
-            <div className="auth-input">
-              <IconFile size={18} />
-              <input
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="昵称"
               />
             </div>
           </label>
