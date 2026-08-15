@@ -116,6 +116,10 @@ export default function RolesPage() {
   const [editing, setEditing] = useState<RoleRow | null>(null);
   const [draft, setDraft] = useState<Draft>(emptyDraft());
   const [busy, setBusy] = useState(false);
+  const [deleting, setDeleting] = useState<RoleRow | null>(null);
+  const [boundUsers, setBoundUsers] = useState<{ id: string; label: string }[]>([]);
+  const [boundLoading, setBoundLoading] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   async function load() {
     try {
@@ -188,16 +192,39 @@ export default function RolesPage() {
     }
   }
 
-  async function remove(row: RoleRow) {
-    const tip = row.isSystem
-      ? `「${row.name}」为内置角色，删除后已绑定用户将回退到其它角色，且启动时不会自动重建。确定删除？`
-      : `删除角色「${row.name}」？已绑定用户将回退到其它角色。`;
-    if (!confirm(tip)) return;
+  async function askRemove(row: RoleRow) {
+    setError("");
+    setDeleting(row);
+    setBoundUsers([]);
+    setBoundLoading(true);
     try {
-      await api(`/roles/${row.id}`, { method: "DELETE" });
+      const res = await api<{ data: { id: string; label: string }[] }>(
+        `/roles/${row.id}/users`,
+      );
+      setBoundUsers(res.data);
+    } catch (err) {
+      setDeleting(null);
+      setError(err instanceof Error ? err.message : "无法读取绑定用户");
+    } finally {
+      setBoundLoading(false);
+    }
+  }
+
+  async function confirmRemove(mode: "with_users" | "keep_users") {
+    if (!deleting) return;
+    setDeleteBusy(true);
+    setError("");
+    try {
+      await api(`/roles/${deleting.id}`, {
+        method: "DELETE",
+        body: JSON.stringify({ mode }),
+      });
+      setDeleting(null);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "删除失败");
+    } finally {
+      setDeleteBusy(false);
     }
   }
 
@@ -254,7 +281,7 @@ export default function RolesPage() {
               <button type="button" className="btn ghost sm" onClick={() => startEdit(r)}>
                 编辑权限
               </button>
-              <button type="button" className="btn danger sm" onClick={() => void remove(r)}>
+              <button type="button" className="btn danger sm" onClick={() => void askRemove(r)}>
                 删除
               </button>
             </footer>
@@ -327,6 +354,60 @@ export default function RolesPage() {
               </button>
             </div>
           </form>
+        </div>
+      ) : null}
+
+      {deleting ? (
+        <div className="modal-backdrop" onClick={() => !deleteBusy && setDeleting(null)}>
+          <div
+            className="modal modal-sm rp-del-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-user-head">
+              <h3>删除角色「{deleting.name}」</h3>
+              <p>
+                {boundLoading
+                  ? "正在查询绑定用户…"
+                  : boundUsers.length
+                    ? `当前角色已被用户：${boundUsers.map((u) => u.label).join("、")} 绑定，是否继续删除？`
+                    : "当前角色暂无用户绑定，是否继续删除？"}
+              </p>
+              {deleting.isSystem ? (
+                <p className="rp-del-note">这是内置角色，删除后不会在启动时自动重建。</p>
+              ) : null}
+            </div>
+            {error ? <div className="alert">{error}</div> : null}
+            <div className="rp-del-actions">
+              <button
+                type="button"
+                className="btn danger"
+                disabled={boundLoading || deleteBusy || !boundUsers.length}
+                title={!boundUsers.length ? "无绑定用户，请用选项 2" : undefined}
+                onClick={() => void confirmRemove("with_users")}
+              >
+                1 · 是，删除角色及绑定用户
+              </button>
+              <button
+                type="button"
+                className="btn"
+                disabled={boundLoading || deleteBusy}
+                onClick={() => void confirmRemove("keep_users")}
+              >
+                2 · 只删除角色，保留用户
+              </button>
+              <button
+                type="button"
+                className="btn ghost"
+                disabled={deleteBusy}
+                onClick={() => setDeleting(null)}
+              >
+                3 · 我再想想
+              </button>
+            </div>
+            {!boundUsers.length && !boundLoading ? (
+              <p className="rp-del-hint">无绑定用户时，选项 1 不可用；选 2 即可删除角色。</p>
+            ) : null}
+          </div>
         </div>
       ) : null}
     </div>

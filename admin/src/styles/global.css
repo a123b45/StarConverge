@@ -1118,6 +1118,29 @@ code,
   font-size: 12px;
   color: var(--muted);
 }
+.rp-del-modal {
+  width: min(440px, 100%);
+}
+.rp-del-note {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: #b45309;
+}
+.rp-del-actions {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+}
+.rp-del-actions .btn {
+  width: 100%;
+  justify-content: center;
+  text-align: center;
+}
+.rp-del-hint {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
 .rp-modal {
   width: min(920px, 100%);
   max-height: min(92vh, 860px);

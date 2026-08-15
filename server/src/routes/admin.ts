@@ -182,6 +182,32 @@ adminRoutes.put("/roles/:id", async (c) => {
   return c.json({ data: publicRole(saved!) });
 });
 
+adminRoutes.get("/roles/:id/users", async (c) => {
+  const auth = c.get("adminAuth");
+  if (!hasApiPerm(auth, "api.roles.read", "api.users.read")) {
+    return c.json({ error: "无权限" }, 403);
+  }
+  const roleId = c.req.param("id");
+  const existing = await db.query.roles.findFirst({ where: eq(roles.id, roleId) });
+  if (!existing) return c.json({ error: "Not found" }, 404);
+  const bound = await db
+    .select({
+      id: users.id,
+      username: users.username,
+      displayName: users.displayName,
+    })
+    .from(users)
+    .where(eq(users.roleId, roleId));
+  return c.json({
+    data: bound.map((u) => ({
+      id: u.id,
+      username: u.username,
+      displayName: u.displayName,
+      label: (u.displayName || "").trim() || u.username,
+    })),
+  });
+});
+
 adminRoutes.delete("/roles/:id", async (c) => {
   const auth = c.get("adminAuth");
   if (!hasApiPerm(auth, "api.roles.write")) {
@@ -192,20 +218,40 @@ adminRoutes.delete("/roles/:id", async (c) => {
   });
   if (!existing) return c.json({ error: "Not found" }, 404);
 
-  const allRoles = await db.select().from(roles);
-  const fallback =
-    allRoles.find((r) => r.id !== existing.id && r.key === "portal_user") ??
-    allRoles.find((r) => r.id !== existing.id);
-  if (!fallback) {
+  const body = await c.req.json().catch(() => ({}));
+  const mode = body?.mode === "with_users" ? "with_users" : "keep_users";
+
+  const roleCount = await db.select({ id: roles.id }).from(roles);
+  if (roleCount.length <= 1) {
     return c.json({ error: "至少需保留一个角色，无法删除最后一个" }, 400);
   }
 
-  await db
-    .update(users)
-    .set({ roleId: fallback.id, role: fallback.name, updatedAt: new Date() })
-    .where(eq(users.roleId, existing.id));
+  const bound = await db.select().from(users).where(eq(users.roleId, existing.id));
+
+  if (mode === "with_users") {
+    if (auth.userId && bound.some((u) => u.id === auth.userId)) {
+      return c.json({ error: "不能删除当前登录账号所属角色下的全部用户" }, 400);
+    }
+    for (const u of bound) {
+      await db.delete(tokens).where(eq(tokens.userId, u.id));
+      await db.delete(users).where(eq(users.id, u.id));
+    }
+  } else if (bound.length) {
+    const allRoles = await db.select().from(roles);
+    const fallback =
+      allRoles.find((r) => r.id !== existing.id && r.key === "portal_user") ??
+      allRoles.find((r) => r.id !== existing.id);
+    if (!fallback) {
+      return c.json({ error: "没有可用的回退角色" }, 400);
+    }
+    await db
+      .update(users)
+      .set({ roleId: fallback.id, role: fallback.name, updatedAt: new Date() })
+      .where(eq(users.roleId, existing.id));
+  }
+
   await db.delete(roles).where(eq(roles.id, existing.id));
-  return c.json({ ok: true, fallbackRoleId: fallback.id });
+  return c.json({ ok: true, mode, removedUsers: mode === "with_users" ? bound.length : 0 });
 });
 
 // ---- Users ----
