@@ -428,6 +428,14 @@ code,
   align-items: center;
   margin-bottom: 14px;
 }
+.mc-toolbar .soft-select-filter {
+  flex: 0 0 auto;
+  min-width: 160px;
+}
+.mc-toolbar .btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
 
 .search {
   flex: 1;

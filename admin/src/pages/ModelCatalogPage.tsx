@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
+import SoftSelect from "../components/SoftSelect";
 
 type ModelRow = {
   id: string;
@@ -20,6 +21,7 @@ export default function ModelCatalogPage() {
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   async function load() {
     const [m, c] = await Promise.all([
@@ -86,6 +88,40 @@ export default function ModelCatalogPage() {
     }
   }
 
+  async function publishMany(list: ModelRow[], label: string) {
+    const targets = list.filter((r) => !r.published);
+    if (!targets.length) {
+      setMsg(`${label}：当前没有需要同步的模型（均已同步给用户）`);
+      return;
+    }
+    setBulkBusy(true);
+    setError("");
+    setMsg("");
+    let ok = 0;
+    let fail = 0;
+    try {
+      for (const row of targets) {
+        try {
+          await api(`/models/${row.id}`, {
+            method: "PUT",
+            body: JSON.stringify({ published: true }),
+          });
+          ok += 1;
+        } catch {
+          fail += 1;
+        }
+      }
+      setMsg(
+        fail
+          ? `${label}：成功 ${ok} 个，失败 ${fail} 个`
+          : `${label}：已将 ${ok} 个模型同步给用户`,
+      );
+      await load();
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
   async function remove(row: ModelRow) {
     if (!confirm(`从模型管理删除「${row.model}」？`)) return;
     setBusyId(row.id);
@@ -100,6 +136,9 @@ export default function ModelCatalogPage() {
     }
   }
 
+  const filterDraftCount = filtered.filter((r) => !r.published).length;
+  const allDraftCount = rows.filter((r) => !r.published).length;
+
   return (
     <>
       <div className="topbar">
@@ -113,25 +152,47 @@ export default function ModelCatalogPage() {
 
       {error ? <div className="alert">{error}</div> : null}
       {msg ? (
-        <div className={`alert ${msg.includes("取消") ? "" : "ok"}`}>{msg}</div>
+        <div className={`alert ${msg.includes("取消") || msg.includes("失败") ? "" : "ok"}`}>
+          {msg}
+        </div>
       ) : null}
 
-      <div className="toolbar">
+      <div className="toolbar mc-toolbar">
         <input
           className="search"
           placeholder="搜索模型 / 供应商…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
-        <select
+        <SoftSelect
+          className="soft-select-filter"
+          ariaLabel="可见性筛选"
           value={filter}
-          onChange={(e) => setFilter(e.target.value as typeof filter)}
-          aria-label="可见性筛选"
+          onChange={(v) => setFilter(v as typeof filter)}
+          options={[
+            { value: "all", label: "全部" },
+            { value: "published", label: "已同步给用户" },
+            { value: "draft", label: "未同步给用户" },
+          ]}
+        />
+        <button
+          type="button"
+          className="btn ghost"
+          disabled={bulkBusy || filterDraftCount === 0}
+          title="将当前筛选结果中未同步的模型同步给用户"
+          onClick={() => void publishMany(filtered, "筛选同步")}
         >
-          <option value="all">全部</option>
-          <option value="published">已同步给用户</option>
-          <option value="draft">未同步给用户</option>
-        </select>
+          {bulkBusy ? "同步中…" : `筛选同步${filterDraftCount ? ` (${filterDraftCount})` : ""}`}
+        </button>
+        <button
+          type="button"
+          className="btn"
+          disabled={bulkBusy || allDraftCount === 0}
+          title="将全部未同步模型同步给用户"
+          onClick={() => void publishMany(rows, "全部同步")}
+        >
+          {bulkBusy ? "同步中…" : `全部同步${allDraftCount ? ` (${allDraftCount})` : ""}`}
+        </button>
       </div>
 
       <div className="panel">
@@ -162,7 +223,7 @@ export default function ModelCatalogPage() {
                       <button
                         type="button"
                         className="btn ghost sm"
-                        disabled={busyId === r.id}
+                        disabled={busyId === r.id || bulkBusy}
                         onClick={() => void setPublished(r, false)}
                       >
                         取消用户同步
@@ -171,7 +232,7 @@ export default function ModelCatalogPage() {
                       <button
                         type="button"
                         className="btn sm"
-                        disabled={busyId === r.id}
+                        disabled={busyId === r.id || bulkBusy}
                         onClick={() => void setPublished(r, true)}
                       >
                         同步给用户
@@ -180,7 +241,7 @@ export default function ModelCatalogPage() {
                     <button
                       type="button"
                       className="btn danger sm"
-                      disabled={busyId === r.id}
+                      disabled={busyId === r.id || bulkBusy}
                       onClick={() => void remove(r)}
                     >
                       删除

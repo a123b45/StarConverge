@@ -48,6 +48,19 @@ banner() {
   echo ""
 }
 
+# 启动摘要里可直接复制的公网地址（PUBLIC_HOST 来自 .env）
+public_base_url() {
+  local host="${PUBLIC_HOST:-193.112.202.161}"
+  host="${host#http://}"
+  host="${host#https://}"
+  host="${host%%/*}"
+  host="${host%%:*}"
+  if [[ -z "$host" ]]; then
+    host="193.112.202.161"
+  fi
+  echo "http://${host}:${PORT}"
+}
+
 ensure_env() {
   if [[ ! -f "$ROOT/server/.env" ]]; then
     info "生成 server/.env ..."
@@ -75,6 +88,15 @@ ensure_env() {
 
   if [[ ! -f "$DEPLOY_DIR/.env" ]]; then
     cp "$DEPLOY_DIR/.env.example" "$DEPLOY_DIR/.env" 2>/dev/null || true
+  fi
+
+  # 已有环境缺少 PUBLIC_HOST 时补上，便于启动摘要直接复制访问
+  if [[ -f "$ROOT/server/.env" ]] && ! grep -q '^PUBLIC_HOST=' "$ROOT/server/.env" 2>/dev/null; then
+    echo "PUBLIC_HOST=193.112.202.161" >> "$ROOT/server/.env"
+    ok "已写入 PUBLIC_HOST=193.112.202.161（可在 server/.env 修改）"
+  fi
+  if [[ -f "$DEPLOY_DIR/.env" ]] && ! grep -q '^PUBLIC_HOST=' "$DEPLOY_DIR/.env" 2>/dev/null; then
+    echo "PUBLIC_HOST=193.112.202.161" >> "$DEPLOY_DIR/.env"
   fi
 }
 
@@ -120,7 +142,7 @@ start_docker() {
   fi
 
   "${COMPOSE[@]}" up -d
-  ok "容器已启动 → http://127.0.0.1:${PORT}"
+  ok "容器已启动 → $(public_base_url)"
 }
 
 NODE_VERSION="${NODE_VERSION:-22.14.0}"
@@ -317,10 +339,11 @@ start_local() {
     exit 1
   fi
 
+  # 展示可复制的公网地址（PUBLIC_HOST 来自 server/.env / deploy/.env）
   echo ""
   echo -e "  模式           : ${CYAN}源码部署${NC}"
   echo -e "  Node           : ${CYAN}$(node -v)${NC}"
-  echo -e "  管理后台 / API : ${CYAN}http://0.0.0.0:${PORT}${NC}（外网用服务器公网 IP）"
+  echo -e "  管理后台 / API : ${CYAN}$(public_base_url)${NC}"
   echo -e "  健康检查       : ${CYAN}http://127.0.0.1:${PORT}/health${NC}"
   echo -e "  管理员账号     : ${YELLOW}${ADMIN_USERNAME:-admin} / ${ADMIN_PASSWORD:-123456}${NC}"
   echo -e "  运行日志       : ${CYAN}$DEPLOY_DIR/run/server.log${NC}"
