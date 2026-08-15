@@ -277,7 +277,7 @@ export default function ChannelsPage() {
       <div className="topbar">
         <div className="page-head">
           <h2>供应商管理</h2>
-          <p>接入 OpenAI / Claude / Gemini 等常见上游，支持权重与连通性测试</p>
+          <p>接入 OpenAI / Claude / Gemini 等常见上游，支持连通性测试与模型同步</p>
         </div>
         <div className="row-actions">
           <button className="btn ghost" onClick={testAll} disabled={!!testing}>
@@ -333,7 +333,6 @@ export default function ChannelsPage() {
                 <th>名称</th>
                 <th>Base URL</th>
                 <th>模型</th>
-                <th>权重/优先级</th>
                 <th>状态</th>
                 <th>操作</th>
               </tr>
@@ -342,8 +341,8 @@ export default function ChannelsPage() {
               {filtered.map((r) => (
                 <tr key={r.id}>
                   <td>
-                    <strong>{r.name}</strong>
-                    <div style={{ marginTop: 4 }}>
+                    <div className="ch-name-cell">
+                      <strong>{r.name}</strong>
                       <span className="badge blue">{providerLabel(r.type)}</span>
                     </div>
                   </td>
@@ -365,9 +364,6 @@ export default function ChannelsPage() {
                     ) : (
                       <span className="muted">（未限制）</span>
                     )}
-                  </td>
-                  <td className="mono">
-                    {r.weight} / {r.priority}
                   </td>
                   <td>
                     <span className={`badge ${r.enabled ? "on" : "off"}`}>
@@ -405,7 +401,7 @@ export default function ChannelsPage() {
               ))}
               {!filtered.length ? (
                 <tr>
-                  <td colSpan={6} className="empty">
+                  <td colSpan={5} className="empty">
                     暂无供应商，点击「添加供应商」接入上游
                   </td>
                 </tr>
@@ -547,32 +543,14 @@ export default function ChannelsPage() {
                 <p className="field-hint">
                   逗号分隔；留空表示不按模型过滤该供应商；填写 * 表示匹配全部模型名
                 </p>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-                  <label>
-                    权重
-                    <input
-                      type="number"
-                      value={form.weight}
-                      onChange={(e) => setForm({ ...form, weight: Number(e.target.value) })}
-                    />
-                  </label>
-                  <label>
-                    优先级
-                    <input
-                      type="number"
-                      value={form.priority}
-                      onChange={(e) => setForm({ ...form, priority: Number(e.target.value) })}
-                    />
-                  </label>
-                  <label>
-                    超时(ms)
-                    <input
-                      type="number"
-                      value={form.timeoutMs}
-                      onChange={(e) => setForm({ ...form, timeoutMs: Number(e.target.value) })}
-                    />
-                  </label>
-                </div>
+                <label>
+                  超时(ms)
+                  <input
+                    type="number"
+                    value={form.timeoutMs}
+                    onChange={(e) => setForm({ ...form, timeoutMs: Number(e.target.value) })}
+                  />
+                </label>
                 <label>
                   备注
                   <input

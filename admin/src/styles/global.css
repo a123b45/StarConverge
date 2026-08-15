@@ -528,6 +528,15 @@ code,
   border-color: #ddd6fe;
   color: var(--accent);
 }
+.ch-name-cell {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ch-name-cell strong {
+  font-weight: 650;
+}
 .ch-model-tags {
   display: flex;
   flex-direction: column;
