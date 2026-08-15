@@ -199,6 +199,45 @@ function AdminShell() {
               </NavLink>
             ) : null}
           </div>
+          {can("menu.portal.models") ||
+          can("menu.portal.keys") ||
+          can("menu.portal.usage") ||
+          can("menu.portal.chat") ||
+          can("menu.portal.docs") ? (
+            <div className="nav-group">
+              <div className="nav-label">用户门户</div>
+              {can("menu.portal.models") ? (
+                <NavLink to="/app/models">
+                  <NavIconOverview />
+                  模型列表
+                </NavLink>
+              ) : null}
+              {can("menu.portal.keys") ? (
+                <NavLink to="/app/keys">
+                  <NavIconKey />
+                  API 密钥
+                </NavLink>
+              ) : null}
+              {can("menu.portal.usage") ? (
+                <NavLink to="/app/usage">
+                  <NavIconUsage />
+                  用量
+                </NavLink>
+              ) : null}
+              {can("menu.portal.chat") ? (
+                <NavLink to="/app/chat">
+                  <NavIconChat />
+                  对话测试
+                </NavLink>
+              ) : null}
+              {can("menu.portal.docs") ? (
+                <NavLink to="/app/docs">
+                  <NavIconDocs />
+                  API 文档
+                </NavLink>
+              ) : null}
+            </div>
+          ) : null}
         </nav>
         <div className="sidebar-foot">
           <div className="sidebar-role">
@@ -250,7 +289,9 @@ function PortalShell() {
     displayName?: string | null;
     usedQuota: number;
     quota: number;
+    menuPerms?: string[];
   } | null>(null);
+  const [menuPerms, setMenuPerms] = useState<string[] | null>(null);
   const [siderCollapsed, setSiderCollapsed] = useState(false);
 
   useEffect(() => {
@@ -259,10 +300,28 @@ function PortalShell() {
       displayName?: string | null;
       usedQuota: number;
       quota: number;
+      menuPerms?: string[];
     }>("/me")
-      .then(setMe)
-      .catch(() => setMe(null));
+      .then((data) => {
+        setMe(data);
+        setMenuPerms(data.menuPerms ?? []);
+      })
+      .catch(() => {
+        setMe(null);
+        setMenuPerms([]);
+      });
   }, []);
+
+  const can = (key: string) => !menuPerms || menuPerms.includes(key);
+  const hasAnyPortal =
+    !menuPerms ||
+    menuPerms.some((k) => k.startsWith("menu.portal."));
+
+  useEffect(() => {
+    if (menuPerms && !hasAnyPortal) {
+      navigate(getRole() === "admin" ? "/admin" : "/login", { replace: true });
+    }
+  }, [menuPerms, hasAnyPortal, navigate]);
 
   const pageTitle =
     PORTAL_TITLES[location.pathname] ||
@@ -281,26 +340,36 @@ function PortalShell() {
         <nav className="portal-sider-nav">
           <div className="portal-sider-group">
             <div className="portal-sider-label">开发</div>
-            <NavLink to="/app/models">
-              <NavIconOverview />
-              模型列表
-            </NavLink>
-            <NavLink to="/app/keys">
-              <NavIconKey />
-              API 密钥
-            </NavLink>
-            <NavLink to="/app/usage">
-              <NavIconUsage />
-              用量
-            </NavLink>
-            <NavLink to="/app/chat">
-              <NavIconChat />
-              对话测试
-            </NavLink>
-            <NavLink to="/app/docs">
-              <NavIconDocs />
-              API 文档
-            </NavLink>
+            {can("menu.portal.models") ? (
+              <NavLink to="/app/models">
+                <NavIconOverview />
+                模型列表
+              </NavLink>
+            ) : null}
+            {can("menu.portal.keys") ? (
+              <NavLink to="/app/keys">
+                <NavIconKey />
+                API 密钥
+              </NavLink>
+            ) : null}
+            {can("menu.portal.usage") ? (
+              <NavLink to="/app/usage">
+                <NavIconUsage />
+                用量
+              </NavLink>
+            ) : null}
+            {can("menu.portal.chat") ? (
+              <NavLink to="/app/chat">
+                <NavIconChat />
+                对话测试
+              </NavLink>
+            ) : null}
+            {can("menu.portal.docs") ? (
+              <NavLink to="/app/docs">
+                <NavIconDocs />
+                API 文档
+              </NavLink>
+            ) : null}
           </div>
         </nav>
         <div className="portal-sider-foot">
@@ -380,7 +449,7 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
 
 function RequireUser({ children }: { children: React.ReactNode }) {
   if (!getToken()) return <Navigate to="/login" replace />;
-  if (getRole() === "admin") return <Navigate to="/admin" replace />;
+  // Admin JWT may also open portal when role has menu.portal.* grants
   return <>{children}</>;
 }
 

@@ -170,7 +170,10 @@ export const requireUser = createMiddleware<SessionVars>(async (c, next) => {
     return c.json({ error: "Unauthorized" }, 401);
   }
   const payload = verifyToken(raw);
-  if (!payload || payload.role !== "user" || !payload.userId) {
+  if (!payload || !payload.userId) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+  if (payload.role !== "user" && payload.role !== "admin") {
     return c.json({ error: "Unauthorized" }, 401);
   }
   const user = await db.query.users.findFirst({
@@ -180,11 +183,19 @@ export const requireUser = createMiddleware<SessionVars>(async (c, next) => {
     return c.json({ error: "Account disabled" }, 403);
   }
   const role = await getRoleById(user.roleId);
+  const menuPerms = role ? parseJsonArray(role.menuPerms) : [];
+  // Admin-capable accounts may also use portal APIs when granted portal menus
+  if (payload.role === "admin") {
+    const hasPortal = menuPerms.some((k) => k.startsWith("menu.portal."));
+    if (!hasPortal) {
+      return c.json({ error: "无用户门户权限" }, 403);
+    }
+  }
   c.set("auth", {
     username: payload.sub,
     role: "user",
     userId: user.id,
-    menuPerms: role ? parseJsonArray(role.menuPerms) : [],
+    menuPerms,
   });
   await next();
 });

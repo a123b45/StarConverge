@@ -124,4 +124,9 @@ export const MENU_PATH_MAP: Record<string, string> = {
   "menu.users": "/admin/users",
   "menu.roles": "/admin/roles",
   "menu.settings": "/admin/settings",
+  "menu.portal.models": "/app/models",
+  "menu.portal.keys": "/app/keys",
+  "menu.portal.usage": "/app/usage",
+  "menu.portal.chat": "/app/chat",
+  "menu.portal.docs": "/app/docs",
 };

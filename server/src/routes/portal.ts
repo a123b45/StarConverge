@@ -49,6 +49,7 @@ portalRoutes.get("/me", async (c) => {
     quota: unlimited ? -1 : quota,
     usedQuota,
     tokenCount: userTokens.length,
+    menuPerms: auth.menuPerms ?? [],
   });
 });
 
