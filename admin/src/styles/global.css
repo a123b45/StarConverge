@@ -1357,6 +1357,10 @@ code,
 .km-filters .search {
   flex: 1 1 220px;
   min-width: 180px;
+  background: #fff;
+}
+.km-filters .soft-select-filter {
+  flex: 0 0 auto;
 }
 .km-filters select {
   border: 1px solid var(--line);
@@ -1486,6 +1490,9 @@ code,
   font-weight: 700;
   flex-shrink: 0;
 }
+.soft-toast-err .soft-toast-icon {
+  background: #ef4444;
+}
 .soft-toast-text {
   font-weight: 500;
 }
@@ -1513,29 +1520,40 @@ code,
   justify-content: space-between;
   gap: 10px;
   border: 1px solid var(--line);
-  background: var(--bg);
+  background: #fff;
   color: var(--text);
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 9px 12px;
   font-size: 13px;
   text-align: left;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+.soft-select-filter .soft-select-trigger {
+  background: #fff;
+  border-radius: 12px;
+  min-width: 148px;
 }
 .soft-select.is-open .soft-select-trigger {
   border-color: color-mix(in srgb, var(--brand, #2563eb) 45%, var(--line));
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand, #2563eb) 12%, transparent);
+}
+.soft-select.is-disabled .soft-select-trigger {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background: #f8fafc;
 }
 .soft-select-menu {
   position: absolute;
   z-index: 40;
   top: calc(100% + 6px);
   left: 0;
-  right: 0;
-  min-width: 100%;
-  padding: 6px;
-  background: var(--bg-elevated, #fff);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+  right: auto;
+  min-width: max(100%, 168px);
+  padding: 8px;
+  background: #fff;
+  border: 1px solid color-mix(in srgb, var(--line) 80%, #fff);
+  border-radius: 16px;
+  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.14);
 }
 .soft-select-item {
   width: 100%;
@@ -1544,17 +1562,26 @@ code,
   border: none;
   background: transparent;
   color: var(--text);
-  border-radius: 8px;
-  padding: 8px 10px;
+  border-radius: 10px;
+  padding: 9px 12px;
   font-size: 13px;
 }
 .soft-select-item:hover {
   background: color-mix(in srgb, var(--brand, #2563eb) 8%, transparent);
 }
 .soft-select-item.on {
-  background: color-mix(in srgb, var(--brand, #2563eb) 14%, transparent);
-  color: var(--brand, #1d4ed8);
+  background: color-mix(in srgb, var(--brand, #2563eb) 88%, #1d4ed8);
+  color: #fff;
   font-weight: 600;
+}
+html[data-theme="dark"] .soft-select-trigger,
+html[data-theme="dark"] .soft-select-menu {
+  background: var(--bg-elevated);
+  color: var(--text);
+}
+html[data-theme="dark"] .soft-select-item.on {
+  background: var(--brand, #6366f1);
+  color: #fff;
 }
 
 /* Route chips — click box matches visible pill */

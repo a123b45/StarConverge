@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
+import SoftSelect from "../components/SoftSelect";
 
 type Log = {
   id: string;
@@ -71,17 +72,18 @@ export default function LogsPage() {
           value={model}
           onChange={(e) => setModel(e.target.value)}
         />
-        <select
-          className="field"
-          style={{ width: 160 }}
-          value={sinceHours}
-          onChange={(e) => setSinceHours(Number(e.target.value))}
-        >
-          <option value={0}>全部时间</option>
-          <option value={1}>近 1 小时</option>
-          <option value={24}>近 24 小时</option>
-          <option value={168}>近 7 天</option>
-        </select>
+        <SoftSelect
+          className="soft-select-filter"
+          ariaLabel="时间范围"
+          value={String(sinceHours)}
+          onChange={(v) => setSinceHours(Number(v))}
+          options={[
+            { value: "0", label: "全部时间" },
+            { value: "1", label: "近 1 小时" },
+            { value: "24", label: "近 24 小时" },
+            { value: "168", label: "近 7 天" },
+          ]}
+        />
         <button className="btn" onClick={load}>
           查询
         </button>

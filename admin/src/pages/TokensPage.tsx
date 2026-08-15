@@ -82,8 +82,11 @@ export default function TokensPage() {
   const [modelOptions, setModelOptions] = useState<string[]>(["*"]);
   const [kw, setKw] = useState("");
   const [kwDraft, setKwDraft] = useState("");
-  const [groupFilter, setGroupFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "on" | "off">("all");
+  /** 标签 = 列名；状态 = 该列的值 */
+  const [tagCol, setTagCol] = useState<
+    "" | "group" | "route" | "model" | "enabled" | "ip"
+  >("");
+  const [tagVal, setTagVal] = useState("");
   const [sort, setSort] = useState<"created_desc" | "created_asc" | "used_desc" | "name">(
     "created_desc",
   );
@@ -92,37 +95,56 @@ export default function TokensPage() {
   const [form, setForm] = useState<FormState>(emptyForm());
   const [error, setError] = useState("");
   const [toast, setToast] = useState<string | null>(null);
+  const [listLoading, setListLoading] = useState(true);
   const [ipSkin, setIpSkin] = useState<IpSkin>(loadIpSkin);
   const [importOpen, setImportOpen] = useState(false);
   const [importText, setImportText] = useState("");
   const [importError, setImportError] = useState("");
   const [jsonDraft, setJsonDraft] = useState("");
 
-  async function load() {
-    const [tok, models, mrs] = await Promise.all([
-      api<{ data: Token[] }>("/tokens"),
+  function mapToken(t: Token): Token {
+    return {
+      ...t,
+      groupName: t.groupName ?? "",
+      ipRules: tokenRules(t),
+      ipAllowlist: t.ipAllowlist ?? [],
+      routeIds: t.routeIds ?? [],
+      concurrency: t.concurrency ?? 0,
+      remainingQuota:
+        t.remainingQuota ??
+        (t.quota < 0 ? -1 : Math.max(0, t.quota - t.usedQuota)),
+    };
+  }
+
+  /** List first so table paints quickly; meta loads in background for edit form. */
+  async function loadList() {
+    setListLoading(true);
+    try {
+      const tok = await api<{ data: Token[] }>("/tokens");
+      setRows(tok.data.map(mapToken));
+    } finally {
+      setListLoading(false);
+    }
+  }
+
+  async function loadMeta() {
+    const [models, mrs] = await Promise.all([
       api<{ data: string[] }>("/available-models"),
       api<{ data: RouteOpt[] }>("/models"),
     ]);
-    setRows(
-      tok.data.map((t) => ({
-        ...t,
-        groupName: t.groupName ?? "",
-        ipRules: tokenRules(t),
-        ipAllowlist: t.ipAllowlist ?? [],
-        routeIds: t.routeIds ?? [],
-        concurrency: t.concurrency ?? 0,
-        remainingQuota:
-          t.remainingQuota ??
-          (t.quota < 0 ? -1 : Math.max(0, t.quota - t.usedQuota)),
-      })),
-    );
     setModelOptions(models.data.length ? models.data : ["*"]);
     setRoutes(mrs.data ?? []);
   }
 
+  async function load() {
+    await Promise.all([loadList(), loadMeta()]);
+  }
+
   useEffect(() => {
-    load().catch((e) => setError(e.message));
+    loadList().catch((e) => setError(e.message));
+    loadMeta().catch(() => {
+      /* meta is only needed when editing */
+    });
   }, []);
 
   function pickIpSkin(s: IpSkin) {
@@ -144,6 +166,60 @@ export default function TokensPage() {
     for (const r of routes) m.set(r.id, r.model);
     return m;
   }, [routes]);
+
+  const tagValOptions = useMemo(() => {
+    const all = [{ value: "", label: "状态: 全部" }];
+    if (!tagCol) return all;
+    if (tagCol === "group") {
+      return [
+        ...all,
+        ...groups.map((g) => ({ value: g, label: g })),
+        { value: "__empty__", label: "（未分组）" },
+      ];
+    }
+    if (tagCol === "route") {
+      const set = new Set<string>();
+      for (const r of rows) {
+        for (const id of r.routeIds ?? []) {
+          set.add(routeMap.get(id) ?? id);
+        }
+      }
+      return [
+        ...all,
+        { value: "__empty__", label: "（未绑定）" },
+        ...[...set].sort().map((m) => ({ value: m, label: m })),
+      ];
+    }
+    if (tagCol === "model") {
+      const set = new Set<string>();
+      for (const r of rows) {
+        if (!r.allowedModels.length) set.add("*");
+        else r.allowedModels.forEach((m) => set.add(m));
+      }
+      return [
+        ...all,
+        ...[...set].sort().map((m) => ({
+          value: m,
+          label: m === "*" ? "全部模型" : m,
+        })),
+      ];
+    }
+    if (tagCol === "enabled") {
+      return [
+        ...all,
+        { value: "on", label: "启用" },
+        { value: "off", label: "禁用" },
+      ];
+    }
+    if (tagCol === "ip") {
+      return [
+        ...all,
+        { value: "none", label: "不限" },
+        { value: "has", label: "有限制" },
+      ];
+    }
+    return all;
+  }, [tagCol, groups, rows, routeMap]);
 
   const stats = useMemo(() => {
     const now = Date.now();
@@ -179,9 +255,30 @@ export default function TokensPage() {
           String(r.enabled ? "启用" : "禁用").includes(q);
         if (!hit) return false;
       }
-      if (groupFilter && (r.groupName || "").trim() !== groupFilter) return false;
-      if (statusFilter === "on" && !r.enabled) return false;
-      if (statusFilter === "off" && r.enabled) return false;
+      if (tagCol && tagVal) {
+        if (tagCol === "group") {
+          const g = (r.groupName || "").trim();
+          if (tagVal === "__empty__") {
+            if (g) return false;
+          } else if (g !== tagVal) return false;
+        } else if (tagCol === "route") {
+          const names = (r.routeIds ?? []).map((id) => routeMap.get(id) ?? id);
+          if (tagVal === "__empty__") {
+            if (names.length) return false;
+          } else if (!names.includes(tagVal)) return false;
+        } else if (tagCol === "model") {
+          if (tagVal === "*") {
+            if (r.allowedModels.length) return false;
+          } else if (!r.allowedModels.includes(tagVal)) return false;
+        } else if (tagCol === "enabled") {
+          if (tagVal === "on" && !r.enabled) return false;
+          if (tagVal === "off" && r.enabled) return false;
+        } else if (tagCol === "ip") {
+          const rules = tokenRules(r);
+          if (tagVal === "none" && rules.length) return false;
+          if (tagVal === "has" && !rules.length) return false;
+        }
+      }
       return true;
     });
 
@@ -197,7 +294,7 @@ export default function TokensPage() {
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
     return list;
-  }, [rows, kw, groupFilter, statusFilter, sort, routeMap]);
+  }, [rows, kw, tagCol, tagVal, sort, routeMap]);
 
   function applySearch() {
     setKw(kwDraft.trim());
@@ -206,8 +303,8 @@ export default function TokensPage() {
   function resetSearch() {
     setKwDraft("");
     setKw("");
-    setGroupFilter("");
-    setStatusFilter("all");
+    setTagCol("");
+    setTagVal("");
     setSort("created_desc");
   }
 
@@ -603,25 +700,32 @@ export default function TokensPage() {
           }}
         />
         <SoftSelect
-          ariaLabel="按标签"
-          value={groupFilter}
-          onChange={setGroupFilter}
+          className="soft-select-filter"
+          ariaLabel="标签列"
+          value={tagCol}
+          onChange={(v) => {
+            setTagCol(v as typeof tagCol);
+            setTagVal("");
+          }}
           options={[
             { value: "", label: "标签: 全部" },
-            ...groups.map((g) => ({ value: g, label: g })),
+            { value: "group", label: "所属分组" },
+            { value: "route", label: "路由" },
+            { value: "model", label: "可用模型" },
+            { value: "enabled", label: "启用状态" },
+            { value: "ip", label: "IP 限制" },
           ]}
         />
         <SoftSelect
-          ariaLabel="状态"
-          value={statusFilter}
-          onChange={(v) => setStatusFilter(v as "all" | "on" | "off")}
-          options={[
-            { value: "all", label: "状态: 全部" },
-            { value: "on", label: "启用" },
-            { value: "off", label: "禁用" },
-          ]}
+          className="soft-select-filter"
+          ariaLabel="状态值"
+          value={tagVal}
+          onChange={setTagVal}
+          disabled={!tagCol}
+          options={tagValOptions}
         />
         <SoftSelect
+          className="soft-select-filter"
           ariaLabel="排序"
           value={sort}
           onChange={(v) => setSort(v as typeof sort)}
@@ -705,7 +809,7 @@ export default function TokensPage() {
               {!filtered.length ? (
                 <tr>
                   <td colSpan={9} className="empty">
-                    没有匹配的密钥策略
+                    {listLoading ? "加载中…" : "没有匹配的密钥策略"}
                   </td>
                 </tr>
               ) : null}

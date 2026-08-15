@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
+import { copyText } from "../lib/copy";
 import SoftToast from "../components/SoftToast";
 import { IconCopy, IconEye, IconEyeOff, IconPencil, IconTrash } from "../components/icons";
 
@@ -38,6 +39,7 @@ export default function ApiKeysPage() {
   const [revealId, setRevealId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [toast, setToast] = useState<string | null>(null);
+  const [toastTone, setToastTone] = useState<"ok" | "err">("ok");
   const [createdKey, setCreatedKey] = useState<string | null>(null);
 
   async function load() {
@@ -113,17 +115,18 @@ export default function ApiKeysPage() {
   }
 
   async function copyKey(key: string) {
-    try {
-      await navigator.clipboard.writeText(key);
-      setToast("复制成功!");
-    } catch {
-      setToast("复制失败");
-    }
+    const ok = await copyText(key);
+    setToastTone(ok ? "ok" : "err");
+    setToast(ok ? "复制成功!" : "复制失败");
   }
 
   return (
     <>
-      <SoftToast message={toast} onDone={() => setToast(null)} />
+      <SoftToast
+        message={toast}
+        tone={toastTone}
+        onDone={() => setToast(null)}
+      />
 
       <div className="topbar">
         <div className="page-head">
@@ -263,13 +266,13 @@ export default function ApiKeysPage() {
             ) : (
               <label className="stack-field">
                 <span>
-                  名称 <em>*</em>
+                  输入API Key的名称 <em>*</em>
                 </span>
                 <input
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="例如：张三 / 测试"
+                  placeholder="输入API Key的名称"
                 />
               </label>
             )}

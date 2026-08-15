@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { formatTokens, portalApi } from "../../lib/api";
+import { copyText } from "../../lib/copy";
 
 type KeyRow = {
   id: string;
@@ -54,8 +55,8 @@ export default function PortalKeysPage() {
     await load();
   }
 
-  function copy(text: string) {
-    void navigator.clipboard.writeText(text);
+  async function copy(text: string) {
+    await copyText(text);
   }
 
   return (

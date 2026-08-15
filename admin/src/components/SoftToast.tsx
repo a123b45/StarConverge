@@ -1,12 +1,14 @@
 import { useEffect } from "react";
 
-/** Non-interactive success toast (e.g. 复制成功!). */
+/** Non-interactive toast. */
 export default function SoftToast({
   message,
+  tone = "ok",
   onDone,
   ms = 2200,
 }: {
   message: string | null;
+  tone?: "ok" | "err";
   onDone?: () => void;
   ms?: number;
 }) {
@@ -18,9 +20,13 @@ export default function SoftToast({
 
   if (!message) return null;
   return (
-    <div className="soft-toast" role="status" aria-live="polite">
+    <div
+      className={`soft-toast soft-toast-${tone}`}
+      role="status"
+      aria-live="polite"
+    >
       <span className="soft-toast-icon" aria-hidden>
-        ✓
+        {tone === "ok" ? "✓" : "!"}
       </span>
       <span className="soft-toast-text">{message}</span>
     </div>

@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
 import { PROVIDERS, providerById, providerLabel } from "../lib/providers";
+import SoftSelect from "../components/SoftSelect";
 
 type Channel = {
   id: string;
@@ -287,16 +288,17 @@ export default function ChannelsPage() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
-        <select
-          className="field"
-          style={{ width: 140 }}
+        <SoftSelect
+          className="soft-select-filter"
+          ariaLabel="状态筛选"
           value={filter}
-          onChange={(e) => setFilter(e.target.value as typeof filter)}
-        >
-          <option value="all">全部状态</option>
-          <option value="on">仅启用</option>
-          <option value="off">仅禁用</option>
-        </select>
+          onChange={(v) => setFilter(v as typeof filter)}
+          options={[
+            { value: "all", label: "全部状态" },
+            { value: "on", label: "仅启用" },
+            { value: "off", label: "仅禁用" },
+          ]}
+        />
       </div>
 
       <div className="panel">
