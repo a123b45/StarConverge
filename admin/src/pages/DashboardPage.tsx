@@ -153,7 +153,7 @@ export default function DashboardPage() {
             <div className="bar-list">
               {data!.byModel.map((r) => (
                 <div className="bar-row" key={r.model}>
-                  <span className="mono" style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+                  <span className="mono bar-model" title={r.model}>
                     {r.model}
                   </span>
                   <div className="track">

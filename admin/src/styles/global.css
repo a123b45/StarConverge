@@ -596,10 +596,17 @@ code,
 
 .bar-row {
   display: grid;
-  grid-template-columns: 120px 1fr 56px;
+  grid-template-columns: minmax(0, 1.1fr) minmax(72px, 1.4fr) 48px;
   gap: 10px;
   align-items: center;
   font-size: 0.85rem;
+}
+
+.bar-row .bar-model {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .bar-row .track {
@@ -613,6 +620,11 @@ code,
   height: 100%;
   background: var(--accent);
   border-radius: 99px;
+}
+
+.bar-row > .mono:last-child {
+  text-align: right;
+  white-space: nowrap;
 }
 
 .form-grid {
