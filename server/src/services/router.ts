@@ -1,23 +1,61 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { channels, modelRoutes, type Channel } from "../db/schema.js";
+import { channels, modelRoutes, type Channel, type ModelRoute } from "../db/schema.js";
 import { parseJsonArray } from "../utils/crypto.js";
 
 export type ResolvedRoute = {
   model: string;
+  /** Model name sent to upstream provider */
   upstreamModel: string;
   candidates: Channel[];
+  /** True when token.routeIds forced resolution onto a bound route */
+  bound?: boolean;
 };
 
-/** Resolve model -> ordered channel list (route override, then channel model list, then priority/weight). */
+async function loadBoundRoute(
+  boundRouteIds: string[],
+  requestedModel: string,
+): Promise<ModelRoute | null> {
+  if (!boundRouteIds.length) return null;
+  const rows = await db
+    .select()
+    .from(modelRoutes)
+    .where(
+      and(eq(modelRoutes.enabled, true), inArray(modelRoutes.id, boundRouteIds)),
+    );
+  if (!rows.length) return null;
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  const ordered = boundRouteIds
+    .map((id) => byId.get(id))
+    .filter(Boolean) as ModelRoute[];
+  return (
+    ordered.find((r) => r.model === requestedModel) ?? ordered[0] ?? null
+  );
+}
+
+/**
+ * Resolve model -> ordered channel list.
+ * When `boundRouteIds` is set on a token, traffic is forced through that route's
+ * channels / rewriteModel; the client-facing model name stays `model`.
+ */
 export async function resolveChannelsForModel(
   model: string,
+  opts?: { boundRouteIds?: string[] },
 ): Promise<ResolvedRoute | null> {
-  const route = await db.query.modelRoutes.findFirst({
-    where: and(eq(modelRoutes.model, model), eq(modelRoutes.enabled, true)),
-  });
+  const boundIds = (opts?.boundRouteIds ?? []).filter(Boolean);
+  const boundRoute = await loadBoundRoute(boundIds, model);
 
-  const upstreamModel = route?.rewriteModel || model;
+  const route =
+    boundRoute ??
+    (await db.query.modelRoutes.findFirst({
+      where: and(eq(modelRoutes.model, model), eq(modelRoutes.enabled, true)),
+    }));
+
+  // Bound route: upstream uses that route's rewrite/model even if client asked another name.
+  const upstreamModel = boundRoute
+    ? boundRoute.rewriteModel || boundRoute.model
+    : route?.rewriteModel || model;
+
   let candidates: Channel[] = [];
 
   if (route) {
@@ -38,18 +76,29 @@ export async function resolveChannelsForModel(
       .from(channels)
       .where(eq(channels.enabled, true))
       .orderBy(desc(channels.priority), desc(channels.weight));
+    const matchNames = new Set(
+      [upstreamModel, route?.model, model].filter(Boolean) as string[],
+    );
     candidates = all.filter((c) => {
       const models = parseJsonArray(c.models);
-      return models.length === 0 || models.includes(model) || models.includes("*");
+      return (
+        models.length === 0 ||
+        models.includes("*") ||
+        models.some((m) => matchNames.has(m))
+      );
     });
   }
 
   if (candidates.length === 0) return null;
 
-  // weighted shuffle among same priority
   candidates = weightedOrder(candidates);
 
-  return { model, upstreamModel, candidates };
+  return {
+    model,
+    upstreamModel,
+    candidates,
+    bound: Boolean(boundRoute),
+  };
 }
 
 function weightedOrder(list: Channel[]): Channel[] {

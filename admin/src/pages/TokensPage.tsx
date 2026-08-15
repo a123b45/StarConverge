@@ -812,6 +812,10 @@ export default function TokensPage() {
 
             <div className="stack-field" style={{ marginTop: 12 }}>
               <span>绑定路由</span>
+              <p className="muted" style={{ margin: "0 0 8px", fontSize: 12, lineHeight: 1.45 }}>
+                选中后，该密钥的所有可用模型请求都会走这些路由的上游通道；客户端仍可按可用模型名调用，
+                响应里也保持请求的模型名。多选时优先匹配同名路由，否则用第一个绑定路由。
+              </p>
               <div className="km-route-picks">
                 {routes.map((rt) => {
                   const on = form.routeIds.includes(rt.id);
@@ -842,6 +846,9 @@ export default function TokensPage() {
 
             <div className="stack-field" style={{ marginTop: 12 }}>
               <span>可用模型</span>
+              <p className="muted" style={{ margin: "0 0 8px", fontSize: 12, lineHeight: 1.45 }}>
+                客户端允许传入的模型名（空 = 不限制）。与绑定路由配合：可声明多个模型名，实际转发由绑定路由决定。
+              </p>
               <ModelPicker
                 options={modelOptions}
                 value={form.allowedModels}

@@ -120,7 +120,9 @@ async function proxyOpenAI(c: Context<AuthVars>, upstreamPath: string) {
     );
   }
 
-  const resolved = await resolveChannelsForModel(model);
+  const resolved = await resolveChannelsForModel(model, {
+    boundRouteIds: parseJsonArray(token.routeIds ?? "[]"),
+  });
   if (!resolved || resolved.candidates.length === 0) {
     await writeLog({
       tokenId: token.id,
@@ -140,7 +142,7 @@ async function proxyOpenAI(c: Context<AuthVars>, upstreamPath: string) {
     );
   }
 
-  // rewrite model if needed
+  // Rewrite upstream body model when bound route / rewriteModel differs; client still sees `model`.
   let outboundBody = bodyText;
   if (resolved.upstreamModel !== model && bodyText) {
     try {
@@ -150,6 +152,10 @@ async function proxyOpenAI(c: Context<AuthVars>, upstreamPath: string) {
     } catch {
       /* keep original */
     }
+  }
+
+  if (resolved.bound) {
+    c.header("X-StarConverge-Bound-Route", resolved.upstreamModel);
   }
 
   let lastError = "all channels failed";
@@ -283,10 +289,14 @@ async function proxyOpenAI(c: Context<AuthVars>, upstreamPath: string) {
           responsePreview: respText.slice(0, 800),
           messageCount: msgCount,
         });
-        return c.body(respText, upstream.status as 400, {
+        return c.body(
+          restoreClientModel(respText, model, resolved.upstreamModel),
+          upstream.status as 400,
+          {
           "Content-Type": upstream.headers.get("content-type") ?? "application/json",
           "X-StarConverge-Channel": channel.name,
-        });
+          },
+        );
       }
 
       await writeLog({
@@ -306,10 +316,14 @@ async function proxyOpenAI(c: Context<AuthVars>, upstreamPath: string) {
         messageCount: msgCount,
       });
 
-      return c.body(respText, upstream.status as 200, {
+      return c.body(
+        restoreClientModel(respText, model, resolved.upstreamModel),
+        upstream.status as 200,
+        {
         "Content-Type": upstream.headers.get("content-type") ?? "application/json",
         "X-StarConverge-Channel": channel.name,
-      });
+        },
+      );
     } catch (err) {
       clearTimeout(timer);
       lastError = err instanceof Error ? err.message : String(err);
@@ -338,6 +352,25 @@ async function proxyOpenAI(c: Context<AuthVars>, upstreamPath: string) {
 function estimateTokens(text: string): number {
   // rough fallback when upstream omits usage
   return Math.max(1, Math.ceil(text.length / 4));
+}
+
+/** Keep client-facing model id when a bound route rewrote the upstream name. */
+function restoreClientModel(
+  respText: string,
+  clientModel: string,
+  upstreamModel: string,
+): string {
+  if (!respText || clientModel === upstreamModel) return respText;
+  try {
+    const json = JSON.parse(respText) as Record<string, unknown>;
+    if (json && typeof json === "object" && typeof json.model === "string") {
+      json.model = clientModel;
+      return JSON.stringify(json);
+    }
+  } catch {
+    /* non-json */
+  }
+  return respText;
 }
 
 function extractStreamPreview(sseText: string, max = 4000): string {

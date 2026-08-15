@@ -109,7 +109,7 @@ export const tokens = sqliteTable(
     groupName: text("group_name").default(""),
     /** JSON string array of allowed IPs/CIDRs; empty = no IP restriction */
     ipAllowlist: text("ip_allowlist").notNull().default("[]"),
-    /** Bound model-route ids (JSON); empty = unbound */
+    /** Bound model-route ids (JSON). When set, all allowed model calls use these routes' upstream channels; client model name is preserved. */
     routeIds: text("route_ids").notNull().default("[]"),
     /** Max concurrent in-flight requests; 0 = unlimited */
     concurrency: integer("concurrency").notNull().default(0),

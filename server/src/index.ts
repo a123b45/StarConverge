@@ -28,6 +28,7 @@ app.use(
     allowHeaders: ["Content-Type", "Authorization", "x-api-key"],
     exposeHeaders: [
       "X-StarConverge-Channel",
+      "X-StarConverge-Bound-Route",
       "X-StarConverge-Proxy",
       "X-RateLimit-Limit",
       "X-RateLimit-Remaining",
