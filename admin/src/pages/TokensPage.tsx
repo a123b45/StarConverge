@@ -318,7 +318,7 @@ export default function TokensPage() {
       concurrencyUnlimited: !row.concurrency,
       concurrency: row.concurrency || 50,
       allowedModels: [...row.allowedModels],
-      routeIds: [...(row.routeIds ?? [])],
+      routeIds: row.routeIds?.length ? [row.routeIds[0]!] : [],
       ipRules: rules,
       enabled: row.enabled,
     });
@@ -375,7 +375,7 @@ export default function TokensPage() {
       rateLimit: form.rateUnlimited ? 0 : Number(form.rateLimit),
       concurrency: form.concurrencyUnlimited ? 0 : Number(form.concurrency) || 0,
       allowedModels: form.allowedModels,
-      routeIds: form.routeIds,
+      routeIds: form.routeIds.slice(0, 1),
       ipRules: cleaned,
       enabled: form.enabled,
     };
@@ -409,9 +409,7 @@ export default function TokensPage() {
 
   function routeLabel(ids: string[]) {
     if (!ids.length) return "未绑定";
-    const names = ids.map((id) => routeMap.get(id) ?? id);
-    if (names.length <= 2) return names.join(", ");
-    return `${names.slice(0, 2).join(", ")} +${names.length - 2}`;
+    return routeMap.get(ids[0]!) ?? ids[0]!;
   }
 
   function modelsLabel(models: string[]) {
@@ -825,12 +823,12 @@ export default function TokensPage() {
             <div className="stack-field" style={{ marginTop: 12 }}>
               <span>绑定路由</span>
               <p className="muted" style={{ margin: "0 0 8px", fontSize: 12, lineHeight: 1.45 }}>
-                选中后，该密钥的所有可用模型请求都会走这些路由的上游通道；客户端仍可按可用模型名调用，
-                响应里也保持请求的模型名。多选时优先匹配同名路由，否则用第一个绑定路由。
+                单选。选中后，该密钥的可用模型请求都会走此路由的上游通道；客户端仍可按可用模型名调用，
+                响应里也保持请求的模型名。不选则按请求模型名正常解析路由。
               </p>
               <div className="km-route-picks">
                 {routes.map((rt) => {
-                  const on = form.routeIds.includes(rt.id);
+                  const on = form.routeIds[0] === rt.id;
                   return (
                     <button
                       key={rt.id}
@@ -839,9 +837,7 @@ export default function TokensPage() {
                       onClick={() =>
                         setForm({
                           ...form,
-                          routeIds: on
-                            ? form.routeIds.filter((x) => x !== rt.id)
-                            : [...form.routeIds, rt.id],
+                          routeIds: on ? [] : [rt.id],
                         })
                       }
                     >
