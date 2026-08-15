@@ -34,6 +34,7 @@ export const MENU_GROUPS: PermGroup[] = [
     label: "策略",
     items: [
       { key: "menu.routes", label: "路由管理" },
+      { key: "menu.proxyHttp", label: "代理转发" },
       { key: "menu.apiKeys", label: "API 密钥" },
       { key: "menu.tokens", label: "密钥管理" },
     ],
@@ -139,6 +140,7 @@ export const MENU_PATH_MAP: Record<string, string> = {
   "menu.tokens": "/admin/tokens",
   "menu.routes": "/admin/models",
   "menu.proxy": "/admin/proxy",
+  "menu.proxyHttp": "/admin/http-proxy",
   "menu.users": "/admin/users",
   "menu.roles": "/admin/roles",
   "menu.settings": "/admin/settings",

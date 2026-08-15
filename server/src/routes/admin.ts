@@ -117,6 +117,7 @@ async function syncChannelModelRoutes(channelId: string, models: string[]) {
       channelIds: toJsonArray([channelId]),
       rewriteModel: null,
       enabled: true,
+      published: false,
     });
   }
   await pruneOrphanModelRoutes();
@@ -718,6 +719,7 @@ adminRoutes.post("/models", async (c) => {
     channelIds: z.array(z.string()).default([]),
     rewriteModel: z.string().nullable().optional(),
     enabled: z.boolean().default(true),
+    published: z.boolean().default(false),
   });
   const parsed = schema.safeParse(await c.req.json());
   if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
@@ -728,9 +730,20 @@ adminRoutes.post("/models", async (c) => {
     channelIds: toJsonArray(v.channelIds),
     rewriteModel: v.rewriteModel ?? null,
     enabled: v.enabled,
+    published: v.published,
   };
   await db.insert(modelRoutes).values(row);
-  return c.json({ data: { ...row, channelIds: v.channelIds, createdAt: new Date(), updatedAt: new Date() } }, 201);
+  return c.json(
+    {
+      data: {
+        ...row,
+        channelIds: v.channelIds,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    },
+    201,
+  );
 });
 
 adminRoutes.put("/models/:id", async (c) => {
@@ -741,6 +754,7 @@ adminRoutes.put("/models/:id", async (c) => {
   if (body.channelIds != null) patch.channelIds = toJsonArray(body.channelIds);
   if (body.rewriteModel !== undefined) patch.rewriteModel = body.rewriteModel || null;
   if (body.enabled != null) patch.enabled = Boolean(body.enabled);
+  if (body.published != null) patch.published = Boolean(body.published);
   await db.update(modelRoutes).set(patch).where(eq(modelRoutes.id, idParam));
   const row = await db.query.modelRoutes.findFirst({ where: eq(modelRoutes.id, idParam) });
   if (!row) return c.json({ error: "Not found" }, 404);

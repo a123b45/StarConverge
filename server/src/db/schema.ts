@@ -135,6 +135,8 @@ export const modelRoutes = sqliteTable("model_routes", {
   channelIds: text("channel_ids").notNull().default("[]"), // JSON priority list
   rewriteModel: text("rewrite_model"), // optional upstream model name
   enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+  /** When true, model appears in user portal + /v1/models */
+  published: integer("published", { mode: "boolean" }).notNull().default(false),
   createdAt: integer("created_at", { mode: "timestamp_ms" })
     .notNull()
     .default(sql`(unixepoch() * 1000)`),

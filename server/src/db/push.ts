@@ -95,6 +95,7 @@ const statements = [
     channel_ids TEXT NOT NULL DEFAULT '[]',
     rewrite_model TEXT,
     enabled INTEGER NOT NULL DEFAULT 1,
+    published INTEGER NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000),
     updated_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
   )`,
@@ -228,6 +229,15 @@ export function migrate() {
   )`);
   sqlite.exec(`CREATE INDEX IF NOT EXISTS roles_key_idx ON roles(key)`);
 
+  const mrCols = sqlite.prepare(`PRAGMA table_info(model_routes)`).all() as Array<{
+    name: string;
+  }>;
+  if (!mrCols.some((c) => c.name === "published")) {
+    sqlite.exec(
+      `ALTER TABLE model_routes ADD COLUMN published INTEGER NOT NULL DEFAULT 0`,
+    );
+  }
+
   // Seed default roles + backfill users without role_id
   seedDefaultRoles(sqlite);
 }
@@ -317,6 +327,7 @@ function requireRoles() {
     "menu.tokens",
     "menu.routes",
     "menu.proxy",
+    "menu.proxyHttp",
     "menu.users",
     "menu.roles",
     "menu.settings",

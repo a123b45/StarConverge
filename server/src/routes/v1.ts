@@ -7,11 +7,10 @@ import {
   countMessages,
   extractRequestPreview,
   extractResponsePreview,
-  resolveChannelModelIds,
 } from "../services/upstream-models.js";
 import { db } from "../db/index.js";
-import { channels } from "../db/schema.js";
-import { eq } from "drizzle-orm";
+import { channels, modelRoutes } from "../db/schema.js";
+import { and, eq } from "drizzle-orm";
 import { parseJsonArray } from "../utils/crypto.js";
 
 export const v1Routes = new Hono<AuthVars>();
@@ -20,14 +19,19 @@ v1Routes.use("*", requireApiToken);
 
 v1Routes.get("/models", async (c) => {
   const token = c.get("token");
-  const all = await db.select().from(channels).where(eq(channels.enabled, true));
+  const routes = await db
+    .select()
+    .from(modelRoutes)
+    .where(and(eq(modelRoutes.enabled, true), eq(modelRoutes.published, true)));
+  const chRows = await db.select().from(channels).where(eq(channels.enabled, true));
+  const enabledIds = new Set(chRows.map((ch) => ch.id));
+
   const set = new Set<string>();
-  for (const ch of all) {
-    const ids = await resolveChannelModelIds(ch);
-    for (const m of ids) {
-      if (m && m !== "*") set.add(m);
-    }
+  for (const r of routes) {
+    const ids = parseJsonArray(r.channelIds);
+    if (ids.some((cid) => enabledIds.has(cid))) set.add(r.model);
   }
+
   const allowed = parseJsonArray(token.allowedModels);
   let ids = [...set].sort();
   if (allowed.length > 0) {

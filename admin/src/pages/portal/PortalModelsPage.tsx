@@ -43,7 +43,7 @@ export default function PortalModelsPage() {
           <p>
             {filtered.length
               ? `共 ${filtered.length} 个可用模型 · 按 token 配额计量`
-              : "暂无可用模型 · 需管理员启用供应商并同步"}
+              : "暂无可用模型 · 需管理员在模型管理中同步给用户"}
           </p>
         </div>
         <div className="portal-hero-actions">
@@ -86,7 +86,7 @@ export default function PortalModelsPage() {
       </div>
       {!filtered.length ? (
         <div className="portal-empty">
-          暂无模型。请联系管理员在「供应商管理」中启用通道并点击「同步模型」。
+          暂无模型。请联系管理员在「模型管理」中将模型同步给用户。
         </div>
       ) : null}
     </div>

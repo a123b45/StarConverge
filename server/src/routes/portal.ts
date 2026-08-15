@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db } from "../db/index.js";
 import {
   channels,
+  modelRoutes,
   requestLogs,
   tokens,
   users,
@@ -17,7 +18,6 @@ import {
   toJsonArray,
 } from "../utils/crypto.js";
 import { publicToken } from "../services/stats.js";
-import { resolveChannelModelIds } from "../services/upstream-models.js";
 
 export const portalRoutes = new Hono<SessionVars>();
 
@@ -85,9 +85,13 @@ portalRoutes.patch("/me", async (c) => {
 
 portalRoutes.get("/models", async (c) => {
   const auth = c.get("auth");
-  // Catalog matches GET /v1/models: only models on enabled channels (synced list).
-  // Do not merge leftover model_routes — those caused phantom entries like a stale "deepseek".
-  const chRows = await db.select().from(channels).where(eq(channels.enabled, true));
+  // Only models explicitly published from 模型管理
+  const routes = await db
+    .select()
+    .from(modelRoutes)
+    .where(and(eq(modelRoutes.enabled, true), eq(modelRoutes.published, true)));
+  const chRows = await db.select().from(channels);
+  const chMap = new Map(chRows.map((ch) => [ch.id, ch]));
 
   type ModelRow = {
     id: string;
@@ -98,34 +102,24 @@ portalRoutes.get("/models", async (c) => {
     enabled: boolean;
   };
 
-  const byModel = new Map<string, ModelRow>();
-  for (const ch of chRows) {
-    const modelIds = await resolveChannelModelIds(ch);
-    for (const m of modelIds) {
-      if (!m || m === "*") continue;
-      const existing = byModel.get(m);
-      const provider = { id: ch.id, name: ch.name, type: ch.type };
-      if (existing) {
-        if (!existing.providers.some((p) => p.id === ch.id)) {
-          existing.providers.push(provider);
-          existing.providerLabel = existing.providers.map((p) => p.name).join(" / ");
-        }
-      } else {
-        byModel.set(m, {
-          id: `chmodel_${ch.id}_${m}`,
-          model: m,
-          rewriteModel: null,
-          providers: [provider],
-          providerLabel: ch.name,
-          enabled: true,
-        });
-      }
-    }
+  let filtered: ModelRow[] = [];
+  for (const r of routes) {
+    const channelIds = parseJsonArray(r.channelIds);
+    const providers = channelIds
+      .map((cid) => chMap.get(cid))
+      .filter((ch): ch is NonNullable<typeof ch> => !!ch && ch.enabled)
+      .map((ch) => ({ id: ch.id, name: ch.name, type: ch.type }));
+    if (!providers.length) continue;
+    filtered.push({
+      id: r.id,
+      model: r.model,
+      rewriteModel: r.rewriteModel,
+      providers,
+      providerLabel: providers.map((p) => p.name).join(" / "),
+      enabled: true,
+    });
   }
 
-  let filtered = [...byModel.values()];
-
-  // Filter by union of this user's API key allowedModels (empty = all)
   const userTokens = await db
     .select({ allowedModels: tokens.allowedModels, enabled: tokens.enabled })
     .from(tokens)

@@ -233,10 +233,10 @@ export default function ChannelsPage() {
         setTestMsg(`同步失败：${res.error || "未知错误"}`);
       } else if (res.cleared || !row.enabled) {
         const n = typeof res.modelCount === "number" ? res.modelCount : beforeCount;
-        setTestMsg(`「${row.name}」已移除 ${n} 个模型从用户模型列表`);
+        setTestMsg(`「${row.name}」已移除 ${n} 个模型从模型管理`);
       } else {
         setTestMsg(
-          `「${row.name}」已同步 ${res.modelCount} 个模型到用户模型列表`,
+          `「${row.name}」已同步 ${res.modelCount} 个模型到模型管理`,
         );
       }
       if (res.ok) await load();

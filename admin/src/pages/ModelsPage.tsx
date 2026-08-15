@@ -7,6 +7,7 @@ type ModelRoute = {
   channelIds: string[];
   rewriteModel: string | null;
   enabled: boolean;
+  published?: boolean;
 };
 
 type Channel = { id: string; name: string };

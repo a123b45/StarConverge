@@ -58,7 +58,7 @@ export default function ProxyRoutesPage() {
   }
 
   async function remove(row: ProxyRoute) {
-    if (!confirm(`删除模型「${row.name}」？`)) return;
+    if (!confirm(`删除代理「${row.name}」？`)) return;
     await api(`/proxy-routes/${row.id}`, { method: "DELETE" });
     await load();
   }
@@ -67,8 +67,8 @@ export default function ProxyRoutesPage() {
     <>
       <div className="topbar">
         <div className="page-head">
-          <h2>模型管理</h2>
-          <p>管理自定义模型代理路径，将 /proxy 前缀转发到上游服务</p>
+          <h2>代理转发</h2>
+          <p>管理自定义 HTTP 代理路径，将 /proxy 前缀转发到上游服务</p>
         </div>
         <button className="btn" onClick={() => setOpen(true)}>
           新建模型
