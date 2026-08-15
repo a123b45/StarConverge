@@ -492,7 +492,7 @@ code,
 }
 
 .table tbody tr:hover td {
-  background: #f8fafc;
+  background: var(--sidebar-hover);
 }
 
 .table tr:last-child td {
@@ -4514,6 +4514,11 @@ html[data-theme="dark"] .table th {
   color: var(--muted) !important;
 }
 html[data-theme="dark"] .table td {
+  color: var(--text) !important;
+  background: transparent;
+}
+html[data-theme="dark"] .table tbody tr:hover td {
+  background: var(--sidebar-hover) !important;
   color: var(--text) !important;
 }
 html[data-theme="dark"] .modal-backdrop {
