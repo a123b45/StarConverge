@@ -152,7 +152,7 @@ export default function ModelCatalogPage() {
         <div className="page-head">
           <h2>模型管理</h2>
           <p>
-            供应商「同步模型」写入此列表；在此选择是否同步给用户门户与 /v1/models
+            服务商同步与路由映射写入此列表；同步后用户按「模型」列名称选择（可与真实模型不同）
           </p>
         </div>
       </div>
@@ -167,7 +167,7 @@ export default function ModelCatalogPage() {
       <div className="toolbar mc-toolbar">
         <input
           className="search"
-          placeholder="搜索模型 / 供应商…"
+          placeholder="搜索模型 / 服务商…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
@@ -208,8 +208,8 @@ export default function ModelCatalogPage() {
             <thead>
               <tr>
                 <th>模型</th>
-                <th>供应商</th>
-                <th>改写</th>
+                <th>服务商</th>
+                <th>真实模型</th>
                 <th>用户可见</th>
                 <th>操作</th>
               </tr>
@@ -219,7 +219,7 @@ export default function ModelCatalogPage() {
                 <tr key={r.id}>
                   <td className="mono">{r.model}</td>
                   <td>{channelLabel(r.channelIds)}</td>
-                  <td className="mono">{r.rewriteModel || "—"}</td>
+                  <td className="mono">{r.rewriteModel || r.model}</td>
                   <td>
                     <span className={`badge ${r.published ? "on" : "off"}`}>
                       {r.published ? "已同步" : "未同步"}
@@ -259,7 +259,7 @@ export default function ModelCatalogPage() {
               {!filtered.length ? (
                 <tr>
                   <td colSpan={5} className="empty">
-                    暂无模型。请先在「供应商管理」启用供应商并点击「同步模型」。
+                    暂无模型。请先在「供应商管理」同步模型，或在「路由管理」新建对外映射。
                   </td>
                 </tr>
               ) : null}

@@ -654,6 +654,14 @@ code,
   font-weight: 500;
 }
 
+.form-grid .soft-select {
+  width: 100%;
+  min-width: 0;
+}
+.form-grid .soft-select-trigger {
+  width: 100%;
+}
+
 .form-grid input,
 .form-grid textarea,
 .form-grid select,
