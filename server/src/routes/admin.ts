@@ -492,9 +492,11 @@ adminRoutes.post("/tokens", async (c) => {
     userId: z.string().nullable().optional(),
     quota: z.number().int().default(-1),
     rateLimit: z.number().int().min(0).default(60),
+    concurrency: z.number().int().min(0).default(0),
     allowedModels: z.array(z.string()).default([]),
     groupName: z.string().max(64).optional(),
     ipAllowlist: z.array(z.string()).default([]),
+    routeIds: z.array(z.string()).default([]),
     expiresAt: z.number().nullable().optional(),
     remark: z.string().optional(),
     enabled: z.boolean().optional(),
@@ -513,10 +515,12 @@ adminRoutes.post("/tokens", async (c) => {
     quota: v.quota,
     usedQuota: 0,
     rateLimit: v.rateLimit,
+    concurrency: v.concurrency,
     enabled: v.enabled ?? true,
     allowedModels: toJsonArray(v.allowedModels),
     groupName: (v.groupName ?? "").trim(),
     ipAllowlist: toJsonArray(v.ipAllowlist),
+    routeIds: toJsonArray(v.routeIds),
     expiresAt: v.expiresAt ? new Date(v.expiresAt) : null,
     remark: v.remark ?? "",
   };
@@ -561,6 +565,7 @@ adminRoutes.put("/tokens/:id", async (c) => {
   if (body.quota != null) patch.quota = Number(body.quota);
   if (body.usedQuota != null) patch.usedQuota = Number(body.usedQuota);
   if (body.rateLimit != null) patch.rateLimit = Number(body.rateLimit);
+  if (body.concurrency != null) patch.concurrency = Number(body.concurrency);
   if (body.enabled != null) patch.enabled = Boolean(body.enabled);
   if (body.allowedModels != null) patch.allowedModels = toJsonArray(body.allowedModels);
   if (body.groupName != null) patch.groupName = String(body.groupName).trim();
@@ -572,6 +577,15 @@ adminRoutes.put("/tokens/:id", async (c) => {
           .map((s) => s.trim())
           .filter(Boolean);
     patch.ipAllowlist = toJsonArray(list);
+  }
+  if (body.routeIds != null) {
+    const list = Array.isArray(body.routeIds)
+      ? body.routeIds.map(String)
+      : String(body.routeIds)
+          .split(/[\n,]+/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+    patch.routeIds = toJsonArray(list);
   }
   if (body.expiresAt !== undefined) {
     patch.expiresAt = body.expiresAt ? new Date(body.expiresAt) : null;

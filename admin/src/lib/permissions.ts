@@ -18,8 +18,16 @@ export const MENU_GROUPS: PermGroup[] = [
     label: "资源",
     items: [
       { key: "menu.channels", label: "供应商管理" },
-      { key: "menu.routes", label: "路由管理" },
       { key: "menu.proxy", label: "模型管理" },
+    ],
+  },
+  {
+    id: "policy",
+    label: "策略",
+    items: [
+      { key: "menu.routes", label: "路由管理" },
+      { key: "menu.apiKeys", label: "API 密钥" },
+      { key: "menu.tokens", label: "密钥管理" },
     ],
   },
   {
@@ -28,7 +36,6 @@ export const MENU_GROUPS: PermGroup[] = [
     items: [
       { key: "menu.users", label: "用户管理" },
       { key: "menu.roles", label: "角色管理" },
-      { key: "menu.tokens", label: "密钥管理" },
       { key: "menu.settings", label: "API 文档" },
     ],
   },
@@ -110,6 +117,7 @@ export const MENU_PATH_MAP: Record<string, string> = {
   "menu.usage": "/admin/usage",
   "menu.logs": "/admin/logs",
   "menu.channels": "/admin/channels",
+  "menu.apiKeys": "/admin/api-keys",
   "menu.tokens": "/admin/tokens",
   "menu.routes": "/admin/models",
   "menu.proxy": "/admin/proxy",

@@ -109,6 +109,10 @@ export const tokens = sqliteTable(
     groupName: text("group_name").default(""),
     /** JSON string array of allowed IPs/CIDRs; empty = no IP restriction */
     ipAllowlist: text("ip_allowlist").notNull().default("[]"),
+    /** Bound model-route ids (JSON); empty = unbound */
+    routeIds: text("route_ids").notNull().default("[]"),
+    /** Max concurrent in-flight requests; 0 = unlimited */
+    concurrency: integer("concurrency").notNull().default(0),
     lastUsedAt: integer("last_used_at", { mode: "timestamp_ms" }),
     expiresAt: integer("expires_at", { mode: "timestamp_ms" }),
     remark: text("remark").default(""),

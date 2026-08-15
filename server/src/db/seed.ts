@@ -46,8 +46,10 @@ async function seed() {
     quota: -1,
     usedQuota: 0,
     rateLimit: 60,
+    concurrency: 0,
     enabled: true,
     allowedModels: toJsonArray([]),
+    routeIds: toJsonArray([]),
     expiresAt: null,
     remark: "首次启动自动创建，请妥善保存",
   });

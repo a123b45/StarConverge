@@ -1,13 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
 import ModelPicker from "../components/ModelPicker";
-import {
-  IconCopy,
-  IconEye,
-  IconEyeOff,
-  IconPencil,
-  IconTrash,
-} from "../components/icons";
+import { IconPencil, IconTrash } from "../components/icons";
 
 type Token = {
   id: string;
@@ -18,14 +12,19 @@ type Token = {
   usedQuota: number;
   remainingQuota: number;
   rateLimit: number;
+  concurrency: number;
   enabled: boolean;
   allowedModels: string[];
   groupName: string;
   ipAllowlist: string[];
+  routeIds: string[];
   lastUsedAt: string | Date | null;
+  expiresAt: string | Date | null;
   remark: string | null;
   createdAt: string | Date;
 };
+
+type RouteOpt = { id: string; model: string; enabled: boolean };
 
 type FormState = {
   name: string;
@@ -34,11 +33,17 @@ type FormState = {
   quota: number;
   rateUnlimited: boolean;
   rateLimit: number;
+  concurrency: number;
   allowedModels: string[];
+  routeIds: string[];
   ipAllowlistText: string;
   remark: string;
   enabled: boolean;
 };
+
+type Skin = "a" | "b" | "c";
+
+const SKIN_KEY = "sc-key-mgmt-skin";
 
 const emptyForm = (): FormState => ({
   name: "",
@@ -47,21 +52,13 @@ const emptyForm = (): FormState => ({
   quota: 1_000_000,
   rateUnlimited: false,
   rateLimit: 60,
+  concurrency: 0,
   allowedModels: [],
+  routeIds: [],
   ipAllowlistText: "",
   remark: "",
   enabled: true,
 });
-
-function ymd(d: string | Date | null | undefined): string {
-  if (!d) return "—";
-  const dt = new Date(d);
-  if (Number.isNaN(dt.getTime())) return "—";
-  const y = dt.getFullYear();
-  const m = String(dt.getMonth() + 1).padStart(2, "0");
-  const day = String(dt.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
 
 function parseIpText(text: string): string[] {
   return text
@@ -70,41 +67,57 @@ function parseIpText(text: string): string[] {
     .filter(Boolean);
 }
 
+function loadSkin(): Skin {
+  const v = localStorage.getItem(SKIN_KEY);
+  return v === "b" || v === "c" ? v : "a";
+}
+
 export default function TokensPage() {
   const [rows, setRows] = useState<Token[]>([]);
+  const [routes, setRoutes] = useState<RouteOpt[]>([]);
   const [modelOptions, setModelOptions] = useState<string[]>(["*"]);
   const [kw, setKw] = useState("");
-  const [keyQ, setKeyQ] = useState("");
-  const [groupFilter, setGroupFilter] = useState<string | null>(null);
-  const [modelFilter, setModelFilter] = useState<string | null>(null);
+  const [kwDraft, setKwDraft] = useState("");
+  const [groupFilter, setGroupFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "on" | "off">("all");
+  const [sort, setSort] = useState<"created_desc" | "created_asc" | "used_desc" | "name">("created_desc");
+  const [skin, setSkin] = useState<Skin>(loadSkin);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Token | null>(null);
-  const [revealId, setRevealId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm());
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
 
   async function load() {
-    const [tok, models] = await Promise.all([
+    const [tok, models, mrs] = await Promise.all([
       api<{ data: Token[] }>("/tokens"),
       api<{ data: string[] }>("/available-models"),
+      api<{ data: RouteOpt[] }>("/models"),
     ]);
     setRows(
       tok.data.map((t) => ({
         ...t,
         groupName: t.groupName ?? "",
         ipAllowlist: t.ipAllowlist ?? [],
+        routeIds: t.routeIds ?? [],
+        concurrency: t.concurrency ?? 0,
         remainingQuota:
           t.remainingQuota ??
           (t.quota < 0 ? -1 : Math.max(0, t.quota - t.usedQuota)),
       })),
     );
     setModelOptions(models.data.length ? models.data : ["*"]);
+    setRoutes(mrs.data ?? []);
   }
 
   useEffect(() => {
     load().catch((e) => setError(e.message));
   }, []);
+
+  function pickSkin(s: Skin) {
+    setSkin(s);
+    localStorage.setItem(SKIN_KEY, s);
+  }
 
   const groups = useMemo(() => {
     const set = new Set<string>();
@@ -115,55 +128,88 @@ export default function TokensPage() {
     return [...set].sort();
   }, [rows]);
 
-  const modelTags = useMemo(() => {
-    const set = new Set<string>();
+  const routeMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const r of routes) m.set(r.id, r.model);
+    return m;
+  }, [routes]);
+
+  const stats = useMemo(() => {
+    const now = Date.now();
+    const soon = now + 7 * 24 * 3600 * 1000;
+    let enabled = 0;
+    let disabled = 0;
+    let unbound = 0;
+    let expiring = 0;
     for (const r of rows) {
-      if (!r.allowedModels.length) set.add("*");
-      else r.allowedModels.forEach((m) => set.add(m));
+      if (r.enabled) enabled += 1;
+      else disabled += 1;
+      if (!(r.routeIds ?? []).length) unbound += 1;
+      if (r.expiresAt) {
+        const t = new Date(r.expiresAt).getTime();
+        if (!Number.isNaN(t) && t >= now && t <= soon) expiring += 1;
+      }
     }
-    return [...set].sort();
+    return {
+      total: rows.length,
+      enabled,
+      disabled,
+      unbound,
+      expiring,
+    };
   }, [rows]);
 
   const filtered = useMemo(() => {
-    const ks = kw.trim().toLowerCase();
-    const keyS = keyQ.trim().toLowerCase();
-    return rows.filter((r) => {
-      if (ks) {
+    let list = rows.filter((r) => {
+      if (kw) {
+        const q = kw.toLowerCase();
+        const routeNames = (r.routeIds ?? [])
+          .map((id) => routeMap.get(id) ?? "")
+          .join(" ");
         const hit =
-          r.name.toLowerCase().includes(ks) ||
-          (r.remark ?? "").toLowerCase().includes(ks) ||
-          (r.groupName ?? "").toLowerCase().includes(ks);
+          r.name.toLowerCase().includes(q) ||
+          (r.groupName ?? "").toLowerCase().includes(q) ||
+          (r.remark ?? "").toLowerCase().includes(q) ||
+          r.allowedModels.some((m) => m.toLowerCase().includes(q)) ||
+          routeNames.toLowerCase().includes(q) ||
+          String(r.enabled ? "启用" : "禁用").includes(q);
         if (!hit) return false;
       }
-      if (keyS) {
-        const hit =
-          r.keyPrefix.toLowerCase().includes(keyS) ||
-          (r.key ?? "").toLowerCase().includes(keyS);
-        if (!hit) return false;
-      }
-      if (groupFilter) {
-        if ((r.groupName || "").trim() !== groupFilter) return false;
-      }
-      if (modelFilter) {
-        if (modelFilter === "*") {
-          if (r.allowedModels.length > 0) return false;
-        } else if (!r.allowedModels.includes(modelFilter)) {
-          return false;
-        }
-      }
+      if (groupFilter && (r.groupName || "").trim() !== groupFilter) return false;
+      if (statusFilter === "on" && !r.enabled) return false;
+      if (statusFilter === "off" && r.enabled) return false;
       return true;
     });
-  }, [rows, kw, keyQ, groupFilter, modelFilter]);
+
+    list = [...list].sort((a, b) => {
+      if (sort === "name") return a.name.localeCompare(b.name, "zh");
+      if (sort === "created_asc")
+        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      if (sort === "used_desc") {
+        const ta = a.lastUsedAt ? new Date(a.lastUsedAt).getTime() : 0;
+        const tb = b.lastUsedAt ? new Date(b.lastUsedAt).getTime() : 0;
+        return tb - ta;
+      }
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+    return list;
+  }, [rows, kw, groupFilter, statusFilter, sort, routeMap]);
 
   function flash(msg: string) {
     setToast(msg);
     setTimeout(() => setToast(""), 2000);
   }
 
-  function startCreate() {
-    setEditing(null);
-    setForm(emptyForm());
-    setOpen(true);
+  function applySearch() {
+    setKw(kwDraft.trim());
+  }
+
+  function resetSearch() {
+    setKwDraft("");
+    setKw("");
+    setGroupFilter("");
+    setStatusFilter("all");
+    setSort("created_desc");
   }
 
   function startEdit(row: Token) {
@@ -175,7 +221,9 @@ export default function TokensPage() {
       quota: row.quota < 0 ? 1_000_000 : row.quota,
       rateUnlimited: row.rateLimit <= 0,
       rateLimit: row.rateLimit <= 0 ? 60 : row.rateLimit,
+      concurrency: row.concurrency ?? 0,
       allowedModels: [...row.allowedModels],
+      routeIds: [...(row.routeIds ?? [])],
       ipAllowlistText: (row.ipAllowlist ?? []).join("\n"),
       remark: row.remark || "",
       enabled: row.enabled,
@@ -185,34 +233,28 @@ export default function TokensPage() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (!editing) return;
     setError("");
     const payload = {
       name: form.name,
       groupName: form.groupName,
       quota: form.quotaUnlimited ? -1 : Number(form.quota),
       rateLimit: form.rateUnlimited ? 0 : Number(form.rateLimit),
+      concurrency: Number(form.concurrency) || 0,
       allowedModels: form.allowedModels,
+      routeIds: form.routeIds,
       ipAllowlist: parseIpText(form.ipAllowlistText),
       remark: form.remark,
       enabled: form.enabled,
     };
     try {
-      if (editing) {
-        await api(`/tokens/${editing.id}`, {
-          method: "PUT",
-          body: JSON.stringify(payload),
-        });
-        flash("密钥已更新");
-      } else {
-        await api<{ data: Token; key: string }>("/tokens", {
-          method: "POST",
-          body: JSON.stringify(payload),
-        });
-        flash("密钥已创建，可在列表中查看/复制");
-      }
+      await api(`/tokens/${editing.id}`, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      });
+      flash("策略已更新");
       setOpen(false);
       setEditing(null);
-      setForm(emptyForm());
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "保存失败");
@@ -225,220 +267,294 @@ export default function TokensPage() {
     await load();
   }
 
-  async function copyKey(key: string) {
-    await navigator.clipboard.writeText(key);
-    flash("已复制密钥");
+  function routeLabel(ids: string[]) {
+    if (!ids.length) return "未绑定";
+    const names = ids.map((id) => routeMap.get(id) ?? id);
+    if (names.length <= 2) return names.join(", ");
+    return `${names.slice(0, 2).join(", ")} +${names.length - 2}`;
   }
+
+  function modelsLabel(models: string[]) {
+    if (!models.length) return "全部模型";
+    if (models.length <= 2) return models.join(", ");
+    return `${models.slice(0, 2).join(", ")} +${models.length - 2}`;
+  }
+
+  function ipLabel(list: string[]) {
+    if (!list.length) return "不限";
+    if (list.length <= 2) return list.join(", ");
+    return `${list[0]} 等${list.length}条`;
+  }
+
+  function quotaLabel(r: Token) {
+    const remaining = r.quota < 0 ? "∞" : (r.remainingQuota ?? 0).toLocaleString();
+    const total = r.quota < 0 ? "∞" : r.quota.toLocaleString();
+    return `${remaining} / ${total}`;
+  }
+
+  const table = (
+    <div className="panel">
+      <div className="table-wrap">
+        <table className="table km-table">
+          <thead>
+            <tr>
+              <th>名称</th>
+              <th>所属分组</th>
+              <th>路由</th>
+              <th>可用模型</th>
+              <th>IP 限制</th>
+              <th>QPS</th>
+              <th>并发限制</th>
+              <th>剩余额度 / 总额度</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((r) => (
+              <tr key={r.id}>
+                <td>
+                  <strong>{r.name}</strong>
+                  <div className="tk-sub">
+                    <span className={`badge ${r.enabled ? "on" : "off"}`}>
+                      {r.enabled ? "启用" : "禁用"}
+                    </span>
+                    {r.remark ? ` · ${r.remark}` : ""}
+                  </div>
+                </td>
+                <td>{r.groupName?.trim() || "—"}</td>
+                <td title={(r.routeIds ?? []).map((id) => routeMap.get(id) ?? id).join(", ")}>
+                  {routeLabel(r.routeIds ?? [])}
+                </td>
+                <td title={r.allowedModels.join(", ") || "全部模型"}>
+                  <span className="tk-models">{modelsLabel(r.allowedModels)}</span>
+                </td>
+                <td className="mono" title={(r.ipAllowlist ?? []).join("\n")}>
+                  {ipLabel(r.ipAllowlist ?? [])}
+                </td>
+                <td className="mono">{r.rateLimit <= 0 ? "不限" : r.rateLimit}</td>
+                <td className="mono">{!r.concurrency ? "不限" : r.concurrency}</td>
+                <td className="mono">{quotaLabel(r)}</td>
+                <td>
+                  <div className="tk-ops">
+                    <button
+                      type="button"
+                      className="icon-btn"
+                      title="修改策略"
+                      onClick={() => startEdit(r)}
+                    >
+                      <IconPencil />
+                    </button>
+                    <button
+                      type="button"
+                      className="icon-btn danger"
+                      title="删除"
+                      onClick={() => void remove(r)}
+                    >
+                      <IconTrash />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {!filtered.length ? (
+              <tr>
+                <td colSpan={9} className="empty">
+                  没有匹配的密钥策略
+                </td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  const searchFields = (
+    <>
+      <input
+        className="search"
+        placeholder="按名称、分组、路由、状态或模型搜索"
+        value={kwDraft}
+        onChange={(e) => setKwDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") applySearch();
+        }}
+      />
+      <select
+        value={groupFilter}
+        onChange={(e) => setGroupFilter(e.target.value)}
+        aria-label="按标签/分组"
+      >
+        <option value="">标签: 全部</option>
+        {groups.map((g) => (
+          <option key={g} value={g}>
+            {g}
+          </option>
+        ))}
+      </select>
+      <select
+        value={statusFilter}
+        onChange={(e) => setStatusFilter(e.target.value as "all" | "on" | "off")}
+      >
+        <option value="all">状态: 全部</option>
+        <option value="on">启用</option>
+        <option value="off">禁用</option>
+      </select>
+      <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
+        <option value="created_desc">排序: 创建时间 (新→旧)</option>
+        <option value="created_asc">排序: 创建时间 (旧→新)</option>
+        <option value="used_desc">排序: 最近使用</option>
+        <option value="name">排序: 名称</option>
+      </select>
+      <button type="button" className="btn" onClick={applySearch}>
+        查询
+      </button>
+      <button type="button" className="btn ghost" onClick={resetSearch}>
+        重置
+      </button>
+    </>
+  );
 
   return (
     <>
       <div className="topbar">
         <div className="page-head">
           <h2>密钥管理</h2>
-          <p>精细控制配额、分组、模型与 IP；支持关键字与密钥双搜索</p>
+          <p>对已有 API Key 做路由、模型、IP、QPS 与额度限制（列表不展示密钥明文）</p>
         </div>
-        <button className="btn" onClick={startCreate}>
-          创建密钥
+      </div>
+
+      <div className="km-skin-picker">
+        <span>布局版本（选定后会记住）</span>
+        <button
+          type="button"
+          className={`km-skin-btn${skin === "a" ? " on" : ""}`}
+          onClick={() => pickSkin("a")}
+        >
+          A · 统计卡片
+        </button>
+        <button
+          type="button"
+          className={`km-skin-btn${skin === "b" ? " on" : ""}`}
+          onClick={() => pickSkin("b")}
+        >
+          B · 紧凑数字条
+        </button>
+        <button
+          type="button"
+          className={`km-skin-btn${skin === "c" ? " on" : ""}`}
+          onClick={() => pickSkin("c")}
+        >
+          C · 左侧标签栏
         </button>
       </div>
+      <p className="km-skin-hint">
+        {skin === "a" && "方案 A：顶部五块统计卡 + 工具式筛选条（最接近你给的参考图）"}
+        {skin === "b" && "方案 B：统计收成一行数字，筛选更紧凑，适合小屏"}
+        {skin === "c" && "方案 C：左侧常驻分组标签，右侧表格；适合分组很多时快速切换"}
+      </p>
 
       {error && !open ? <div className="alert">{error}</div> : null}
       {toast ? <div className="alert ok">{toast}</div> : null}
 
-      <div className="tk-filters">
-        <div className="tk-search-row">
-          <input
-            className="search"
-            placeholder="关键字：名称 / 分组 / 备注"
-            value={kw}
-            onChange={(e) => setKw(e.target.value)}
-          />
-          <input
-            className="search"
-            placeholder="密钥：前缀或完整 sk-…"
-            value={keyQ}
-            onChange={(e) => setKeyQ(e.target.value)}
-          />
-        </div>
+      {skin === "a" ? (
+        <>
+          <div className="km-stats">
+            <div className="km-stat">
+              <span>全部</span>
+              <strong>{stats.total}</strong>
+            </div>
+            <div className="km-stat">
+              <span>启用</span>
+              <strong>{stats.enabled}</strong>
+            </div>
+            <div className="km-stat">
+              <span>禁用</span>
+              <strong>{stats.disabled}</strong>
+            </div>
+            <div className="km-stat">
+              <span>未绑定路由</span>
+              <strong>{stats.unbound}</strong>
+            </div>
+            <div className="km-stat">
+              <span>即将过期</span>
+              <strong>{stats.expiring}</strong>
+            </div>
+          </div>
+          <div className="km-filters">{searchFields}</div>
+          {table}
+        </>
+      ) : null}
 
-        <div className="tk-tag-row">
-          <span className="tk-tag-label">分组</span>
-          <button
-            type="button"
-            className={`tk-tag${!groupFilter ? " on" : ""}`}
-            onClick={() => setGroupFilter(null)}
-          >
-            全部
-          </button>
-          {groups.map((g) => (
+      {skin === "b" ? (
+        <>
+          <div className="km-strip">
+            <span>
+              全部 <b>{stats.total}</b>
+            </span>
+            <span>
+              启用 <b>{stats.enabled}</b>
+            </span>
+            <span>
+              禁用 <b>{stats.disabled}</b>
+            </span>
+            <span>
+              未绑定 <b>{stats.unbound}</b>
+            </span>
+            <span>
+              即将过期 <b>{stats.expiring}</b>
+            </span>
+          </div>
+          <div className="km-filters km-filters-tight">{searchFields}</div>
+          {table}
+        </>
+      ) : null}
+
+      {skin === "c" ? (
+        <div className="km-split">
+          <aside className="km-side">
+            <div className="km-side-title">分组标签</div>
             <button
-              key={g}
               type="button"
-              className={`tk-tag${groupFilter === g ? " on" : ""}`}
-              onClick={() => setGroupFilter(groupFilter === g ? null : g)}
+              className={`km-side-item${!groupFilter ? " on" : ""}`}
+              onClick={() => setGroupFilter("")}
             >
-              {g}
+              全部 <em>{stats.total}</em>
             </button>
-          ))}
-          {!groups.length ? <span className="tk-tag-empty">暂无分组标签</span> : null}
+            {groups.map((g) => {
+              const n = rows.filter((r) => (r.groupName || "").trim() === g).length;
+              return (
+                <button
+                  key={g}
+                  type="button"
+                  className={`km-side-item${groupFilter === g ? " on" : ""}`}
+                  onClick={() => setGroupFilter(groupFilter === g ? "" : g)}
+                >
+                  {g} <em>{n}</em>
+                </button>
+              );
+            })}
+            {!groups.length ? <div className="km-side-empty">暂无分组</div> : null}
+            <div className="km-side-stats">
+              <div>
+                启用 <b>{stats.enabled}</b>
+              </div>
+              <div>
+                禁用 <b>{stats.disabled}</b>
+              </div>
+              <div>
+                未绑定 <b>{stats.unbound}</b>
+              </div>
+            </div>
+          </aside>
+          <div className="km-main">
+            <div className="km-filters">{searchFields}</div>
+            {table}
+          </div>
         </div>
+      ) : null}
 
-        <div className="tk-tag-row">
-          <span className="tk-tag-label">模型</span>
-          <button
-            type="button"
-            className={`tk-tag${!modelFilter ? " on" : ""}`}
-            onClick={() => setModelFilter(null)}
-          >
-            全部
-          </button>
-          {modelTags.map((m) => (
-            <button
-              key={m}
-              type="button"
-              className={`tk-tag${modelFilter === m ? " on" : ""}`}
-              onClick={() => setModelFilter(modelFilter === m ? null : m)}
-            >
-              {m === "*" ? "全部模型" : m}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="panel">
-        <div className="table-wrap">
-          <table className="table tk-table">
-            <thead>
-              <tr>
-                <th>名称</th>
-                <th>状态</th>
-                <th>剩余 / 总额度</th>
-                <th>分组</th>
-                <th>密钥</th>
-                <th>可用模型</th>
-                <th>IP 限制</th>
-                <th>创建日期</th>
-                <th>最后使用</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((r) => {
-                const remaining =
-                  r.quota < 0 ? "∞" : (r.remainingQuota ?? 0).toLocaleString();
-                const total = r.quota < 0 ? "∞" : r.quota.toLocaleString();
-                const revealed = revealId === r.id && !!r.key;
-                const masked =
-                  r.key && r.key.length > 12
-                    ? `${r.key.slice(0, 10)}${"•".repeat(10)}`
-                    : r.key
-                      ? `${r.keyPrefix}${"•".repeat(12)}`
-                      : `${r.keyPrefix}…`;
-                const shown = revealed && r.key ? r.key : masked;
-                const modelsLabel = !r.allowedModels.length
-                  ? "全部模型"
-                  : r.allowedModels.slice(0, 2).join(", ") +
-                    (r.allowedModels.length > 2
-                      ? ` +${r.allowedModels.length - 2}`
-                      : "");
-                const ipLabel = !r.ipAllowlist?.length
-                  ? "不限"
-                  : r.ipAllowlist.length <= 2
-                    ? r.ipAllowlist.join(", ")
-                    : `${r.ipAllowlist[0]} 等${r.ipAllowlist.length}条`;
-                return (
-                  <tr key={r.id}>
-                    <td>
-                      <strong>{r.name}</strong>
-                      {r.remark ? (
-                        <div className="tk-sub">{r.remark}</div>
-                      ) : null}
-                    </td>
-                    <td>
-                      <span className={`badge ${r.enabled ? "on" : "off"}`}>
-                        {r.enabled ? "启用" : "禁用"}
-                      </span>
-                    </td>
-                    <td className="mono">
-                      {remaining} / {total}
-                    </td>
-                    <td>{r.groupName?.trim() || "—"}</td>
-                    <td className="key-td">
-                      <div className="key-cell">
-                        <span
-                          className={`key-pill mono ${revealed ? "is-revealed" : "is-masked"}`}
-                          title={revealed && r.key ? r.key : undefined}
-                        >
-                          {shown}
-                        </span>
-                        {r.key ? (
-                          <span className="key-actions">
-                            <button
-                              type="button"
-                              className="icon-btn"
-                              title={revealed ? "隐藏密钥" : "显示密钥"}
-                              onClick={() =>
-                                setRevealId((id) => (id === r.id ? null : r.id))
-                              }
-                            >
-                              {revealed ? <IconEyeOff /> : <IconEye />}
-                            </button>
-                            <button
-                              type="button"
-                              className="icon-btn"
-                              title="复制密钥"
-                              onClick={() => void copyKey(r.key!)}
-                            >
-                              <IconCopy />
-                            </button>
-                          </span>
-                        ) : null}
-                      </div>
-                    </td>
-                    <td title={r.allowedModels.join(", ") || "全部模型"}>
-                      <span className="tk-models">{modelsLabel}</span>
-                    </td>
-                    <td className="mono" title={(r.ipAllowlist ?? []).join("\n")}>
-                      {ipLabel}
-                    </td>
-                    <td className="mono">{ymd(r.createdAt)}</td>
-                    <td className="mono">{ymd(r.lastUsedAt)}</td>
-                    <td>
-                      <div className="tk-ops">
-                        <button
-                          type="button"
-                          className="icon-btn"
-                          title="修改"
-                          onClick={() => startEdit(r)}
-                        >
-                          <IconPencil />
-                        </button>
-                        <button
-                          type="button"
-                          className="icon-btn danger"
-                          title="删除"
-                          onClick={() => void remove(r)}
-                        >
-                          <IconTrash />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-              {!filtered.length ? (
-                <tr>
-                  <td colSpan={10} className="empty">
-                    没有匹配的密钥
-                  </td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {open ? (
+      {open && editing ? (
         <div className="modal-backdrop" onClick={() => setOpen(false)}>
           <form
             className="modal modal-token"
@@ -446,8 +562,8 @@ export default function TokensPage() {
             onSubmit={onSubmit}
           >
             <div className="modal-user-head">
-              <h3>{editing ? "修改密钥" : "创建密钥"}</h3>
-              <p>配置分组、模型白名单与 IP 限制</p>
+              <h3>修改密钥策略</h3>
+              <p>配置分组、路由、模型、IP、QPS 与额度（不展示/不改密钥串）</p>
             </div>
             {error ? <div className="alert">{error}</div> : null}
             <div className="modal-user-grid">
@@ -459,18 +575,17 @@ export default function TokensPage() {
                   required
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="例如：内部测试"
                 />
               </label>
               <label className="stack-field">
-                <span>分组</span>
+                <span>所属分组</span>
                 <input
                   value={form.groupName}
                   onChange={(e) => setForm({ ...form, groupName: e.target.value })}
                   placeholder="如：内部 / 客户A"
-                  list="token-group-list"
+                  list="km-group-list"
                 />
-                <datalist id="token-group-list">
+                <datalist id="km-group-list">
                   {groups.map((g) => (
                     <option key={g} value={g} />
                   ))}
@@ -493,6 +608,42 @@ export default function TokensPage() {
                 <input
                   value={form.remark}
                   onChange={(e) => setForm({ ...form, remark: e.target.value })}
+                />
+              </label>
+              <label className="stack-field">
+                <span>QPS（每分钟）</span>
+                <div className="rate-row">
+                  <label className="check-inline">
+                    <input
+                      type="checkbox"
+                      checked={form.rateUnlimited}
+                      onChange={(e) =>
+                        setForm({ ...form, rateUnlimited: e.target.checked })
+                      }
+                    />
+                    不限
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    disabled={form.rateUnlimited}
+                    value={form.rateLimit}
+                    onChange={(e) =>
+                      setForm({ ...form, rateLimit: Number(e.target.value) })
+                    }
+                  />
+                </div>
+              </label>
+              <label className="stack-field">
+                <span>并发限制</span>
+                <input
+                  type="number"
+                  min={0}
+                  value={form.concurrency}
+                  onChange={(e) =>
+                    setForm({ ...form, concurrency: Number(e.target.value) })
+                  }
+                  placeholder="0 = 不限"
                 />
               </label>
               <label className="stack-field">
@@ -519,31 +670,36 @@ export default function TokensPage() {
                   />
                 </div>
               </label>
-              <label className="stack-field">
-                <span>每分钟限流</span>
-                <div className="rate-row">
-                  <label className="check-inline">
-                    <input
-                      type="checkbox"
-                      checked={form.rateUnlimited}
-                      onChange={(e) =>
-                        setForm({ ...form, rateUnlimited: e.target.checked })
-                      }
-                    />
-                    不限流
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    disabled={form.rateUnlimited}
-                    value={form.rateLimit}
-                    onChange={(e) =>
-                      setForm({ ...form, rateLimit: Number(e.target.value) })
-                    }
-                  />
-                </div>
-              </label>
             </div>
+            <label className="stack-field" style={{ marginTop: 12 }}>
+              <span>绑定路由</span>
+              <div className="km-route-picks">
+                {routes.map((rt) => {
+                  const on = form.routeIds.includes(rt.id);
+                  return (
+                    <button
+                      key={rt.id}
+                      type="button"
+                      className={`tk-tag${on ? " on" : ""}`}
+                      onClick={() =>
+                        setForm({
+                          ...form,
+                          routeIds: on
+                            ? form.routeIds.filter((x) => x !== rt.id)
+                            : [...form.routeIds, rt.id],
+                        })
+                      }
+                    >
+                      {rt.model}
+                      {!rt.enabled ? " (停用)" : ""}
+                    </button>
+                  );
+                })}
+                {!routes.length ? (
+                  <span className="tk-tag-empty">暂无路由，请先在路由管理中创建</span>
+                ) : null}
+              </div>
+            </label>
             <label className="stack-field" style={{ marginTop: 12 }}>
               <span>可用模型</span>
               <ModelPicker
@@ -561,14 +717,14 @@ export default function TokensPage() {
                 onChange={(e) =>
                   setForm({ ...form, ipAllowlistText: e.target.value })
                 }
-                placeholder={"留空不限制\n每行一个 IP 或 CIDR，如：\n1.2.3.4\n10.0.0.0/8"}
+                placeholder={"留空不限制\n每行一个 IP 或 CIDR"}
               />
             </label>
             <div className="modal-actions">
               <button type="button" className="btn ghost" onClick={() => setOpen(false)}>
                 取消
               </button>
-              <button className="btn">{editing ? "保存" : "创建"}</button>
+              <button className="btn">保存</button>
             </div>
           </form>
         </div>

@@ -79,6 +79,8 @@ const statements = [
     allowed_models TEXT NOT NULL DEFAULT '[]',
     group_name TEXT DEFAULT '',
     ip_allowlist TEXT NOT NULL DEFAULT '[]',
+    route_ids TEXT NOT NULL DEFAULT '[]',
+    concurrency INTEGER NOT NULL DEFAULT 0,
     last_used_at INTEGER,
     expires_at INTEGER,
     remark TEXT DEFAULT '',
@@ -161,6 +163,12 @@ export function migrate() {
   if (!tokenCols.some((c) => c.name === "last_used_at")) {
     sqlite.exec(`ALTER TABLE tokens ADD COLUMN last_used_at INTEGER`);
   }
+  if (!tokenCols.some((c) => c.name === "route_ids")) {
+    sqlite.exec(`ALTER TABLE tokens ADD COLUMN route_ids TEXT DEFAULT '[]'`);
+  }
+  if (!tokenCols.some((c) => c.name === "concurrency")) {
+    sqlite.exec(`ALTER TABLE tokens ADD COLUMN concurrency INTEGER DEFAULT 0`);
+  }
 
   const logCols = sqlite.prepare(`PRAGMA table_info(request_logs)`).all() as Array<{
     name: string;
@@ -227,10 +235,23 @@ export function migrate() {
 function seedDefaultRoles(db: InstanceType<typeof Database>) {
   const { DEFAULT_ROLES } = requireRoles();
   for (const r of DEFAULT_ROLES) {
-    const existing = db.prepare(`SELECT id FROM roles WHERE key = ?`).get(r.key) as
-      | { id: string }
+    const existing = db.prepare(`SELECT id, menu_perms FROM roles WHERE key = ?`).get(r.key) as
+      | { id: string; menu_perms: string }
       | undefined;
-    if (existing) continue;
+    if (existing) {
+      try {
+        const current = JSON.parse(existing.menu_perms || "[]") as string[];
+        const merged = [...new Set([...current, ...r.menuPerms])];
+        if (merged.length !== current.length) {
+          db.prepare(
+            `UPDATE roles SET menu_perms = ?, updated_at = ? WHERE id = ?`,
+          ).run(JSON.stringify(merged), Date.now(), existing.id);
+        }
+      } catch {
+        /* ignore bad json */
+      }
+      continue;
+    }
     const rid = `role_${r.key}`;
     db.prepare(
       `INSERT INTO roles (id, key, name, description, menu_perms, api_perms, is_system, created_at, updated_at)
@@ -282,6 +303,7 @@ function requireRoles() {
           "menu.usage",
           "menu.logs",
           "menu.channels",
+          "menu.apiKeys",
           "menu.tokens",
           "menu.routes",
           "menu.proxy",
@@ -310,6 +332,7 @@ function requireRoles() {
           "menu.usage",
           "menu.logs",
           "menu.channels",
+          "menu.apiKeys",
           "menu.tokens",
           "menu.routes",
           "menu.proxy",

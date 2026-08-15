@@ -16,6 +16,7 @@ import ResetPasswordPage from "./pages/ResetPasswordPage";
 import DashboardPage from "./pages/DashboardPage";
 import ChannelsPage from "./pages/ChannelsPage";
 import TokensPage from "./pages/TokensPage";
+import ApiKeysPage from "./pages/ApiKeysPage";
 import ModelsPage from "./pages/ModelsPage";
 import ProxyRoutesPage from "./pages/ProxyRoutesPage";
 import LogsPage from "./pages/LogsPage";
@@ -42,6 +43,8 @@ import {
   AdminIconUsers,
   IconGear,
   IconShield,
+  IconLayers,
+  IconLock,
   NavIconChat,
   NavIconDocs,
   NavIconKey,
@@ -67,6 +70,7 @@ const ADMIN_TITLES: Record<string, string> = {
   "/admin/usage": "用量检测",
   "/admin/channels": "供应商管理",
   "/admin/tokens": "密钥管理",
+  "/admin/api-keys": "API 密钥",
   "/admin/models": "路由管理",
   "/admin/proxy": "模型管理",
   "/admin/users": "用户管理",
@@ -140,16 +144,34 @@ function AdminShell() {
                 供应商管理
               </NavLink>
             ) : null}
+            {can("menu.proxy") ? (
+              <NavLink to="/admin/proxy">
+                <AdminIconProxy />
+                模型管理
+              </NavLink>
+            ) : null}
+          </div>
+          <div className="nav-group">
+            <div className="nav-label nav-label-icon">
+              <IconLayers size={14} />
+              策略
+            </div>
             {can("menu.routes") ? (
               <NavLink to="/admin/models">
                 <AdminIconRoute />
                 路由管理
               </NavLink>
             ) : null}
-            {can("menu.proxy") ? (
-              <NavLink to="/admin/proxy">
-                <AdminIconProxy />
-                模型管理
+            {can("menu.apiKeys") ? (
+              <NavLink to="/admin/api-keys">
+                <AdminIconKey />
+                API 密钥
+              </NavLink>
+            ) : null}
+            {can("menu.tokens") ? (
+              <NavLink to="/admin/tokens">
+                <IconLock />
+                密钥管理
               </NavLink>
             ) : null}
           </div>
@@ -168,12 +190,6 @@ function AdminShell() {
               <NavLink to="/admin/roles">
                 <IconShield />
                 角色管理
-              </NavLink>
-            ) : null}
-            {can("menu.tokens") ? (
-              <NavLink to="/admin/tokens">
-                <AdminIconKey />
-                密钥管理
               </NavLink>
             ) : null}
             {can("menu.settings") ? (
@@ -392,6 +408,7 @@ export default function App() {
       >
         <Route index element={<DashboardPage />} />
         <Route path="channels" element={<ChannelsPage />} />
+        <Route path="api-keys" element={<ApiKeysPage />} />
         <Route path="tokens" element={<TokensPage />} />
         <Route path="models" element={<ModelsPage />} />
         <Route path="proxy" element={<ProxyRoutesPage />} />

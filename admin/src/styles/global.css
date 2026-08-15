@@ -1245,6 +1245,216 @@ code,
   }
 }
 
+/* ── API keys (simple) ── */
+.ak-toolbar {
+  margin-bottom: 12px;
+}
+.ak-toolbar .search {
+  width: min(420px, 100%);
+}
+.ak-table th,
+.ak-table td {
+  white-space: nowrap;
+}
+.ak-form-grid {
+  grid-template-columns: 1fr !important;
+}
+.ak-created {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--brand, #2563eb) 8%, var(--bg));
+  border: 1px solid var(--line);
+  margin-bottom: 8px;
+}
+.ak-created code {
+  flex: 1;
+  word-break: break-all;
+  font-size: 13px;
+}
+.modal-sm {
+  width: min(440px, 100%);
+}
+
+/* ── Key management skins ── */
+.km-skin-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.km-skin-btn {
+  border: 1px solid var(--line);
+  background: var(--bg-elevated);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.km-skin-btn.on {
+  border-color: color-mix(in srgb, var(--brand, #2563eb) 45%, var(--line));
+  background: color-mix(in srgb, var(--brand, #2563eb) 12%, var(--bg));
+  color: var(--brand, #1d4ed8);
+  font-weight: 600;
+}
+.km-skin-hint {
+  margin: 0 0 14px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.km-stats {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.km-stat {
+  background: var(--bg-elevated, #fff);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: grid;
+  gap: 6px;
+}
+.km-stat span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.km-stat strong {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.km-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 22px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-elevated);
+  font-size: 13px;
+  color: var(--muted);
+}
+.km-strip b {
+  color: var(--text);
+  margin-left: 4px;
+}
+.km-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+  align-items: center;
+}
+.km-filters .search {
+  flex: 1 1 220px;
+  min-width: 180px;
+}
+.km-filters select {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 9px 12px;
+  font: inherit;
+  font-size: 13px;
+  background: var(--bg);
+  color: var(--text);
+}
+.km-filters-tight .btn {
+  padding-inline: 12px;
+}
+.km-split {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+.km-side {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-elevated);
+  padding: 12px;
+  position: sticky;
+  top: 12px;
+}
+.km-side-title {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.km-side-item {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+.km-side-item em {
+  font-style: normal;
+  color: var(--muted);
+  font-size: 12px;
+}
+.km-side-item:hover {
+  background: color-mix(in srgb, var(--brand, #2563eb) 8%, transparent);
+}
+.km-side-item.on {
+  background: color-mix(in srgb, var(--brand, #2563eb) 14%, transparent);
+  color: var(--brand, #1d4ed8);
+  font-weight: 600;
+}
+.km-side-empty {
+  font-size: 12px;
+  color: var(--muted);
+  padding: 8px;
+}
+.km-side-stats {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.km-side-stats b {
+  color: var(--text);
+}
+.km-route-picks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.km-table th,
+.km-table td {
+  white-space: nowrap;
+}
+@media (max-width: 960px) {
+  .km-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .km-split {
+    grid-template-columns: 1fr;
+  }
+  .km-side {
+    position: static;
+  }
+}
+
 .modal-user {
   width: min(480px, 100%);
 }
