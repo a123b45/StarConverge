@@ -27,8 +27,7 @@ const statements = [
     updated_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
   )`,
   `CREATE INDEX IF NOT EXISTS users_username_idx ON users(username)`,
-  `CREATE INDEX IF NOT EXISTS users_email_idx ON users(email)`,
-  `CREATE INDEX IF NOT EXISTS users_role_id_idx ON users(role_id)`,
+  // users_email_idx / users_role_id_idx created after additive ALTERs (existing DBs)
   `CREATE TABLE IF NOT EXISTS roles (
     id TEXT PRIMARY KEY,
     key TEXT NOT NULL UNIQUE,
@@ -169,7 +168,15 @@ export function migrate() {
   if (!userCols.some((c) => c.name === "email")) {
     sqlite.exec(`ALTER TABLE users ADD COLUMN email TEXT`);
   }
+  if (!userCols.some((c) => c.name === "role_id")) {
+    sqlite.exec(`ALTER TABLE users ADD COLUMN role_id TEXT`);
+  }
+  if (!userCols.some((c) => c.name === "last_login_at")) {
+    sqlite.exec(`ALTER TABLE users ADD COLUMN last_login_at INTEGER`);
+  }
   sqlite.exec(`CREATE INDEX IF NOT EXISTS users_email_idx ON users(email)`);
+  sqlite.exec(`CREATE INDEX IF NOT EXISTS users_role_id_idx ON users(role_id)`);
+
   sqlite.exec(`CREATE TABLE IF NOT EXISTS password_resets (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,
@@ -184,17 +191,6 @@ export function migrate() {
   sqlite.exec(
     `CREATE INDEX IF NOT EXISTS password_resets_token_idx ON password_resets(token_hash)`,
   );
-
-  const userCols2 = sqlite.prepare(`PRAGMA table_info(users)`).all() as Array<{
-    name: string;
-  }>;
-  if (!userCols2.some((c) => c.name === "role_id")) {
-    sqlite.exec(`ALTER TABLE users ADD COLUMN role_id TEXT`);
-  }
-  if (!userCols2.some((c) => c.name === "last_login_at")) {
-    sqlite.exec(`ALTER TABLE users ADD COLUMN last_login_at INTEGER`);
-  }
-  sqlite.exec(`CREATE INDEX IF NOT EXISTS users_role_id_idx ON users(role_id)`);
   sqlite.exec(`CREATE TABLE IF NOT EXISTS roles (
     id TEXT PRIMARY KEY,
     key TEXT NOT NULL UNIQUE,
