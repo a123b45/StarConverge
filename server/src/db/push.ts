@@ -316,9 +316,9 @@ function requireRoles() {
     "menu.portal.keys",
     "menu.portal.usage",
     "menu.portal.chat",
-    "menu.portal.docs",
     "menu.portal.recharge",
     "menu.portal.bills",
+    "menu.portal.docs",
   ];
   const adminMenus = [
     "menu.dashboard",

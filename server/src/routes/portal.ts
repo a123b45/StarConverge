@@ -310,6 +310,10 @@ portalRoutes.get("/usage", async (c) => {
       promptTokens: number;
       completionTokens: number;
       totalTokens: number;
+      byModel: Map<
+        string,
+        { model: string; calls: number; totalTokens: number }
+      >;
     }
   >();
 
@@ -347,11 +351,16 @@ portalRoutes.get("/usage", async (c) => {
       promptTokens: 0,
       completionTokens: 0,
       totalTokens: 0,
+      byModel: new Map(),
     };
     d.calls += 1;
     d.promptTokens += pt;
     d.completionTokens += ct;
     d.totalTokens += tt;
+    const dm = d.byModel.get(m) ?? { model: m, calls: 0, totalTokens: 0 };
+    dm.calls += 1;
+    dm.totalTokens += tt;
+    d.byModel.set(m, dm);
     dailyMap.set(day, d);
   }
 
@@ -376,9 +385,18 @@ portalRoutes.get("/usage", async (c) => {
     p95Ms: pct(e.durations, 95),
   }));
 
-  const daily = [...dailyMap.values()].sort((a, b) =>
-    a.date.localeCompare(b.date),
-  );
+  const daily = [...dailyMap.values()]
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((d) => ({
+      date: d.date,
+      calls: d.calls,
+      promptTokens: d.promptTokens,
+      completionTokens: d.completionTokens,
+      totalTokens: d.totalTokens,
+      models: [...d.byModel.values()]
+        .sort((a, b) => b.calls - a.calls || b.totalTokens - a.totalTokens)
+        .slice(0, 5),
+    }));
   const avgMs = durations.length
     ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
     : 0;

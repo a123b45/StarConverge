@@ -335,12 +335,6 @@ function PortalShell() {
                 对话测试
               </NavLink>
             ) : null}
-            {can("menu.portal.docs") ? (
-              <NavLink to="/app/docs">
-                <NavIconDocs />
-                API 文档
-              </NavLink>
-            ) : null}
             {can("menu.portal.recharge") ? (
               <NavLink to="/app/recharge">
                 <NavIconRecharge />
@@ -351,6 +345,12 @@ function PortalShell() {
               <NavLink to="/app/bills">
                 <NavIconBills />
                 账单
+              </NavLink>
+            ) : null}
+            {can("menu.portal.docs") ? (
+              <NavLink to="/app/docs">
+                <NavIconDocs />
+                API 文档
               </NavLink>
             ) : null}
           </div>

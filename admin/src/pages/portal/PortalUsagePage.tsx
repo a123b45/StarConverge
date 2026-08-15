@@ -33,6 +33,7 @@ type Daily = {
   promptTokens: number;
   completionTokens: number;
   totalTokens: number;
+  models?: Array<{ model: string; calls: number; totalTokens: number }>;
 };
 
 type Req = {
@@ -203,11 +204,24 @@ export default function PortalUsagePage() {
                 <h3>模型调用趋势</h3>
                 <div className="portal-bars">
                   {daily.map((d) => (
-                    <div key={d.date} className="portal-bar-col" title={`${d.date}: ${d.calls}`}>
-                      <div
-                        className="portal-bar"
-                        style={{ height: `${Math.max(8, (d.calls / maxCalls) * 100)}%` }}
-                      />
+                    <div key={d.date} className="portal-bar-col">
+                      <div className="portal-bar-hit">
+                        <div
+                          className="portal-bar"
+                          style={{ height: `${Math.max(8, (d.calls / maxCalls) * 100)}%` }}
+                        />
+                        <div className="portal-bar-tip" role="tooltip">
+                          <strong>{d.date}</strong>
+                          <em>合计 {d.calls} 次</em>
+                          {(d.models?.length ? d.models : []).map((m) => (
+                            <span key={m.model}>
+                              {m.model}
+                              <b>{m.calls}</b>
+                            </span>
+                          ))}
+                          {!d.models?.length ? <span>暂无模型明细</span> : null}
+                        </div>
+                      </div>
                       <span>{d.date.slice(5)}</span>
                     </div>
                   ))}
@@ -217,17 +231,26 @@ export default function PortalUsagePage() {
                 <h3>Tokens 使用趋势</h3>
                 <div className="portal-bars">
                   {daily.map((d) => (
-                    <div
-                      key={`t-${d.date}`}
-                      className="portal-bar-col"
-                      title={`${d.date}: ${d.totalTokens}`}
-                    >
-                      <div
-                        className="portal-bar tokens"
-                        style={{
-                          height: `${Math.max(8, (d.totalTokens / maxTokens) * 100)}%`,
-                        }}
-                      />
+                    <div key={`t-${d.date}`} className="portal-bar-col">
+                      <div className="portal-bar-hit">
+                        <div
+                          className="portal-bar tokens"
+                          style={{
+                            height: `${Math.max(8, (d.totalTokens / maxTokens) * 100)}%`,
+                          }}
+                        />
+                        <div className="portal-bar-tip" role="tooltip">
+                          <strong>{d.date}</strong>
+                          <em>合计 {d.totalTokens.toLocaleString()} tokens</em>
+                          {(d.models?.length ? d.models : []).map((m) => (
+                            <span key={m.model}>
+                              {m.model}
+                              <b>{m.totalTokens.toLocaleString()}</b>
+                            </span>
+                          ))}
+                          {!d.models?.length ? <span>暂无模型明细</span> : null}
+                        </div>
+                      </div>
                       <span>{d.date.slice(5)}</span>
                     </div>
                   ))}

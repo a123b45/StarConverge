@@ -47,9 +47,9 @@ export const MENU_GROUPS: PermGroup[] = [
       { key: "menu.portal.keys", label: "API 密钥" },
       { key: "menu.portal.usage", label: "用量" },
       { key: "menu.portal.chat", label: "对话测试" },
-      { key: "menu.portal.docs", label: "API 文档" },
       { key: "menu.portal.recharge", label: "充值" },
       { key: "menu.portal.bills", label: "账单" },
+      { key: "menu.portal.docs", label: "API 文档" },
     ],
   },
 ];
