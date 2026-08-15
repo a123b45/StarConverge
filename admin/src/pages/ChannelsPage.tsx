@@ -228,7 +228,7 @@ export default function ChannelsPage() {
       );
       setTestMsg(
         res.ok
-          ? `「${row.name}」已同步 ${res.modelCount} 个模型到用户模型列表`
+          ? `「${row.name}」已同步 ${res.modelCount} 个模型（写入供应商模型列表；启用后对用户可见）`
           : `同步失败：${res.error || "未知错误"}`,
       );
       if (res.ok) await load();

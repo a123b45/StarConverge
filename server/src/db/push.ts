@@ -233,130 +233,128 @@ export function migrate() {
 }
 
 function seedDefaultRoles(db: InstanceType<typeof Database>) {
-  const { DEFAULT_ROLES } = requireRoles();
+  const { DEFAULT_ROLES, FIXED_KEYS } = requireRoles();
+  const now = Date.now();
+
   for (const r of DEFAULT_ROLES) {
-    const existing = db.prepare(`SELECT id, menu_perms FROM roles WHERE key = ?`).get(r.key) as
-      | { id: string; menu_perms: string }
+    const existing = db.prepare(`SELECT id FROM roles WHERE key = ?`).get(r.key) as
+      | { id: string }
       | undefined;
     if (existing) {
-      try {
-        const current = JSON.parse(existing.menu_perms || "[]") as string[];
-        const merged = [...new Set([...current, ...r.menuPerms])];
-        if (merged.length !== current.length) {
-          db.prepare(
-            `UPDATE roles SET menu_perms = ?, updated_at = ? WHERE id = ?`,
-          ).run(JSON.stringify(merged), Date.now(), existing.id);
-        }
-      } catch {
-        /* ignore bad json */
-      }
-      continue;
+      db.prepare(
+        `UPDATE roles SET name = ?, description = ?, menu_perms = ?, api_perms = ?, is_system = 1, updated_at = ? WHERE id = ?`,
+      ).run(
+        r.name,
+        r.description,
+        JSON.stringify(r.menuPerms),
+        JSON.stringify(r.apiPerms),
+        now,
+        existing.id,
+      );
+    } else {
+      db.prepare(
+        `INSERT INTO roles (id, key, name, description, menu_perms, api_perms, is_system, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+      ).run(
+        `role_${r.key}`,
+        r.key,
+        r.name,
+        r.description,
+        JSON.stringify(r.menuPerms),
+        JSON.stringify(r.apiPerms),
+        now,
+        now,
+      );
     }
-    const rid = `role_${r.key}`;
-    db.prepare(
-      `INSERT INTO roles (id, key, name, description, menu_perms, api_perms, is_system, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)`,
-    ).run(
-      rid,
-      r.key,
-      r.name,
-      r.description,
-      JSON.stringify(r.menuPerms),
-      JSON.stringify(r.apiPerms),
-      Date.now(),
-      Date.now(),
-    );
   }
+
   const portal = db
     .prepare(`SELECT id FROM roles WHERE key = 'portal_user'`)
     .get() as { id: string } | undefined;
+  const admin = db
+    .prepare(`SELECT id FROM roles WHERE key = 'admin'`)
+    .get() as { id: string } | undefined;
+
   if (portal) {
     db.prepare(
       `UPDATE users SET role_id = ? WHERE role_id IS NULL OR role_id = ''`,
     ).run(portal.id);
+
+    const placeholders = FIXED_KEYS.map(() => "?").join(",");
+    const extras = db
+      .prepare(`SELECT id FROM roles WHERE key NOT IN (${placeholders})`)
+      .all(...FIXED_KEYS) as Array<{ id: string }>;
+    for (const ex of extras) {
+      db.prepare(
+        `UPDATE users SET role_id = ?, role = ?, updated_at = ? WHERE role_id = ?`,
+      ).run(portal.id, "用户", now, ex.id);
+      db.prepare(`DELETE FROM roles WHERE id = ?`).run(ex.id);
+    }
+  }
+
+  if (admin) {
+    db.prepare(`UPDATE users SET role = '管理员' WHERE role_id = ?`).run(admin.id);
+  }
+  if (portal) {
+    db.prepare(`UPDATE users SET role = '用户' WHERE role_id = ?`).run(portal.id);
   }
 }
 
 function requireRoles() {
-  // inline to avoid circular ESM issues in migrate script
+  const portalMenus = [
+    "menu.portal.models",
+    "menu.portal.keys",
+    "menu.portal.usage",
+    "menu.portal.chat",
+    "menu.portal.docs",
+  ];
+  const adminMenus = [
+    "menu.dashboard",
+    "menu.usage",
+    "menu.logs",
+    "menu.channels",
+    "menu.apiKeys",
+    "menu.tokens",
+    "menu.routes",
+    "menu.proxy",
+    "menu.users",
+    "menu.roles",
+    "menu.settings",
+  ];
+  const adminApis = [
+    "api.channels.read",
+    "api.channels.write",
+    "api.tokens.read",
+    "api.tokens.write",
+    "api.routes.read",
+    "api.routes.write",
+    "api.proxy.read",
+    "api.proxy.write",
+    "api.users.read",
+    "api.users.write",
+    "api.roles.read",
+    "api.roles.write",
+    "api.logs.read",
+    "api.usage.read",
+    "api.dashboard.read",
+  ];
   return {
+    FIXED_KEYS: ["admin", "portal_user"] as string[],
     DEFAULT_ROLES: [
       {
         key: "portal_user",
-        name: "普通用户",
-        description: "仅可访问用户门户",
-        menuPerms: [
-          "menu.portal.models",
-          "menu.portal.keys",
-          "menu.portal.usage",
-          "menu.portal.chat",
-          "menu.portal.docs",
-        ],
+        name: "用户",
+        description: "用户门户：模型列表、API 密钥、用量、对话测试、API 文档",
+        menuPerms: portalMenus,
         apiPerms: [] as string[],
-      },
-      {
-        key: "operator",
-        name: "运营人员",
-        description: "查看运营数据与供应商，不可改用户与角色",
-        menuPerms: [
-          "menu.dashboard",
-          "menu.usage",
-          "menu.logs",
-          "menu.channels",
-          "menu.apiKeys",
-          "menu.tokens",
-          "menu.routes",
-          "menu.proxy",
-          "menu.settings",
-        ],
-        apiPerms: [
-          "api.dashboard.read",
-          "api.usage.read",
-          "api.logs.read",
-          "api.channels.read",
-          "api.channels.write",
-          "api.tokens.read",
-          "api.tokens.write",
-          "api.routes.read",
-          "api.routes.write",
-          "api.proxy.read",
-          "api.proxy.write",
-        ],
       },
       {
         key: "admin",
         name: "管理员",
-        description: "管理端全部菜单与接口权限",
-        menuPerms: [
-          "menu.dashboard",
-          "menu.usage",
-          "menu.logs",
-          "menu.channels",
-          "menu.apiKeys",
-          "menu.tokens",
-          "menu.routes",
-          "menu.proxy",
-          "menu.users",
-          "menu.roles",
-          "menu.settings",
-        ],
-        apiPerms: [
-          "api.channels.read",
-          "api.channels.write",
-          "api.tokens.read",
-          "api.tokens.write",
-          "api.routes.read",
-          "api.routes.write",
-          "api.proxy.read",
-          "api.proxy.write",
-          "api.users.read",
-          "api.users.write",
-          "api.roles.read",
-          "api.roles.write",
-          "api.logs.read",
-          "api.usage.read",
-          "api.dashboard.read",
-        ],
+        description:
+          "管理端：运营（控制台/用量/日志）、资源与策略（供应商/模型/路由/密钥）、系统（用户/角色/文档）",
+        menuPerms: adminMenus,
+        apiPerms: adminApis,
       },
     ],
   };

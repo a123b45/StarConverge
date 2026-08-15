@@ -56,13 +56,12 @@ function bodyToIpRules(body: {
   return null;
 }
 import {
-  encodePerms,
-  getPortalUserRole,
   getRoleById,
   publicRole,
 } from "../services/roles.js";
 import {
   API_GROUPS,
+  FIXED_ROLE_KEYS,
   MENU_GROUPS,
 } from "../rbac/permissions.js";
 
@@ -115,71 +114,22 @@ adminRoutes.get("/roles", async (c) => {
     return c.json({ error: "无权限" }, 403);
   }
   const rows = await db.select().from(roles).orderBy(desc(roles.createdAt));
-  return c.json({ data: rows.map(publicRole) });
+  const fixed = rows.filter((r) => r.key === "admin" || r.key === "portal_user");
+  // Stable order: 管理员 first, then 用户
+  fixed.sort((a, b) => (a.key === "admin" ? -1 : b.key === "admin" ? 1 : 0));
+  return c.json({ data: fixed.map(publicRole) });
 });
 
 adminRoutes.post("/roles", async (c) => {
-  const auth = c.get("adminAuth");
-  if (!hasApiPerm(auth, "api.roles.write")) {
-    return c.json({ error: "无权限" }, 403);
-  }
-  const schema = z.object({
-    name: z.string().min(1).max(64),
-    description: z.string().max(200).optional(),
-    menuPerms: z.array(z.string()).default([]),
-    apiPerms: z.array(z.string()).default([]),
-  });
-  const parsed = schema.safeParse(await c.req.json().catch(() => ({})));
-  if (!parsed.success) return c.json({ error: "参数无效" }, 400);
-  const v = parsed.data;
-  const encoded = encodePerms(v.menuPerms, v.apiPerms);
-  const key = `custom_${id("rk").slice(0, 10)}`;
-  const row = {
-    id: id("role"),
-    key,
-    name: v.name.trim(),
-    description: v.description?.trim() || "",
-    menuPerms: encoded.menuPerms,
-    apiPerms: encoded.apiPerms,
-    isSystem: false,
-  };
-  await db.insert(roles).values(row);
-  const saved = await db.query.roles.findFirst({ where: eq(roles.id, row.id) });
-  return c.json({ data: publicRole(saved!) }, 201);
+  return c.json({ error: "系统仅保留「管理员」与「用户」两种角色，不可新建" }, 400);
 });
 
 adminRoutes.put("/roles/:id", async (c) => {
-  const auth = c.get("adminAuth");
-  if (!hasApiPerm(auth, "api.roles.write")) {
-    return c.json({ error: "无权限" }, 403);
-  }
-  const existing = await db.query.roles.findFirst({
-    where: eq(roles.id, c.req.param("id")),
-  });
-  if (!existing) return c.json({ error: "Not found" }, 404);
-  const schema = z.object({
-    name: z.string().min(1).max(64).optional(),
-    description: z.string().max(200).optional(),
-    menuPerms: z.array(z.string()).optional(),
-    apiPerms: z.array(z.string()).optional(),
-  });
-  const parsed = schema.safeParse(await c.req.json().catch(() => ({})));
-  if (!parsed.success) return c.json({ error: "参数无效" }, 400);
-  const v = parsed.data;
-  const patch: Partial<typeof roles.$inferInsert> = { updatedAt: new Date() };
-  if (v.name != null) patch.name = v.name.trim();
-  if (v.description != null) patch.description = v.description.trim();
-  if (v.menuPerms != null || v.apiPerms != null) {
-    const encoded = encodePerms(
-      v.menuPerms ?? parseJsonArray(existing.menuPerms),
-      v.apiPerms ?? parseJsonArray(existing.apiPerms),
-    );
-    patch.menuPerms = encoded.menuPerms;
-    patch.apiPerms = encoded.apiPerms;
-  }
-  await db.update(roles).set(patch).where(eq(roles.id, existing.id));
-  const saved = await db.query.roles.findFirst({ where: eq(roles.id, existing.id) });
-  return c.json({ data: publicRole(saved!) });
+  return c.json({ error: "角色权限已固定，不可编辑" }, 400);
+});
+
+adminRoutes.delete("/roles/:id", async (c) => {
+  return c.json({ error: "系统角色不可删除" }, 400);
 });
 
 adminRoutes.get("/roles/:id/users", async (c) => {
@@ -206,52 +156,6 @@ adminRoutes.get("/roles/:id/users", async (c) => {
       label: (u.displayName || "").trim() || u.username,
     })),
   });
-});
-
-adminRoutes.delete("/roles/:id", async (c) => {
-  const auth = c.get("adminAuth");
-  if (!hasApiPerm(auth, "api.roles.write")) {
-    return c.json({ error: "无权限" }, 403);
-  }
-  const existing = await db.query.roles.findFirst({
-    where: eq(roles.id, c.req.param("id")),
-  });
-  if (!existing) return c.json({ error: "Not found" }, 404);
-
-  const body = await c.req.json().catch(() => ({}));
-  const mode = body?.mode === "with_users" ? "with_users" : "keep_users";
-
-  const roleCount = await db.select({ id: roles.id }).from(roles);
-  if (roleCount.length <= 1) {
-    return c.json({ error: "至少需保留一个角色，无法删除最后一个" }, 400);
-  }
-
-  const bound = await db.select().from(users).where(eq(users.roleId, existing.id));
-
-  if (mode === "with_users") {
-    if (auth.userId && bound.some((u) => u.id === auth.userId)) {
-      return c.json({ error: "不能删除当前登录账号所属角色下的全部用户" }, 400);
-    }
-    for (const u of bound) {
-      await db.delete(tokens).where(eq(tokens.userId, u.id));
-      await db.delete(users).where(eq(users.id, u.id));
-    }
-  } else if (bound.length) {
-    const allRoles = await db.select().from(roles);
-    const fallback =
-      allRoles.find((r) => r.id !== existing.id && r.key === "portal_user") ??
-      allRoles.find((r) => r.id !== existing.id);
-    if (!fallback) {
-      return c.json({ error: "没有可用的回退角色" }, 400);
-    }
-    await db
-      .update(users)
-      .set({ roleId: fallback.id, role: fallback.name, updatedAt: new Date() })
-      .where(eq(users.roleId, existing.id));
-  }
-
-  await db.delete(roles).where(eq(roles.id, existing.id));
-  return c.json({ ok: true, mode, removedUsers: mode === "with_users" ? bound.length : 0 });
 });
 
 // ---- Users ----
@@ -317,6 +221,9 @@ adminRoutes.post("/users", async (c) => {
   }
   const role = await getRoleById(v.roleId);
   if (!role) return c.json({ error: "角色不存在" }, 400);
+  if (!(FIXED_ROLE_KEYS as readonly string[]).includes(role.key)) {
+    return c.json({ error: "只能选择「管理员」或「用户」" }, 400);
+  }
   const emailNorm = v.email?.toLowerCase() || null;
   const existing = await db.query.users.findFirst({
     where: emailNorm
@@ -376,6 +283,9 @@ adminRoutes.patch("/users/:id", async (c) => {
   if (body.roleId != null) {
     const role = await getRoleById(String(body.roleId));
     if (!role) return c.json({ error: "角色不存在" }, 400);
+    if (!(FIXED_ROLE_KEYS as readonly string[]).includes(role.key)) {
+      return c.json({ error: "只能选择「管理员」或「用户」" }, 400);
+    }
     patch.roleId = role.id;
     patch.role = role.name;
   }

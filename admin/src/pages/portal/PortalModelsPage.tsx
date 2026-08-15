@@ -9,6 +9,11 @@ type ModelItem = {
   providers: { name: string; type: string }[];
 };
 
+function modelInitial(name: string): string {
+  const part = name.split(/[-_/]/).find(Boolean) || name;
+  return part.slice(0, 1).toUpperCase();
+}
+
 export default function PortalModelsPage() {
   const [models, setModels] = useState<ModelItem[]>([]);
   const [q, setQ] = useState("");
@@ -35,7 +40,11 @@ export default function PortalModelsPage() {
       <div className="portal-hero">
         <div>
           <h1>模型列表</h1>
-          <p>共 {filtered.length} 个可用模型 · 按 token 配额计量</p>
+          <p>
+            {filtered.length
+              ? `共 ${filtered.length} 个可用模型 · 按 token 配额计量`
+              : "暂无可用模型 · 需管理员启用供应商并同步"}
+          </p>
         </div>
         <div className="portal-hero-actions">
           <input
@@ -54,26 +63,32 @@ export default function PortalModelsPage() {
         {filtered.map((m) => (
           <article key={m.id} className="portal-model-card">
             <div className="portal-model-top">
-              <div className="portal-model-icon">{m.model.slice(0, 1).toUpperCase()}</div>
-              <div>
-                <h3>{m.model}</h3>
-                <code>{m.model}</code>
-                <div className="portal-provider">{m.providerLabel}</div>
+              <div className="portal-model-icon" aria-hidden>
+                {modelInitial(m.model)}
+              </div>
+              <div className="portal-model-title">
+                <h3 title={m.model}>{m.model}</h3>
+                <span className="portal-provider-pill">{m.providerLabel}</span>
               </div>
             </div>
             <p className="portal-model-desc">
-              经 StarConverge 路由至上游渠道，消耗您的 API 密钥 token 配额。
+              经 StarConverge 路由至上游，调用时消耗您的 API 密钥 token 配额。
             </p>
             <div className="portal-model-meta">
-              <span>配额计量 · tokens</span>
-              <span className="ok-dot">可用</span>
+              <span>计量单位 · tokens</span>
+              <span className="portal-avail">
+                <i className="ok-dot" aria-hidden />
+                可用
+              </span>
             </div>
           </article>
         ))}
-        {!filtered.length ? (
-          <div className="portal-empty">暂无模型，请联系管理员配置渠道与路由</div>
-        ) : null}
       </div>
+      {!filtered.length ? (
+        <div className="portal-empty">
+          暂无模型。请联系管理员在「供应商管理」中启用通道并点击「同步模型」。
+        </div>
+      ) : null}
     </div>
   );
 }

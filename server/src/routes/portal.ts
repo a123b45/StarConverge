@@ -4,7 +4,6 @@ import { z } from "zod";
 import { db } from "../db/index.js";
 import {
   channels,
-  modelRoutes,
   requestLogs,
   tokens,
   users,
@@ -86,12 +85,9 @@ portalRoutes.patch("/me", async (c) => {
 
 portalRoutes.get("/models", async (c) => {
   const auth = c.get("auth");
-  const routes = await db
-    .select()
-    .from(modelRoutes)
-    .where(eq(modelRoutes.enabled, true));
-  const chRows = await db.select().from(channels);
-  const chMap = new Map(chRows.map((ch) => [ch.id, ch]));
+  // Catalog matches GET /v1/models: only models on enabled channels (synced list).
+  // Do not merge leftover model_routes — those caused phantom entries like a stale "deepseek".
+  const chRows = await db.select().from(channels).where(eq(channels.enabled, true));
 
   type ModelRow = {
     id: string;
@@ -101,40 +97,33 @@ portalRoutes.get("/models", async (c) => {
     providerLabel: string;
     enabled: boolean;
   };
-  const data: ModelRow[] = routes.map((r) => {
-    const channelIds = parseJsonArray(r.channelIds);
-    const providers = channelIds
-      .map((cid) => chMap.get(cid))
-      .filter((ch): ch is NonNullable<typeof ch> => !!ch && ch.enabled)
-      .map((ch) => ({ id: ch.id, name: ch.name, type: ch.type }));
-    return {
-      id: r.id,
-      model: r.model,
-      rewriteModel: r.rewriteModel,
-      providers,
-      providerLabel: providers.map((p) => p.name).join(" / ") || "—",
-      enabled: r.enabled,
-    };
-  });
 
-  // Surface channel models (including upstream-fetched for unrestricted channels)
-  const routed = new Set(data.map((d) => d.model));
+  const byModel = new Map<string, ModelRow>();
   for (const ch of chRows) {
-    if (!ch.enabled) continue;
     const modelIds = await resolveChannelModelIds(ch);
     for (const m of modelIds) {
-      if (!m || m === "*" || routed.has(m)) continue;
-      routed.add(m);
-      data.push({
-        id: `chmodel_${ch.id}_${m}`,
-        model: m,
-        rewriteModel: null,
-        providers: [{ id: ch.id, name: ch.name, type: ch.type }],
-        providerLabel: ch.name,
-        enabled: true,
-      });
+      if (!m || m === "*") continue;
+      const existing = byModel.get(m);
+      const provider = { id: ch.id, name: ch.name, type: ch.type };
+      if (existing) {
+        if (!existing.providers.some((p) => p.id === ch.id)) {
+          existing.providers.push(provider);
+          existing.providerLabel = existing.providers.map((p) => p.name).join(" / ");
+        }
+      } else {
+        byModel.set(m, {
+          id: `chmodel_${ch.id}_${m}`,
+          model: m,
+          rewriteModel: null,
+          providers: [provider],
+          providerLabel: ch.name,
+          enabled: true,
+        });
+      }
     }
   }
+
+  let filtered = [...byModel.values()];
 
   // Filter by union of this user's API key allowedModels (empty = all)
   const userTokens = await db
@@ -146,13 +135,9 @@ portalRoutes.get("/models", async (c) => {
     .map((t) => parseJsonArray(t.allowedModels));
   const hasAnyKey = allowSets.length > 0;
   const unrestrictedKey = allowSets.some((a) => a.length === 0);
-  let filtered = data;
   if (hasAnyKey && !unrestrictedKey) {
     const allow = new Set(allowSets.flat());
-    filtered = data.filter((d) => allow.has(d.model));
-  } else if (!hasAnyKey) {
-    // No keys yet — still show catalog so user knows what's available
-    filtered = data;
+    filtered = filtered.filter((d) => allow.has(d.model));
   }
 
   filtered.sort((a, b) => a.model.localeCompare(b.model));

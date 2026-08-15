@@ -149,12 +149,14 @@ export const MENU_PATH_MAP: Record<string, string> = {
   "menu.portal.docs": "/app/docs",
 };
 
-/** Default seed roles */
+/** Default seed roles — only 管理员 + 用户 */
+export const FIXED_ROLE_KEYS = ["admin", "portal_user"] as const;
+
 export const DEFAULT_ROLES = [
   {
     key: "portal_user",
-    name: "普通用户",
-    description: "仅可访问用户门户",
+    name: "用户",
+    description: "用户门户：模型列表、API 密钥、用量、对话测试、API 文档",
     isSystem: true,
     menuPerms: [
       "menu.portal.models",
@@ -166,39 +168,10 @@ export const DEFAULT_ROLES = [
     apiPerms: [] as string[],
   },
   {
-    key: "operator",
-    name: "运营人员",
-    description: "查看运营数据与供应商，不可改用户与角色",
-    isSystem: true,
-    menuPerms: [
-      "menu.dashboard",
-      "menu.usage",
-      "menu.logs",
-      "menu.channels",
-      "menu.apiKeys",
-      "menu.tokens",
-      "menu.routes",
-      "menu.proxy",
-      "menu.settings",
-    ],
-    apiPerms: [
-      "api.dashboard.read",
-      "api.usage.read",
-      "api.logs.read",
-      "api.channels.read",
-      "api.channels.write",
-      "api.tokens.read",
-      "api.tokens.write",
-      "api.routes.read",
-      "api.routes.write",
-      "api.proxy.read",
-      "api.proxy.write",
-    ],
-  },
-  {
     key: "admin",
     name: "管理员",
-    description: "管理端全部菜单与接口权限",
+    description:
+      "管理端：运营（控制台/用量/日志）、资源与策略（供应商/模型/路由/密钥）、系统（用户/角色/文档）",
     isSystem: true,
     menuPerms: ALL_MENU_KEYS.filter((k) => !k.startsWith("menu.portal.")),
     apiPerms: ALL_API_KEYS,
