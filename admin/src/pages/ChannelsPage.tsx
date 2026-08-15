@@ -339,12 +339,6 @@ export default function ChannelsPage() {
                     <div style={{ marginTop: 4 }}>
                       <span className="badge blue">{providerLabel(r.type)}</span>
                     </div>
-                    <div
-                      className="mono"
-                      style={{ color: "var(--muted)", fontSize: "0.75rem", marginTop: 4 }}
-                    >
-                      {r.apiKey}
-                    </div>
                   </td>
                   <td
                     className="mono"
@@ -352,9 +346,18 @@ export default function ChannelsPage() {
                   >
                     {r.baseUrl}
                   </td>
-                  <td style={{ maxWidth: 180 }}>
-                    {r.models.slice(0, 3).join(", ") || "（未限制）"}
-                    {r.models.length > 3 ? ` +${r.models.length - 3}` : ""}
+                  <td>
+                    {r.models.length ? (
+                      <div className="ch-model-tags">
+                        {r.models.map((m) => (
+                          <span key={m} className="badge blue">
+                            {m}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="muted">（未限制）</span>
+                    )}
                   </td>
                   <td className="mono">
                     {r.weight} / {r.priority}
