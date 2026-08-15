@@ -94,6 +94,17 @@ export function IconArrows({ size = 16 }: SizeProps) {
   );
 }
 
+/** Isometric wireframe cube — used for 模型管理 */
+export function IconBox({ size = 16 }: SizeProps) {
+  return (
+    <Svg size={size}>
+      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+      <path d="m3.29 7 8.71 5 8.71-5" />
+      <path d="M12 22V12" />
+    </Svg>
+  );
+}
+
 export function IconUsers({ size = 16 }: SizeProps) {
   return (
     <Svg size={size}>
@@ -312,7 +323,7 @@ export const AdminIconLogs = IconList;
 export const AdminIconChannel = IconLayers;
 export const AdminIconKey = IconKey;
 export const AdminIconRoute = IconShare;
-export const AdminIconProxy = IconArrows;
+export const AdminIconProxy = IconBox;
 export const AdminIconUsers = IconUsers;
 export const AdminIconSettings = IconGear;
 export const NavIconOverview = IconGrid;
