@@ -610,6 +610,174 @@ code,
   opacity: 1;
 }
 
+.trend-chart {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 8px;
+  min-height: 180px;
+  align-items: stretch;
+}
+
+.trend-y {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding: 4px 0 22px;
+  font-size: 10px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.trend-plot {
+  position: relative;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.trend-grid {
+  position: absolute;
+  inset: 4px 0 22px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.trend-grid i {
+  display: block;
+  height: 0;
+  border-top: 1px dashed color-mix(in srgb, var(--line) 80%, transparent);
+}
+
+.trend-bars {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 148px;
+  padding: 4px 2px 0;
+  border-bottom: 1px solid var(--line);
+  overflow: visible;
+}
+
+.trend-col {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  position: relative;
+}
+
+.trend-hit {
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  position: relative;
+  cursor: default;
+}
+
+.trend-bar {
+  width: 100%;
+  max-width: 18px;
+  border-radius: 4px 4px 1px 1px;
+  background: linear-gradient(180deg, #9b8cff, #6d5efc);
+  transition: filter 0.15s ease, transform 0.15s ease;
+}
+
+.trend-col.is-zero .trend-bar {
+  height: 0 !important;
+  min-height: 0;
+  background: transparent;
+}
+
+.trend-col:hover .trend-bar {
+  filter: brightness(1.06);
+  transform: scaleX(1.08);
+}
+
+.trend-col > span {
+  height: 16px;
+  font-size: 9px;
+  color: var(--muted);
+  white-space: nowrap;
+  line-height: 16px;
+  overflow: hidden;
+  max-width: 100%;
+  text-overflow: clip;
+}
+
+.trend-col > span.is-hidden {
+  visibility: hidden;
+}
+
+.trend-tip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%) translateY(4px);
+  min-width: 140px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #1f2937;
+  color: #f9fafb;
+  font-size: 11px;
+  line-height: 1.4;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.2);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.12s ease, transform 0.12s ease, visibility 0.12s;
+  z-index: 30;
+  white-space: nowrap;
+}
+
+.trend-tip::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: #1f2937;
+}
+
+.trend-col:hover .trend-tip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+
+.trend-tip strong {
+  display: block;
+  font-weight: 650;
+  margin-bottom: 2px;
+}
+
+.trend-tip em {
+  display: block;
+  font-style: normal;
+  color: #c4b5fd;
+}
+
+html[data-theme="dark"] .trend-tip {
+  background: #0b1220;
+}
+
+html[data-theme="dark"] .trend-tip::after {
+  border-top-color: #0b1220;
+}
+
 .bar-list {
   display: grid;
   gap: 12px;

@@ -117,10 +117,10 @@ export async function getDashboardStats(
 
   const bucketExpr =
     grain === "minute"
-      ? sql`strftime('%Y-%m-%d %H:%M', ${requestLogs.createdAt} / 1000, 'unixepoch')`
+      ? sql`strftime('%Y-%m-%d %H:%M', ${requestLogs.createdAt} / 1000, 'unixepoch', 'localtime')`
       : grain === "day"
-        ? sql`strftime('%Y-%m-%d', ${requestLogs.createdAt} / 1000, 'unixepoch')`
-        : sql`strftime('%Y-%m-%d %H:00', ${requestLogs.createdAt} / 1000, 'unixepoch')`;
+        ? sql`strftime('%Y-%m-%d', ${requestLogs.createdAt} / 1000, 'unixepoch', 'localtime')`
+        : sql`strftime('%Y-%m-%d %H:00', ${requestLogs.createdAt} / 1000, 'unixepoch', 'localtime')`;
 
   const trendRaw = await db
     .select({
@@ -133,11 +133,15 @@ export async function getDashboardStats(
     .groupBy(bucketExpr)
     .orderBy(bucketExpr);
 
-  const trend = trendRaw.map((r) => ({
-    hour: String(r.bucket),
-    requests: Number(r.requests),
-    tokens: Number(r.tokens),
-  }));
+  const trend = fillTrendBuckets(
+    grain,
+    sinceMs,
+    trendRaw.map((r) => ({
+      hour: String(r.bucket),
+      requests: Number(r.requests),
+      tokens: Number(r.tokens),
+    })),
+  );
 
   return {
     last24h: {
@@ -166,6 +170,64 @@ export async function getDashboardStats(
     hourly: trend,
     trend,
   };
+}
+
+function pad2(n: number) {
+  return String(n).padStart(2, "0");
+}
+
+function alignLocalBucketMs(ms: number, grain: "hour" | "minute" | "day") {
+  const d = new Date(ms);
+  if (grain === "day") {
+    d.setHours(0, 0, 0, 0);
+  } else if (grain === "hour") {
+    d.setMinutes(0, 0, 0);
+  } else {
+    d.setSeconds(0, 0);
+  }
+  return d.getTime();
+}
+
+function formatLocalBucket(ms: number, grain: "hour" | "minute" | "day") {
+  const d = new Date(ms);
+  const y = d.getFullYear();
+  const m = pad2(d.getMonth() + 1);
+  const day = pad2(d.getDate());
+  const h = pad2(d.getHours());
+  const min = pad2(d.getMinutes());
+  if (grain === "day") return `${y}-${m}-${day}`;
+  if (grain === "minute") return `${y}-${m}-${day} ${h}:${min}`;
+  return `${y}-${m}-${day} ${h}:00`;
+}
+
+/** Fill every time slot in the window so empty periods show as zero bars. */
+function fillTrendBuckets(
+  grain: "hour" | "minute" | "day",
+  sinceMs: number,
+  raw: Array<{ hour: string; requests: number; tokens: number }>,
+) {
+  const map = new Map(raw.map((r) => [r.hour, r]));
+  const stepMs =
+    grain === "minute"
+      ? 60 * 1000
+      : grain === "day"
+        ? 24 * 60 * 60 * 1000
+        : 60 * 60 * 1000;
+  const end = alignLocalBucketMs(Date.now(), grain);
+  const start = end - sinceMs + stepMs;
+  const out: Array<{ hour: string; requests: number; tokens: number }> = [];
+  for (let t = start; t <= end; t += stepMs) {
+    const key = formatLocalBucket(t, grain);
+    const hit = map.get(key);
+    out.push(
+      hit ?? {
+        hour: key,
+        requests: 0,
+        tokens: 0,
+      },
+    );
+  }
+  return out;
 }
 
 export function maskSecret(value: string, keep = 4): string {

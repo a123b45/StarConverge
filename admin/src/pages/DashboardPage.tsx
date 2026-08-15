@@ -130,15 +130,50 @@ export default function DashboardPage() {
           </div>
           <div style={{ padding: "12px 16px 16px" }}>
             {trend.length > 0 ? (
-              <div className="chart" title="请求数">
-                {trend.map((h) => (
-                  <div
-                    key={h.hour}
-                    className="chart-bar"
-                    style={{ height: `${Math.max(4, (h.requests / maxHour) * 100)}%` }}
-                    title={`${h.hour}\n${h.requests} 次 · ${h.tokens} tokens`}
-                  />
-                ))}
+              <div className="trend-chart">
+                <div className="trend-y" aria-hidden>
+                  <span>{maxHour}</span>
+                  <span>{Math.round(maxHour / 2)}</span>
+                  <span>0</span>
+                </div>
+                <div className="trend-plot">
+                  <div className="trend-grid" aria-hidden>
+                    <i />
+                    <i />
+                    <i />
+                  </div>
+                  <div className="trend-bars">
+                    {trend.map((h, i) => {
+                      const pct =
+                        h.requests > 0
+                          ? Math.max(6, (h.requests / maxHour) * 100)
+                          : 0;
+                      const showLabel = shouldShowTrendLabel(i, trend.length, grain);
+                      return (
+                        <div
+                          key={h.hour}
+                          className={`trend-col${h.requests === 0 ? " is-zero" : ""}`}
+                        >
+                          <div className="trend-hit">
+                            <div
+                              className="trend-bar"
+                              style={{ height: `${pct}%` }}
+                            />
+                            <div className="trend-tip" role="tooltip">
+                              <strong>{formatTrendLabel(h.hour, grain, true)}</strong>
+                              <em>
+                                {h.requests} 次 · {h.tokens.toLocaleString()} tokens
+                              </em>
+                            </div>
+                          </div>
+                          <span className={showLabel ? "" : "is-hidden"}>
+                            {showLabel ? formatTrendLabel(h.hour, grain) : ""}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="empty">暂无趋势数据，产生调用后将在此展示</div>
@@ -245,4 +280,17 @@ function formatTime(v: string | Date) {
   const d = new Date(v);
   if (Number.isNaN(d.getTime())) return String(v);
   return d.toLocaleString();
+}
+
+function formatTrendLabel(bucket: string, grain: Grain, full = false) {
+  if (full) return bucket;
+  if (grain === "day") return bucket.slice(5); // MM-DD
+  if (grain === "minute") return bucket.slice(11); // HH:MM
+  return bucket.slice(11, 16); // HH:00
+}
+
+function shouldShowTrendLabel(index: number, total: number, grain: Grain) {
+  if (total <= 12) return true;
+  const step = grain === "minute" ? 10 : grain === "hour" ? 3 : 5;
+  return index === 0 || index === total - 1 || index % step === 0;
 }
