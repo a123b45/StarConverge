@@ -17,6 +17,7 @@ type Dashboard = {
   recent: Array<{
     id: string;
     model: string | null;
+    upstreamModel?: string | null;
     path: string;
     statusCode: number | null;
     totalTokens: number | null;
@@ -195,6 +196,14 @@ export default function DashboardPage() {
                   </td>
                   <td>
                     <div>{r.model ?? "—"}</div>
+                    {r.upstreamModel && r.upstreamModel !== r.model ? (
+                      <div
+                        className="mono"
+                        style={{ fontSize: "0.75rem", color: "var(--accent, #6d5efc)" }}
+                      >
+                        上游 {r.upstreamModel}
+                      </div>
+                    ) : null}
                     <div className="mono" style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
                       {r.path}
                     </div>

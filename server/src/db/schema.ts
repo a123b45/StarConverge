@@ -152,6 +152,8 @@ export const requestLogs = sqliteTable(
     tokenId: text("token_id"),
     channelId: text("channel_id"),
     model: text("model"),
+    /** Upstream model actually sent to provider (bound-route / rewrite); null = same as model */
+    upstreamModel: text("upstream_model"),
     path: text("path").notNull(),
     method: text("method").notNull(),
     statusCode: integer("status_code"),

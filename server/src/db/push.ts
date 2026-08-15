@@ -104,6 +104,7 @@ const statements = [
     token_id TEXT,
     channel_id TEXT,
     model TEXT,
+    upstream_model TEXT,
     path TEXT NOT NULL,
     method TEXT NOT NULL,
     status_code INTEGER,
@@ -184,6 +185,9 @@ export function migrate() {
     sqlite.exec(
       `ALTER TABLE request_logs ADD COLUMN message_count INTEGER DEFAULT 0`,
     );
+  }
+  if (!logCols.some((c) => c.name === "upstream_model")) {
+    sqlite.exec(`ALTER TABLE request_logs ADD COLUMN upstream_model TEXT`);
   }
   sqlite.exec(`CREATE INDEX IF NOT EXISTS logs_model_idx ON request_logs(model)`);
 

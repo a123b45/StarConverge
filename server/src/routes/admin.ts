@@ -852,7 +852,11 @@ adminRoutes.get("/logs", async (c) => {
   const sinceHours = Number(c.req.query("sinceHours") ?? 0);
 
   const conditions = [];
-  if (model) conditions.push(eq(requestLogs.model, model));
+  if (model) {
+    conditions.push(
+      or(eq(requestLogs.model, model), eq(requestLogs.upstreamModel, model)),
+    );
+  }
   if (tokenId) conditions.push(eq(requestLogs.tokenId, tokenId));
   if (sinceHours > 0) {
     conditions.push(gte(requestLogs.createdAt, new Date(Date.now() - sinceHours * 3600_000)));
@@ -860,8 +864,26 @@ adminRoutes.get("/logs", async (c) => {
 
   const where = conditions.length ? and(...conditions) : undefined;
   const rows = await db
-    .select()
+    .select({
+      id: requestLogs.id,
+      tokenId: requestLogs.tokenId,
+      channelId: requestLogs.channelId,
+      channelName: channels.name,
+      model: requestLogs.model,
+      upstreamModel: requestLogs.upstreamModel,
+      path: requestLogs.path,
+      method: requestLogs.method,
+      statusCode: requestLogs.statusCode,
+      promptTokens: requestLogs.promptTokens,
+      completionTokens: requestLogs.completionTokens,
+      totalTokens: requestLogs.totalTokens,
+      durationMs: requestLogs.durationMs,
+      ip: requestLogs.ip,
+      error: requestLogs.error,
+      createdAt: requestLogs.createdAt,
+    })
     .from(requestLogs)
+    .leftJoin(channels, eq(requestLogs.channelId, channels.id))
     .where(where)
     .orderBy(desc(requestLogs.createdAt))
     .limit(limit)

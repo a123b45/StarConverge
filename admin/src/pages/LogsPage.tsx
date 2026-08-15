@@ -6,7 +6,9 @@ type Log = {
   id: string;
   tokenId: string | null;
   channelId: string | null;
+  channelName?: string | null;
   model: string | null;
+  upstreamModel?: string | null;
   path: string;
   method: string;
   statusCode: number | null;
@@ -55,7 +57,8 @@ export default function LogsPage() {
         <div className="page-head">
           <h2>请求日志</h2>
           <p>
-            筛选结果 {rows.length} 条 · 库内匹配 {total} 条
+            筛选结果 {rows.length} 条 · 库内匹配 {total} 条 · 「实际上游」为绑定路由 / rewrite
+            后发往供应商的模型
           </p>
         </div>
         <button className="btn ghost" onClick={load} disabled={loading}>
@@ -96,7 +99,9 @@ export default function LogsPage() {
               <tr>
                 <th>时间</th>
                 <th>方法/路径</th>
-                <th>模型</th>
+                <th>请求模型</th>
+                <th>实际上游</th>
+                <th>通道</th>
                 <th>状态</th>
                 <th>Tokens</th>
                 <th>耗时</th>
@@ -118,7 +123,17 @@ export default function LogsPage() {
                       </div>
                     ) : null}
                   </td>
-                  <td>{r.model ?? "—"}</td>
+                  <td className="mono">{r.model ?? "—"}</td>
+                  <td className="mono">
+                    {r.upstreamModel && r.upstreamModel !== r.model ? (
+                      <span title="绑定路由 / rewrite 后的上游模型">{r.upstreamModel}</span>
+                    ) : (
+                      <span style={{ color: "var(--muted)" }}>
+                        {r.upstreamModel || r.model || "—"}
+                      </span>
+                    )}
+                  </td>
+                  <td>{r.channelName ?? "—"}</td>
                   <td>
                     <span
                       className={`badge ${
@@ -137,7 +152,7 @@ export default function LogsPage() {
               ))}
               {!rows.length ? (
                 <tr>
-                  <td colSpan={7} className="empty">
+                  <td colSpan={9} className="empty">
                     暂无日志
                   </td>
                 </tr>

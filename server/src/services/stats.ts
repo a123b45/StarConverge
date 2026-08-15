@@ -8,6 +8,7 @@ export async function writeLog(input: {
   tokenId?: string | null;
   channelId?: string | null;
   model?: string | null;
+  upstreamModel?: string | null;
   path: string;
   method: string;
   statusCode?: number | null;
@@ -26,6 +27,7 @@ export async function writeLog(input: {
     tokenId: input.tokenId ?? null,
     channelId: input.channelId ?? null,
     model: input.model ?? null,
+    upstreamModel: input.upstreamModel ?? null,
     path: input.path,
     method: input.method,
     statusCode: input.statusCode ?? null,
