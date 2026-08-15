@@ -2,6 +2,7 @@ import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from "
 import { Link } from "react-router-dom";
 import { portalApi } from "../../lib/api";
 import { IconSidebar } from "../../components/icons";
+import SoftSelect from "../../components/SoftSelect";
 
 type Msg = { role: "user" | "assistant"; content: string; at: number; model?: string };
 type Session = { id: string; title: string; messages: Msg[] };
@@ -26,6 +27,7 @@ export default function PortalChatPage() {
   const [models, setModels] = useState<string[]>([]);
   const [model, setModel] = useState("");
   const [apiKey, setApiKey] = useState("");
+  const [keyId, setKeyId] = useState("");
   const [keys, setKeys] = useState<{ id: string; name: string }[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -47,6 +49,7 @@ export default function PortalChatPage() {
     portalApi<{ data: { id: string; name: string }[] }>("/keys").then(async (r) => {
       setKeys(r.data);
       if (r.data[0]) {
+        setKeyId(r.data[0].id);
         const full = await portalApi<{ key: string | null }>(`/keys/${r.data[0].id}`);
         if (full.key) setApiKey(full.key);
       }
@@ -74,6 +77,7 @@ export default function PortalChatPage() {
   }
 
   async function pickKey(id: string) {
+    setKeyId(id);
     const full = await portalApi<{ key: string | null }>(`/keys/${id}`);
     if (full.key) setApiKey(full.key);
   }
@@ -205,28 +209,31 @@ export default function PortalChatPage() {
           <div className="ds-toolbar-right">
             <label className="ds-select">
               <span>模型</span>
-              <select value={model} onChange={(e) => setModel(e.target.value)}>
-                {models.length === 0 ? <option value="">暂无模型</option> : null}
-                {models.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
+              <SoftSelect
+                className="soft-select-filter soft-select-sm"
+                ariaLabel="模型"
+                value={model}
+                onChange={setModel}
+                options={
+                  models.length === 0
+                    ? [{ value: "", label: "暂无模型" }]
+                    : models.map((m) => ({ value: m, label: m }))
+                }
+              />
             </label>
             <label className="ds-select">
               <span>密钥</span>
-              <select
-                defaultValue={keys[0]?.id}
-                onChange={(e) => void pickKey(e.target.value)}
-              >
-                {keys.length === 0 ? <option value="">未创建</option> : null}
-                {keys.map((k) => (
-                  <option key={k.id} value={k.id}>
-                    {k.name}
-                  </option>
-                ))}
-              </select>
+              <SoftSelect
+                className="soft-select-filter soft-select-sm"
+                ariaLabel="密钥"
+                value={keyId}
+                onChange={(id) => void pickKey(id)}
+                options={
+                  keys.length === 0
+                    ? [{ value: "", label: "未创建" }]
+                    : keys.map((k) => ({ value: k.id, label: k.name }))
+                }
+              />
             </label>
           </div>
         </header>

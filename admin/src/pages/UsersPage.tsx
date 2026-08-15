@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
 import { IconEye, IconEyeOff } from "../components/icons";
+import SoftSelect from "../components/SoftSelect";
 
 type RoleOpt = { id: string; name: string; key: string };
 
@@ -203,18 +204,13 @@ export default function UsersPage() {
                   </td>
                   <td>{u.email || "—"}</td>
                   <td>
-                    <select
-                      className="field"
-                      style={{ minWidth: 140 }}
+                    <SoftSelect
+                      className="soft-select-filter soft-select-sm"
+                      ariaLabel="角色"
                       value={editRoleId[u.id] || u.roleId || ""}
-                      onChange={(e) => void changeRole(u, e.target.value)}
-                    >
-                      {roles.map((r) => (
-                        <option key={r.id} value={r.id}>
-                          {r.name}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(v) => void changeRole(u, v)}
+                      options={roles.map((r) => ({ value: r.id, label: r.name }))}
+                    />
                   </td>
                   <td className="mono">
                     {u.tokenCount} 钥 · {u.usedQuota.toLocaleString()} /{" "}
@@ -331,20 +327,18 @@ export default function UsersPage() {
                 placeholder="再次输入密码"
               />
             </label>
-            <label className="stack-field">
-              角色 <em>*</em>
-              <select
+            <div className="stack-field">
+              <span>
+                角色 <em>*</em>
+              </span>
+              <SoftSelect
+                className="soft-select-filter"
+                ariaLabel="角色"
                 value={form.roleId}
-                onChange={(e) => setForm({ ...form, roleId: e.target.value })}
-                required
-              >
-                {roles.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+                onChange={(v) => setForm({ ...form, roleId: v })}
+                options={roles.map((r) => ({ value: r.id, label: r.name }))}
+              />
+            </div>
 
             <div className="modal-actions">
               <button type="button" className="btn ghost" onClick={() => setOpen(false)}>

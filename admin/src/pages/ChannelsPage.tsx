@@ -463,12 +463,13 @@ export default function ChannelsPage() {
                     placeholder={providerLabel(form.type)}
                   />
                 </label>
-                <label>
-                  模型厂商
-                  <select
+                <div className="stack-field">
+                  <span>模型厂商</span>
+                  <SoftSelect
+                    className="soft-select-filter"
+                    ariaLabel="模型厂商"
                     value={form.type}
-                    onChange={(e) => {
-                      const id = e.target.value;
+                    onChange={(id) => {
                       const p = providerById(id);
                       setForm({
                         ...form,
@@ -477,14 +478,9 @@ export default function ChannelsPage() {
                         models: "",
                       });
                     }}
-                  >
-                    {PROVIDERS.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                    options={PROVIDERS.map((p) => ({ value: p.id, label: p.name }))}
+                  />
+                </div>
                 <label>
                   Base URL
                   <input

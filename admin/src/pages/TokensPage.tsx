@@ -8,7 +8,6 @@ import {
   type IpRule,
   normalizeIpRules,
   parseIpRulesImport,
-  rulesToImportJson,
   summarizeIpRules,
 } from "../lib/ip-rules";
 
@@ -48,9 +47,6 @@ type FormState = {
   enabled: boolean;
 };
 
-type IpSkin = "a" | "b" | "c";
-const IP_SKIN_KEY = "sc-ip-editor-skin";
-
 const emptyForm = (): FormState => ({
   name: "",
   groupName: "",
@@ -65,11 +61,6 @@ const emptyForm = (): FormState => ({
   ipRules: [],
   enabled: true,
 });
-
-function loadIpSkin(): IpSkin {
-  const v = localStorage.getItem(IP_SKIN_KEY);
-  return v === "b" || v === "c" ? v : "a";
-}
 
 function tokenRules(t: Token): IpRule[] {
   if (t.ipRules?.length) return normalizeIpRules(t.ipRules);
@@ -96,11 +87,9 @@ export default function TokensPage() {
   const [error, setError] = useState("");
   const [toast, setToast] = useState<string | null>(null);
   const [listLoading, setListLoading] = useState(true);
-  const [ipSkin, setIpSkin] = useState<IpSkin>(loadIpSkin);
   const [importOpen, setImportOpen] = useState(false);
   const [importText, setImportText] = useState("");
   const [importError, setImportError] = useState("");
-  const [jsonDraft, setJsonDraft] = useState("");
 
   function mapToken(t: Token): Token {
     return {
@@ -146,11 +135,6 @@ export default function TokensPage() {
       /* meta is only needed when editing */
     });
   }, []);
-
-  function pickIpSkin(s: IpSkin) {
-    setIpSkin(s);
-    localStorage.setItem(IP_SKIN_KEY, s);
-  }
 
   const groups = useMemo(() => {
     const set = new Set<string>();
@@ -325,14 +309,12 @@ export default function TokensPage() {
       ipRules: rules,
       enabled: row.enabled,
     });
-    setJsonDraft(rulesToImportJson(rules));
     setImportError("");
     setOpen(true);
   }
 
   function setRules(next: IpRule[]) {
     setForm((f) => ({ ...f, ipRules: next }));
-    setJsonDraft(rulesToImportJson(next));
   }
 
   function addEmptyRule() {
@@ -359,16 +341,6 @@ export default function TokensPage() {
       setToast("规则已导入");
     } catch (e) {
       setImportError(e instanceof Error ? e.message : "导入失败");
-    }
-  }
-
-  function syncJsonDraft() {
-    setImportError("");
-    try {
-      setRules(parseIpRulesImport(jsonDraft));
-      setToast("JSON 已同步到规则");
-    } catch (e) {
-      setImportError(e instanceof Error ? e.message : "JSON 无效");
     }
   }
 
@@ -455,36 +427,6 @@ export default function TokensPage() {
 
   const ruleEditor = (
     <div className="ip-editor">
-      <div className="km-skin-picker ip-skin-picker">
-        <span>IP 编辑版本</span>
-        <button
-          type="button"
-          className={`km-skin-btn${ipSkin === "a" ? " on" : ""}`}
-          onClick={() => pickIpSkin("a")}
-        >
-          A · 规则卡片
-        </button>
-        <button
-          type="button"
-          className={`km-skin-btn${ipSkin === "b" ? " on" : ""}`}
-          onClick={() => pickIpSkin("b")}
-        >
-          B · 双栏 JSON
-        </button>
-        <button
-          type="button"
-          className={`km-skin-btn${ipSkin === "c" ? " on" : ""}`}
-          onClick={() => pickIpSkin("c")}
-        >
-          C · 紧凑行表
-        </button>
-      </div>
-      <p className="km-skin-hint">
-        {ipSkin === "a" && "方案 A：卡片列表 + 导入 JSON 弹窗（推荐）"}
-        {ipSkin === "b" && "方案 B：左侧规则、右侧 JSON 实时对照，适合批量改"}
-        {ipSkin === "c" && "方案 C：紧凑表格行，适合规则很多时快速扫"}
-      </p>
-
       <div className="ip-toolbar">
         <button type="button" className="btn ghost" onClick={addEmptyRule}>
           添加规则
@@ -503,153 +445,68 @@ export default function TokensPage() {
         <span className="ip-hint">支持单 IP 与 CIDR 网段；空规则 = 不限制</span>
       </div>
 
-      {ipSkin === "a" ? (
-        <div className="ip-cards">
-          {form.ipRules.map((r, i) => (
-            <div key={i} className={`ip-card ${r.action === "DENY" ? "deny" : "allow"}`}>
-              <input
-                className="ip-card-name"
-                placeholder="规则名称（可选）"
-                value={r.name ?? ""}
-                onChange={(e) => updateRule(i, { name: e.target.value })}
-              />
-              <input
-                className="ip-card-ip mono"
-                placeholder="IP 或 CIDR，如 192.168.1.0/24"
-                value={r.ip}
-                onChange={(e) => updateRule(i, { ip: e.target.value })}
-              />
-              <SoftSelect
-                value={r.action}
-                onChange={(action) =>
-                  updateRule(i, { action: action === "DENY" ? "DENY" : "ALLOW" })
-                }
-                options={[
-                  { value: "ALLOW", label: "允许 ALLOW" },
-                  { value: "DENY", label: "拒绝 DENY" },
-                ]}
-              />
-              <button type="button" className="icon-btn danger" onClick={() => removeRule(i)}>
-                <IconTrash />
-              </button>
-            </div>
-          ))}
-          {!form.ipRules.length ? (
-            <div className="ip-empty">暂无 IP 规则，点击「添加规则」或「导入 JSON」</div>
-          ) : null}
-        </div>
-      ) : null}
-
-      {ipSkin === "b" ? (
-        <div className="ip-split">
-          <div className="ip-cards">
+      <div className="ip-table-wrap">
+        <table className="table ip-table">
+          <thead>
+            <tr>
+              <th>名称</th>
+              <th>IP / 网段</th>
+              <th>动作</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
             {form.ipRules.map((r, i) => (
-              <div key={i} className={`ip-card ${r.action === "DENY" ? "deny" : "allow"}`}>
-                <input
-                  placeholder="名称"
-                  value={r.name ?? ""}
-                  onChange={(e) => updateRule(i, { name: e.target.value })}
-                />
-                <input
-                  className="mono"
-                  placeholder="IP/CIDR"
-                  value={r.ip}
-                  onChange={(e) => updateRule(i, { ip: e.target.value })}
-                />
-                <SoftSelect
-                  value={r.action}
-                  onChange={(action) =>
-                    updateRule(i, { action: action === "DENY" ? "DENY" : "ALLOW" })
-                  }
-                  options={[
-                    { value: "ALLOW", label: "ALLOW" },
-                    { value: "DENY", label: "DENY" },
-                  ]}
-                />
-                <button type="button" className="icon-btn danger" onClick={() => removeRule(i)}>
-                  <IconTrash />
-                </button>
-              </div>
-            ))}
-          </div>
-          <div className="ip-json-pane">
-            <textarea
-              className="tk-ip-area mono"
-              rows={12}
-              value={jsonDraft}
-              onChange={(e) => setJsonDraft(e.target.value)}
-            />
-            <button type="button" className="btn" onClick={syncJsonDraft}>
-              同步 JSON → 规则
-            </button>
-            {importError ? <div className="alert">{importError}</div> : null}
-          </div>
-        </div>
-      ) : null}
-
-      {ipSkin === "c" ? (
-        <div className="ip-table-wrap">
-          <table className="table ip-table">
-            <thead>
-              <tr>
-                <th>名称</th>
-                <th>IP / 网段</th>
-                <th>动作</th>
-                <th />
+              <tr key={i}>
+                <td>
+                  <input
+                    value={r.name ?? ""}
+                    onChange={(e) => updateRule(i, { name: e.target.value })}
+                    placeholder="可选"
+                  />
+                </td>
+                <td>
+                  <input
+                    className="mono"
+                    value={r.ip}
+                    onChange={(e) => updateRule(i, { ip: e.target.value })}
+                    placeholder="1.2.3.4 或 10.0.0.0/8"
+                  />
+                </td>
+                <td>
+                  <SoftSelect
+                    className="soft-select-filter soft-select-sm"
+                    value={r.action}
+                    onChange={(action) =>
+                      updateRule(i, { action: action === "DENY" ? "DENY" : "ALLOW" })
+                    }
+                    options={[
+                      { value: "ALLOW", label: "ALLOW" },
+                      { value: "DENY", label: "DENY" },
+                    ]}
+                  />
+                </td>
+                <td>
+                  <button
+                    type="button"
+                    className="icon-btn danger"
+                    onClick={() => removeRule(i)}
+                  >
+                    <IconTrash />
+                  </button>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {form.ipRules.map((r, i) => (
-                <tr key={i}>
-                  <td>
-                    <input
-                      value={r.name ?? ""}
-                      onChange={(e) => updateRule(i, { name: e.target.value })}
-                      placeholder="可选"
-                    />
-                  </td>
-                  <td>
-                    <input
-                      className="mono"
-                      value={r.ip}
-                      onChange={(e) => updateRule(i, { ip: e.target.value })}
-                      placeholder="1.2.3.4 或 10.0.0.0/8"
-                    />
-                  </td>
-                  <td>
-                    <SoftSelect
-                      value={r.action}
-                      onChange={(action) =>
-                        updateRule(i, { action: action === "DENY" ? "DENY" : "ALLOW" })
-                      }
-                      options={[
-                        { value: "ALLOW", label: "ALLOW" },
-                        { value: "DENY", label: "DENY" },
-                      ]}
-                    />
-                  </td>
-                  <td>
-                    <button
-                      type="button"
-                      className="icon-btn danger"
-                      onClick={() => removeRule(i)}
-                    >
-                      <IconTrash />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {!form.ipRules.length ? (
-                <tr>
-                  <td colSpan={4} className="empty">
-                    暂无规则
-                  </td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
-      ) : null}
+            ))}
+            {!form.ipRules.length ? (
+              <tr>
+                <td colSpan={4} className="empty">
+                  暂无规则
+                </td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 
@@ -858,6 +715,7 @@ export default function TokensPage() {
               <div className="stack-field">
                 <span>状态</span>
                 <SoftSelect
+                  className="soft-select-filter"
                   value={form.enabled ? "1" : "0"}
                   onChange={(v) => setForm({ ...form, enabled: v === "1" })}
                   options={[

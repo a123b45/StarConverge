@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { formatTokens, portalApi } from "../../lib/api";
+import SoftSelect from "../../components/SoftSelect";
 
 type Summary = {
   quota: number;
@@ -112,18 +113,16 @@ export default function PortalUsagePage() {
           <p>调用趋势、模型明细与单次请求内容追踪</p>
         </div>
         <div className="portal-hero-actions">
-          <select
-            className="portal-search"
+          <SoftSelect
+            className="soft-select-filter"
+            ariaLabel="模型筛选"
             value={model}
-            onChange={(e) => setModel(e.target.value)}
-          >
-            <option value="">全部模型</option>
-            {byModel.map((m) => (
-              <option key={m.model} value={m.model}>
-                {m.model}
-              </option>
-            ))}
-          </select>
+            onChange={setModel}
+            options={[
+              { value: "", label: "全部模型" },
+              ...byModel.map((m) => ({ value: m.model, label: m.model })),
+            ]}
+          />
           <button className="portal-btn ghost" onClick={() => void load(page)}>
             刷新
           </button>

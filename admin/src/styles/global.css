@@ -1542,6 +1542,21 @@ code,
   cursor: not-allowed;
   background: #f8fafc;
 }
+.soft-select-sm {
+  min-width: 110px;
+}
+.soft-select-sm .soft-select-trigger {
+  padding: 7px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+}
+/* Multi-select remains native; round the box to match SoftSelect */
+select[multiple] {
+  border-radius: 12px !important;
+  border: 1px solid var(--line);
+  background: #fff;
+  padding: 8px;
+}
 .soft-select-menu {
   position: absolute;
   z-index: 40;
