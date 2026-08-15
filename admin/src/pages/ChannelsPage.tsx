@@ -221,6 +221,7 @@ export default function ChannelsPage() {
   async function syncModels(row: Channel) {
     setTesting(row.id);
     setTestMsg("");
+    const beforeCount = row.models.filter((m) => m && m !== "*").length;
     try {
       const res = await api<{
         ok: boolean;
@@ -230,10 +231,9 @@ export default function ChannelsPage() {
       }>(`/channels/${row.id}/sync-models`, { method: "POST" });
       if (!res.ok) {
         setTestMsg(`同步失败：${res.error || "未知错误"}`);
-      } else if (res.cleared) {
-        setTestMsg(
-          `「${row.name}」已清除 ${res.modelCount} 个模型在用户模型列表`,
-        );
+      } else if (res.cleared || !row.enabled) {
+        const n = typeof res.modelCount === "number" ? res.modelCount : beforeCount;
+        setTestMsg(`「${row.name}」已移除 ${n} 个模型从用户模型列表`);
       } else {
         setTestMsg(
           `「${row.name}」已同步 ${res.modelCount} 个模型到用户模型列表`,
@@ -288,7 +288,8 @@ export default function ChannelsPage() {
           className={`alert ${
             testMsg.includes("失败") ||
             testMsg.includes("FAIL") ||
-            testMsg.includes("已清除")
+            testMsg.includes("已清除") ||
+            testMsg.includes("已移除")
               ? ""
               : "ok"
           }`}

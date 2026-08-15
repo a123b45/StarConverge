@@ -519,6 +519,14 @@ adminRoutes.post("/channels/:id/sync-models", async (c) => {
 
   // Disabled channel: clear catalog for users + detach from routes
   if (!row.enabled) {
+    // Prefer explicit list; otherwise count routes still pointing at this channel
+    let removed = previous.length;
+    if (removed === 0) {
+      const routes = await db.select().from(modelRoutes);
+      removed = routes.filter((r) =>
+        parseJsonArray(r.channelIds).includes(row.id),
+      ).length;
+    }
     await db
       .update(channels)
       .set({ models: toJsonArray([]), updatedAt: new Date() })
@@ -527,7 +535,7 @@ adminRoutes.post("/channels/:id/sync-models", async (c) => {
     return c.json({
       ok: true,
       cleared: true,
-      modelCount: previous.length,
+      modelCount: removed,
       models: [] as string[],
     });
   }
