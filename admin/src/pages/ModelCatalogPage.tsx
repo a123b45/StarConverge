@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
 import SoftSelect from "../components/SoftSelect";
+import { softConfirm } from "../components/SoftDialog";
 
 type ModelRow = {
   id: string;
@@ -123,7 +124,13 @@ export default function ModelCatalogPage() {
   }
 
   async function remove(row: ModelRow) {
-    if (!confirm(`从模型管理删除「${row.model}」？`)) return;
+    const ok = await softConfirm({
+      title: "删除模型",
+      message: `从模型管理删除「${row.model}」？`,
+      confirmText: "删除",
+      danger: true,
+    });
+    if (!ok) return;
     setBusyId(row.id);
     try {
       await api(`/models/${row.id}`, { method: "DELETE" });

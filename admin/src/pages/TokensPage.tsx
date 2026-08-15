@@ -3,6 +3,7 @@ import { api } from "../lib/api";
 import ModelPicker from "../components/ModelPicker";
 import SoftSelect from "../components/SoftSelect";
 import SoftToast from "../components/SoftToast";
+import { softConfirm } from "../components/SoftDialog";
 import { IconPencil, IconTrash } from "../components/icons";
 import {
   type IpRule,
@@ -381,7 +382,15 @@ export default function TokensPage() {
   }
 
   async function remove(row: Token) {
-    if (!confirm(`删除密钥「${row.name}」？`)) return;
+    if (
+      !(await softConfirm({
+        title: "删除密钥",
+        message: `确定删除密钥「${row.name}」？`,
+        confirmText: "删除",
+        danger: true,
+      }))
+    )
+      return;
     await api(`/tokens/${row.id}`, { method: "DELETE" });
     await load();
   }

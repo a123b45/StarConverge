@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
 import { copyText } from "../lib/copy";
 import SoftToast from "../components/SoftToast";
+import { softConfirm } from "../components/SoftDialog";
 import { IconCopy, IconEye, IconEyeOff, IconPencil, IconTrash } from "../components/icons";
 
 type Token = {
@@ -109,7 +110,13 @@ export default function ApiKeysPage() {
   }
 
   async function remove(row: Token) {
-    if (!confirm(`删除密钥「${row.name}」？此操作不可恢复。`)) return;
+    const ok = await softConfirm({
+      title: "删除密钥",
+      message: `确定删除密钥「${row.name}」？此操作不可恢复。`,
+      confirmText: "删除",
+      danger: true,
+    });
+    if (!ok) return;
     await api(`/tokens/${row.id}`, { method: "DELETE" });
     await load();
   }

@@ -53,6 +53,7 @@ import {
   NavIconUsage,
 } from "./components/icons";
 import UsagePage from "./pages/UsagePage";
+import { SoftDialogHost } from "./components/SoftDialog";
 
 applyChromePrefs();
 
@@ -432,7 +433,9 @@ function HomeRedirect() {
 
 export default function App() {
   return (
-    <Routes>
+    <>
+      <SoftDialogHost />
+      <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -479,5 +482,6 @@ export default function App() {
 
       <Route path="*" element={<HomeRedirect />} />
     </Routes>
+    </>
   );
 }

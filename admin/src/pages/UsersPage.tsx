@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
 import { IconEye, IconEyeOff } from "../components/icons";
 import SoftSelect from "../components/SoftSelect";
+import { softAlert, softConfirm, softPrompt } from "../components/SoftDialog";
 
 type RoleOpt = { id: string; name: string; key: string };
 
@@ -131,13 +132,20 @@ export default function UsersPage() {
   }
 
   async function resetPassword(u: UserRow) {
-    const password = window.prompt(`为 ${u.username} 设置新密码（至少 6 位）`);
-    if (!password || password.length < 6) return;
+    const password = await softPrompt({
+      title: "重置密码",
+      message: `为 ${u.username} 设置新密码（至少 6 位）`,
+      inputType: "password",
+      minLength: 6,
+      placeholder: "新密码",
+      confirmText: "更新密码",
+    });
+    if (!password) return;
     await api(`/users/${u.id}`, {
       method: "PATCH",
       body: JSON.stringify({ password }),
     });
-    alert("密码已更新");
+    await softAlert({ title: "完成", message: "密码已更新" });
   }
 
   async function changeRole(u: UserRow, roleId: string) {
@@ -150,7 +158,13 @@ export default function UsersPage() {
   }
 
   async function remove(u: UserRow) {
-    if (!window.confirm(`删除用户 ${u.username} 及其 API 密钥？`)) return;
+    const ok = await softConfirm({
+      title: "删除用户",
+      message: `确定删除用户 ${u.username} 及其 API 密钥？`,
+      confirmText: "删除",
+      danger: true,
+    });
+    if (!ok) return;
     await api(`/users/${u.id}`, { method: "DELETE" });
     await load();
   }

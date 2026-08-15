@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
+import { softConfirm } from "../components/SoftDialog";
 import { PROVIDERS, providerById, providerLabel } from "../lib/providers";
 import SoftSelect from "../components/SoftSelect";
 
@@ -193,7 +194,13 @@ export default function ChannelsPage() {
   }
 
   async function remove(row: Channel) {
-    if (!confirm(`删除供应商「${row.name}」？`)) return;
+    const ok = await softConfirm({
+      title: "删除供应商",
+      message: `确定删除供应商「${row.name}」？`,
+      confirmText: "删除",
+      danger: true,
+    });
+    if (!ok) return;
     await api(`/channels/${row.id}`, { method: "DELETE" });
     await load();
   }

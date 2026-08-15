@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { api } from "../lib/api";
+import { softConfirm } from "../components/SoftDialog";
 
 type ProxyRoute = {
   id: string;
@@ -58,7 +59,13 @@ export default function ProxyRoutesPage() {
   }
 
   async function remove(row: ProxyRoute) {
-    if (!confirm(`删除代理「${row.name}」？`)) return;
+    const ok = await softConfirm({
+      title: "删除代理",
+      message: `确定删除代理「${row.name}」？`,
+      confirmText: "删除",
+      danger: true,
+    });
+    if (!ok) return;
     await api(`/proxy-routes/${row.id}`, { method: "DELETE" });
     await load();
   }

@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { api } from "../lib/api";
+import { softConfirm } from "../components/SoftDialog";
 
 type ModelRoute = {
   id: string;
@@ -58,7 +59,13 @@ export default function ModelsPage() {
   }
 
   async function remove(row: ModelRoute) {
-    if (!confirm(`删除路由「${row.model}」？`)) return;
+    const ok = await softConfirm({
+      title: "删除路由",
+      message: `确定删除路由「${row.model}」？`,
+      confirmText: "删除",
+      danger: true,
+    });
+    if (!ok) return;
     await api(`/models/${row.id}`, { method: "DELETE" });
     await load();
   }

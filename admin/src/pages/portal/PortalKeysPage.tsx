@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { formatTokens, portalApi } from "../../lib/api";
 import { copyText } from "../../lib/copy";
+import { softConfirm } from "../../components/SoftDialog";
 
 type KeyRow = {
   id: string;
@@ -50,7 +51,13 @@ export default function PortalKeysPage() {
   }
 
   async function remove(id: string) {
-    if (!window.confirm("确定删除该密钥？")) return;
+    const ok = await softConfirm({
+      title: "删除密钥",
+      message: "确定删除该密钥？",
+      confirmText: "删除",
+      danger: true,
+    });
+    if (!ok) return;
     await portalApi(`/keys/${id}`, { method: "DELETE" });
     await load();
   }
