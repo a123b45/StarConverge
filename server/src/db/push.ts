@@ -81,6 +81,9 @@ const statements = [
     duration_ms INTEGER,
     ip TEXT,
     error TEXT,
+    request_preview TEXT,
+    response_preview TEXT,
+    message_count INTEGER DEFAULT 0,
     created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
   )`,
   `CREATE INDEX IF NOT EXISTS logs_created_at_idx ON request_logs(created_at)`,
@@ -116,6 +119,22 @@ export function migrate() {
     sqlite.exec(`ALTER TABLE tokens ADD COLUMN user_id TEXT`);
   }
   sqlite.exec(`CREATE INDEX IF NOT EXISTS tokens_user_id_idx ON tokens(user_id)`);
+
+  const logCols = sqlite.prepare(`PRAGMA table_info(request_logs)`).all() as Array<{
+    name: string;
+  }>;
+  if (!logCols.some((c) => c.name === "request_preview")) {
+    sqlite.exec(`ALTER TABLE request_logs ADD COLUMN request_preview TEXT`);
+  }
+  if (!logCols.some((c) => c.name === "response_preview")) {
+    sqlite.exec(`ALTER TABLE request_logs ADD COLUMN response_preview TEXT`);
+  }
+  if (!logCols.some((c) => c.name === "message_count")) {
+    sqlite.exec(
+      `ALTER TABLE request_logs ADD COLUMN message_count INTEGER DEFAULT 0`,
+    );
+  }
+  sqlite.exec(`CREATE INDEX IF NOT EXISTS logs_model_idx ON request_logs(model)`);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

@@ -23,6 +23,9 @@ type TestResult = {
   preview?: string;
   error?: string;
   url?: string;
+  modelCount?: number;
+  synced?: number;
+  models?: string[];
 };
 
 type FormState = {
@@ -201,11 +204,35 @@ export default function ChannelsPage() {
       const res = await api<TestResult>(`/channels/${row.id}/test`, { method: "POST" });
       setTestMsg(
         res.ok
-          ? `「${row.name}」可用 · ${res.latencyMs}ms · HTTP ${res.statusCode}`
+          ? `「${row.name}」可用 · ${res.latencyMs}ms · 发现 ${res.modelCount ?? 0} 个模型${
+              res.synced ? `（已同步到列表）` : ""
+            }`
           : `「${row.name}」失败 · ${res.latencyMs}ms · ${res.error || `HTTP ${res.statusCode}`}`,
       );
+      if (res.ok && (res.synced ?? 0) > 0) await load();
     } catch (err) {
       setTestMsg(err instanceof Error ? err.message : "测试失败");
+    } finally {
+      setTesting(null);
+    }
+  }
+
+  async function syncModels(row: Channel) {
+    setTesting(row.id);
+    setTestMsg("");
+    try {
+      const res = await api<{ ok: boolean; modelCount: number; error?: string }>(
+        `/channels/${row.id}/sync-models`,
+        { method: "POST" },
+      );
+      setTestMsg(
+        res.ok
+          ? `「${row.name}」已同步 ${res.modelCount} 个模型到用户模型列表`
+          : `同步失败：${res.error || "未知错误"}`,
+      );
+      if (res.ok) await load();
+    } catch (err) {
+      setTestMsg(err instanceof Error ? err.message : "同步失败");
     } finally {
       setTesting(null);
     }
@@ -326,6 +353,13 @@ export default function ChannelsPage() {
                         onClick={() => testOne(r)}
                       >
                         {testing === r.id ? "测试中" : "测试"}
+                      </button>
+                      <button
+                        className="btn ghost sm"
+                        disabled={testing === r.id}
+                        onClick={() => void syncModels(r)}
+                      >
+                        同步模型
                       </button>
                       <button className="btn ghost sm" onClick={() => startEdit(r)}>
                         编辑

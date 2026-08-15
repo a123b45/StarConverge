@@ -22,6 +22,11 @@ import {
 } from "../utils/crypto.js";
 import { signToken } from "../utils/jwt.js";
 import { getDashboardStats, publicChannel, publicToken } from "../services/stats.js";
+import {
+  fetchUpstreamModels,
+  isUnrestrictedModels,
+  modelsUrl,
+} from "../services/upstream-models.js";
 
 export const adminRoutes = new Hono();
 
@@ -226,24 +231,26 @@ adminRoutes.post("/channels/:id/test", async (c) => {
   if (!row) return c.json({ error: "Not found" }, 404);
 
   const started = Date.now();
-  const base = row.baseUrl.replace(/\/+$/, "");
-  const url = base.endsWith("/v1") ? `${base}/models` : `${base}/v1/models`;
+  const url = modelsUrl(row.baseUrl);
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), Math.min(row.timeoutMs, 20_000));
-    const res = await fetch(url, {
-      method: "GET",
-      headers: { Authorization: `Bearer ${row.apiKey}` },
-      signal: controller.signal,
-    });
-    clearTimeout(timer);
+    const models = await fetchUpstreamModels(row.baseUrl, row.apiKey, row.timeoutMs);
     const latencyMs = Date.now() - started;
-    const text = await res.text();
+    let synced = 0;
+    if (models.length > 0 && isUnrestrictedModels(row.models)) {
+      await db
+        .update(channels)
+        .set({ models: toJsonArray(models), updatedAt: new Date() })
+        .where(eq(channels.id, row.id));
+      synced = models.length;
+    }
     return c.json({
-      ok: res.ok,
-      statusCode: res.status,
+      ok: true,
+      statusCode: 200,
       latencyMs,
-      preview: text.slice(0, 200),
+      preview: `discovered ${models.length} models`,
+      models: models.slice(0, 50),
+      modelCount: models.length,
+      synced,
       url,
     });
   } catch (err) {
@@ -254,6 +261,25 @@ adminRoutes.post("/channels/:id/test", async (c) => {
       error: err instanceof Error ? err.message : String(err),
       url,
     });
+  }
+});
+
+adminRoutes.post("/channels/:id/sync-models", async (c) => {
+  const idParam = c.req.param("id");
+  const row = await db.query.channels.findFirst({ where: eq(channels.id, idParam) });
+  if (!row) return c.json({ error: "Not found" }, 404);
+  try {
+    const models = await fetchUpstreamModels(row.baseUrl, row.apiKey, row.timeoutMs);
+    await db
+      .update(channels)
+      .set({ models: toJsonArray(models), updatedAt: new Date() })
+      .where(eq(channels.id, row.id));
+    return c.json({ ok: true, modelCount: models.length, models: models.slice(0, 100) });
+  } catch (err) {
+    return c.json(
+      { ok: false, error: err instanceof Error ? err.message : String(err) },
+      502,
+    );
   }
 });
 

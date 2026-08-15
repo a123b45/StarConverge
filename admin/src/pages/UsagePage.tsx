@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, formatTokens } from "../lib/api";
 
@@ -30,6 +30,9 @@ type Log = {
   durationMs: number | null;
   error: string | null;
   createdAt: string;
+  requestPreview?: string | null;
+  responsePreview?: string | null;
+  messageCount?: number | null;
 };
 
 export default function UsagePage() {
@@ -40,6 +43,7 @@ export default function UsagePage() {
   const [model, setModel] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [openId, setOpenId] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -220,41 +224,95 @@ export default function UsagePage() {
                 <th>时间</th>
                 <th>模型 / 路径</th>
                 <th>状态</th>
+                <th>输入 / 输出</th>
                 <th>Tokens</th>
                 <th>耗时</th>
+                <th />
               </tr>
             </thead>
             <tbody>
               {logs.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="empty">
+                  <td colSpan={7} className="empty">
                     所选范围内暂无调用
                   </td>
                 </tr>
               ) : (
                 logs.map((r) => (
-                  <tr key={r.id}>
-                    <td className="mono" style={{ whiteSpace: "nowrap" }}>
-                      {new Date(r.createdAt).toLocaleString()}
-                    </td>
-                    <td>
-                      <div className="mono">{r.model || "—"}</div>
-                      <div style={{ fontSize: 12, color: "var(--muted)" }}>{r.path}</div>
-                    </td>
-                    <td>
-                      <span
-                        className={`badge ${
-                          r.error || (r.statusCode && r.statusCode >= 400) ? "danger" : "on"
-                        }`}
-                      >
-                        {r.statusCode ?? (r.error ? "ERR" : "—")}
-                      </span>
-                    </td>
-                    <td className="mono">{r.totalTokens ?? "—"}</td>
-                    <td className="mono">
-                      {r.durationMs != null ? `${r.durationMs}ms` : "—"}
-                    </td>
-                  </tr>
+                  <Fragment key={r.id}>
+                    <tr>
+                      <td className="mono" style={{ whiteSpace: "nowrap" }}>
+                        {new Date(r.createdAt).toLocaleString()}
+                      </td>
+                      <td>
+                        <div className="mono">{r.model || "—"}</div>
+                        <div style={{ fontSize: 12, color: "var(--muted)" }}>{r.path}</div>
+                      </td>
+                      <td>
+                        <span
+                          className={`badge ${
+                            r.error || (r.statusCode && r.statusCode >= 400) ? "danger" : "on"
+                          }`}
+                        >
+                          {r.statusCode ?? (r.error ? "ERR" : "—")}
+                        </span>
+                      </td>
+                      <td className="mono">
+                        {(r.promptTokens ?? 0).toLocaleString()} /{" "}
+                        {(r.completionTokens ?? 0).toLocaleString()}
+                      </td>
+                      <td className="mono">{r.totalTokens ?? "—"}</td>
+                      <td className="mono">
+                        {r.durationMs != null ? `${r.durationMs}ms` : "—"}
+                      </td>
+                      <td>
+                        <button
+                          className="btn ghost sm"
+                          onClick={() => setOpenId(openId === r.id ? null : r.id)}
+                        >
+                          {openId === r.id ? "收起" : "内容"}
+                        </button>
+                      </td>
+                    </tr>
+                    {openId === r.id ? (
+                      <tr>
+                        <td colSpan={7}>
+                          <div style={{ display: "grid", gap: 8, padding: "4px 0 12px" }}>
+                            <div>
+                              <div style={{ fontSize: 12, color: "var(--muted)" }}>请求内容</div>
+                              <pre
+                                style={{
+                                  whiteSpace: "pre-wrap",
+                                  wordBreak: "break-word",
+                                  fontSize: 12,
+                                  margin: "6px 0 0",
+                                  maxHeight: 180,
+                                  overflow: "auto",
+                                }}
+                              >
+                                {r.requestPreview || "（无预览，新请求才会记录）"}
+                              </pre>
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 12, color: "var(--muted)" }}>响应内容</div>
+                              <pre
+                                style={{
+                                  whiteSpace: "pre-wrap",
+                                  wordBreak: "break-word",
+                                  fontSize: 12,
+                                  margin: "6px 0 0",
+                                  maxHeight: 180,
+                                  overflow: "auto",
+                                }}
+                              >
+                                {r.responsePreview || r.error || "（无预览）"}
+                              </pre>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : null}
+                  </Fragment>
                 ))
               )}
             </tbody>

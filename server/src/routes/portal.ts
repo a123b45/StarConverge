@@ -18,6 +18,7 @@ import {
   toJsonArray,
 } from "../utils/crypto.js";
 import { publicToken } from "../services/stats.js";
+import { resolveChannelModelIds } from "../services/upstream-models.js";
 
 export const portalRoutes = new Hono<SessionVars>();
 
@@ -83,6 +84,7 @@ portalRoutes.patch("/me", async (c) => {
 });
 
 portalRoutes.get("/models", async (c) => {
+  const auth = c.get("auth");
   const routes = await db
     .select()
     .from(modelRoutes)
@@ -90,7 +92,15 @@ portalRoutes.get("/models", async (c) => {
   const chRows = await db.select().from(channels);
   const chMap = new Map(chRows.map((ch) => [ch.id, ch]));
 
-  const data = routes.map((r) => {
+  type ModelRow = {
+    id: string;
+    model: string;
+    rewriteModel: string | null;
+    providers: { id: string; name: string; type: string }[];
+    providerLabel: string;
+    enabled: boolean;
+  };
+  const data: ModelRow[] = routes.map((r) => {
     const channelIds = parseJsonArray(r.channelIds);
     const providers = channelIds
       .map((cid) => chMap.get(cid))
@@ -106,11 +116,12 @@ portalRoutes.get("/models", async (c) => {
     };
   });
 
-  // Also surface channel models without dedicated routes
+  // Surface channel models (including upstream-fetched for unrestricted channels)
   const routed = new Set(data.map((d) => d.model));
   for (const ch of chRows) {
     if (!ch.enabled) continue;
-    for (const m of parseJsonArray(ch.models)) {
+    const modelIds = await resolveChannelModelIds(ch);
+    for (const m of modelIds) {
       if (!m || m === "*" || routed.has(m)) continue;
       routed.add(m);
       data.push({
@@ -124,8 +135,27 @@ portalRoutes.get("/models", async (c) => {
     }
   }
 
-  data.sort((a, b) => a.model.localeCompare(b.model));
-  return c.json({ data, total: data.length });
+  // Filter by union of this user's API key allowedModels (empty = all)
+  const userTokens = await db
+    .select({ allowedModels: tokens.allowedModels, enabled: tokens.enabled })
+    .from(tokens)
+    .where(eq(tokens.userId, auth.userId!));
+  const allowSets = userTokens
+    .filter((t) => t.enabled)
+    .map((t) => parseJsonArray(t.allowedModels));
+  const hasAnyKey = allowSets.length > 0;
+  const unrestrictedKey = allowSets.some((a) => a.length === 0);
+  let filtered = data;
+  if (hasAnyKey && !unrestrictedKey) {
+    const allow = new Set(allowSets.flat());
+    filtered = data.filter((d) => allow.has(d.model));
+  } else if (!hasAnyKey) {
+    // No keys yet — still show catalog so user knows what's available
+    filtered = data;
+  }
+
+  filtered.sort((a, b) => a.model.localeCompare(b.model));
+  return c.json({ data: filtered, total: filtered.length });
 });
 
 portalRoutes.get("/keys", async (c) => {
@@ -233,8 +263,12 @@ portalRoutes.get("/usage", async (c) => {
         totalTokens: 0,
         p50Ms: 0,
         p95Ms: 0,
+        successCalls: 0,
+        errorCalls: 0,
+        avgMs: 0,
       },
       byModel: [],
+      daily: [],
     });
   }
 
@@ -252,6 +286,8 @@ portalRoutes.get("/usage", async (c) => {
   let promptTokens = 0;
   let completionTokens = 0;
   let totalTokens = 0;
+  let successCalls = 0;
+  let errorCalls = 0;
   const durations: number[] = [];
   const byModelMap = new Map<
     string,
@@ -264,6 +300,16 @@ portalRoutes.get("/usage", async (c) => {
       durations: number[];
     }
   >();
+  const dailyMap = new Map<
+    string,
+    {
+      date: string;
+      calls: number;
+      promptTokens: number;
+      completionTokens: number;
+      totalTokens: number;
+    }
+  >();
 
   for (const log of logs) {
     const pt = log.promptTokens ?? 0;
@@ -272,6 +318,9 @@ portalRoutes.get("/usage", async (c) => {
     promptTokens += pt;
     completionTokens += ct;
     totalTokens += tt;
+    const code = log.statusCode ?? 0;
+    if (code >= 200 && code < 400) successCalls += 1;
+    else errorCalls += 1;
     if (log.durationMs != null) durations.push(log.durationMs);
     const m = log.model || "unknown";
     const entry = byModelMap.get(m) ?? {
@@ -288,6 +337,20 @@ portalRoutes.get("/usage", async (c) => {
     entry.totalTokens += tt;
     if (log.durationMs != null) entry.durations.push(log.durationMs);
     byModelMap.set(m, entry);
+
+    const day = new Date(log.createdAt).toISOString().slice(0, 10);
+    const d = dailyMap.get(day) ?? {
+      date: day,
+      calls: 0,
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+    };
+    d.calls += 1;
+    d.promptTokens += pt;
+    d.completionTokens += ct;
+    d.totalTokens += tt;
+    dailyMap.set(day, d);
   }
 
   const pct = (arr: number[], p: number) => {
@@ -306,9 +369,17 @@ portalRoutes.get("/usage", async (c) => {
     promptTokens: e.promptTokens,
     completionTokens: e.completionTokens,
     totalTokens: e.totalTokens,
+    share: logs.length ? Math.round((e.calls / logs.length) * 1000) / 10 : 0,
     p50Ms: pct(e.durations, 50),
     p95Ms: pct(e.durations, 95),
   }));
+
+  const daily = [...dailyMap.values()].sort((a, b) =>
+    a.date.localeCompare(b.date),
+  );
+  const avgMs = durations.length
+    ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
+    : 0;
 
   return c.json({
     summary: {
@@ -320,8 +391,12 @@ portalRoutes.get("/usage", async (c) => {
       totalTokens,
       p50Ms: pct(durations, 50),
       p95Ms: pct(durations, 95),
+      successCalls,
+      errorCalls,
+      avgMs,
     },
     byModel,
+    daily,
   });
 });
 
@@ -365,6 +440,7 @@ portalRoutes.get("/usage/requests", async (c) => {
     data: rows.map((r) => ({
       id: r.id,
       model: r.model,
+      path: r.path,
       promptTokens: r.promptTokens ?? 0,
       completionTokens: r.completionTokens ?? 0,
       totalTokens: r.totalTokens ?? 0,
@@ -373,10 +449,63 @@ portalRoutes.get("/usage/requests", async (c) => {
       ok: (r.statusCode ?? 0) >= 200 && (r.statusCode ?? 0) < 400,
       createdAt: r.createdAt,
       error: r.error,
+      requestPreview: r.requestPreview,
+      responsePreview: r.responsePreview,
+      messageCount: r.messageCount ?? 0,
+      channelId: r.channelId,
     })),
     page,
     pageSize,
     total,
     totalPages: Math.max(1, Math.ceil(total / pageSize)),
+  });
+});
+
+portalRoutes.get("/usage/requests/:id", async (c) => {
+  const auth = c.get("auth");
+  const userTokens = await db
+    .select({ id: tokens.id })
+    .from(tokens)
+    .where(eq(tokens.userId, auth.userId!));
+  const tokenIds = userTokens.map((t) => t.id);
+  if (!tokenIds.length) return c.json({ error: "Not found" }, 404);
+
+  const row = await db.query.requestLogs.findFirst({
+    where: and(
+      eq(requestLogs.id, c.req.param("id")),
+      inArray(requestLogs.tokenId, tokenIds),
+    ),
+  });
+  if (!row) return c.json({ error: "Not found" }, 404);
+
+  let channelName: string | null = null;
+  if (row.channelId) {
+    const ch = await db.query.channels.findFirst({
+      where: eq(channels.id, row.channelId),
+    });
+    channelName = ch?.name ?? null;
+  }
+
+  return c.json({
+    data: {
+      id: row.id,
+      model: row.model,
+      path: row.path,
+      method: row.method,
+      promptTokens: row.promptTokens ?? 0,
+      completionTokens: row.completionTokens ?? 0,
+      totalTokens: row.totalTokens ?? 0,
+      durationMs: row.durationMs,
+      statusCode: row.statusCode,
+      ok: (row.statusCode ?? 0) >= 200 && (row.statusCode ?? 0) < 400,
+      createdAt: row.createdAt,
+      error: row.error,
+      requestPreview: row.requestPreview,
+      responsePreview: row.responsePreview,
+      messageCount: row.messageCount ?? 0,
+      channelId: row.channelId,
+      channelName,
+      ip: row.ip,
+    },
   });
 });

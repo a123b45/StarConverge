@@ -105,6 +105,11 @@ export const requestLogs = sqliteTable(
     durationMs: integer("duration_ms"),
     ip: text("ip"),
     error: text("error"),
+    /** Truncated request payload preview (chat messages / prompt) */
+    requestPreview: text("request_preview"),
+    /** Truncated response content preview */
+    responsePreview: text("response_preview"),
+    messageCount: integer("message_count").default(0),
     createdAt: integer("created_at", { mode: "timestamp_ms" })
       .notNull()
       .default(sql`(unixepoch() * 1000)`),
@@ -112,6 +117,7 @@ export const requestLogs = sqliteTable(
   (t) => [
     index("logs_created_at_idx").on(t.createdAt),
     index("logs_token_id_idx").on(t.tokenId),
+    index("logs_model_idx").on(t.model),
   ],
 );
 

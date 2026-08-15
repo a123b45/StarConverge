@@ -16,6 +16,9 @@ export async function writeLog(input: {
   durationMs?: number | null;
   ip?: string | null;
   error?: string | null;
+  requestPreview?: string | null;
+  responsePreview?: string | null;
+  messageCount?: number;
 }) {
   await db.insert(requestLogs).values({
     id: id("log"),
@@ -31,6 +34,9 @@ export async function writeLog(input: {
     durationMs: input.durationMs ?? null,
     ip: input.ip ?? null,
     error: input.error ?? null,
+    requestPreview: input.requestPreview ?? null,
+    responsePreview: input.responsePreview ?? null,
+    messageCount: input.messageCount ?? 0,
   });
 
   if (input.tokenId && (input.totalTokens ?? 0) > 0) {

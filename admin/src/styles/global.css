@@ -2108,6 +2108,109 @@ html[data-theme="dark"] .portal-user-dropdown button:hover {
   padding: 18px;
   margin-bottom: 16px;
 }
+.portal-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.portal-panel-head h3 {
+  margin: 0;
+}
+.portal-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.portal-tabs button {
+  border: 1px solid var(--line);
+  background: var(--bg-elevated);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font: inherit;
+}
+.portal-tabs button.active {
+  background: var(--p-brand, #6d5efc);
+  border-color: transparent;
+  color: #fff;
+}
+.portal-trend-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.portal-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  min-height: 120px;
+  padding-top: 8px;
+}
+.portal-bar-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.portal-bar {
+  width: 100%;
+  max-width: 28px;
+  border-radius: 6px 6px 2px 2px;
+  background: linear-gradient(180deg, #8b7cff, #6d5efc);
+  min-height: 8px;
+}
+.portal-bar.tokens {
+  background: linear-gradient(180deg, #5ec8a8, #2f9e7c);
+}
+.portal-bar-col span {
+  font-size: 10px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.portal-trace {
+  display: grid;
+  gap: 12px;
+  padding: 8px 0;
+}
+.portal-trace .label {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.portal-trace pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--bg, #f6f5fb);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 12px;
+  max-height: 220px;
+  overflow: auto;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+.portal-trace-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.portal-trace-meta .danger-text {
+  color: #c0392b;
+}
+@media (max-width: 900px) {
+  .portal-trend-grid {
+    grid-template-columns: 1fr;
+  }
+}
 .portal-panel h3 {
   margin: 0 0 12px;
 }

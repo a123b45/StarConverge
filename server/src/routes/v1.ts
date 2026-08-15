@@ -3,6 +3,12 @@ import { stream } from "hono/streaming";
 import { requireApiToken, assertModelAllowed, type AuthVars } from "../middleware/auth.js";
 import { resolveChannelsForModel, joinUrl } from "../services/router.js";
 import { writeLog } from "../services/stats.js";
+import {
+  countMessages,
+  extractRequestPreview,
+  extractResponsePreview,
+  resolveChannelModelIds,
+} from "../services/upstream-models.js";
 import { db } from "../db/index.js";
 import { channels } from "../db/schema.js";
 import { eq } from "drizzle-orm";
@@ -13,14 +19,22 @@ export const v1Routes = new Hono<AuthVars>();
 v1Routes.use("*", requireApiToken);
 
 v1Routes.get("/models", async (c) => {
+  const token = c.get("token");
   const all = await db.select().from(channels).where(eq(channels.enabled, true));
   const set = new Set<string>();
   for (const ch of all) {
-    for (const m of parseJsonArray(ch.models)) {
-      if (m !== "*") set.add(m);
+    const ids = await resolveChannelModelIds(ch);
+    for (const m of ids) {
+      if (m && m !== "*") set.add(m);
     }
   }
-  const data = [...set].sort().map((id) => ({
+  const allowed = parseJsonArray(token.allowedModels);
+  let ids = [...set].sort();
+  if (allowed.length > 0) {
+    const allow = new Set(allowed);
+    ids = ids.filter((m) => allow.has(m));
+  }
+  const data = ids.map((id) => ({
     id,
     object: "model",
     created: Math.floor(Date.now() / 1000),
@@ -82,6 +96,9 @@ async function proxyOpenAI(c: Context<AuthVars>, upstreamPath: string) {
     );
   }
 
+  const reqPreview = extractRequestPreview(bodyText);
+  const msgCount = countMessages(bodyText);
+
   if (!assertModelAllowed(token, model)) {
     await writeLog({
       tokenId: token.id,
@@ -92,6 +109,8 @@ async function proxyOpenAI(c: Context<AuthVars>, upstreamPath: string) {
       ip,
       error: "model not allowed",
       durationMs: Date.now() - started,
+      requestPreview: reqPreview,
+      messageCount: msgCount,
     });
     return c.json(
       { error: { message: `Model ${model} is not allowed for this key`, type: "permission_error" } },
@@ -110,6 +129,8 @@ async function proxyOpenAI(c: Context<AuthVars>, upstreamPath: string) {
       ip,
       error: "no channel",
       durationMs: Date.now() - started,
+      requestPreview: reqPreview,
+      messageCount: msgCount,
     });
     return c.json(
       { error: { message: `No channel available for model ${model}`, type: "not_found_error" } },
@@ -214,6 +235,9 @@ async function proxyOpenAI(c: Context<AuthVars>, upstreamPath: string) {
               totalTokens: usageHint.total || estimateTokens(bodyText),
               durationMs: Date.now() - started,
               ip,
+              requestPreview: reqPreview,
+              responsePreview: extractStreamPreview(leftover),
+              messageCount: msgCount,
             });
           }
         });
@@ -253,6 +277,9 @@ async function proxyOpenAI(c: Context<AuthVars>, upstreamPath: string) {
           durationMs: Date.now() - started,
           ip,
           error: respText.slice(0, 500),
+          requestPreview: reqPreview,
+          responsePreview: respText.slice(0, 800),
+          messageCount: msgCount,
         });
         return c.body(respText, upstream.status as 400, {
           "Content-Type": upstream.headers.get("content-type") ?? "application/json",
@@ -272,6 +299,9 @@ async function proxyOpenAI(c: Context<AuthVars>, upstreamPath: string) {
         totalTokens: usageHint.total || estimateTokens(bodyText),
         durationMs: Date.now() - started,
         ip,
+        requestPreview: reqPreview,
+        responsePreview: extractResponsePreview(respText),
+        messageCount: msgCount,
       });
 
       return c.body(respText, upstream.status as 200, {
@@ -294,6 +324,8 @@ async function proxyOpenAI(c: Context<AuthVars>, upstreamPath: string) {
     durationMs: Date.now() - started,
     ip,
     error: lastError,
+    requestPreview: reqPreview,
+    messageCount: msgCount,
   });
   return c.json(
     { error: { message: `Upstream failed: ${lastError}`, type: "api_error" } },
@@ -304,4 +336,30 @@ async function proxyOpenAI(c: Context<AuthVars>, upstreamPath: string) {
 function estimateTokens(text: string): number {
   // rough fallback when upstream omits usage
   return Math.max(1, Math.ceil(text.length / 4));
+}
+
+function extractStreamPreview(sseText: string, max = 4000): string {
+  let out = "";
+  for (const line of sseText.split("\n")) {
+    if (!line.startsWith("data:")) continue;
+    const data = line.slice(5).trim();
+    if (!data || data === "[DONE]") continue;
+    try {
+      const json = JSON.parse(data) as {
+        choices?: Array<{
+          delta?: { content?: string };
+          message?: { content?: string };
+        }>;
+      };
+      const piece =
+        json.choices?.[0]?.delta?.content ??
+        json.choices?.[0]?.message?.content ??
+        "";
+      if (piece) out += piece;
+      if (out.length >= max) break;
+    } catch {
+      /* ignore */
+    }
+  }
+  return out.slice(0, max);
 }
