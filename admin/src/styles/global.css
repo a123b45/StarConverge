@@ -1592,6 +1592,18 @@ select[multiple] {
   border: 1px solid color-mix(in srgb, var(--line) 80%, #fff);
   border-radius: 16px;
   box-shadow: 0 14px 36px rgba(15, 23, 42, 0.14);
+  max-height: min(280px, 50vh);
+  overflow: auto;
+}
+.soft-select-menu-fixed {
+  position: fixed;
+  z-index: 240;
+  top: auto;
+  right: auto;
+}
+.users-role-td {
+  min-width: 148px;
+  overflow: visible;
 }
 .soft-select-item {
   width: 100%;

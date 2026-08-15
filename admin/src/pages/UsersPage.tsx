@@ -187,7 +187,6 @@ export default function UsersPage() {
                 <th>账号</th>
                 <th>邮箱</th>
                 <th>角色</th>
-                <th>密钥 / 配额</th>
                 <th>状态</th>
                 <th>最近登录</th>
                 <th>操作</th>
@@ -203,18 +202,15 @@ export default function UsersPage() {
                     </div>
                   </td>
                   <td>{u.email || "—"}</td>
-                  <td>
+                  <td className="users-role-td">
                     <SoftSelect
                       className="soft-select-filter soft-select-sm"
                       ariaLabel="角色"
                       value={editRoleId[u.id] || u.roleId || ""}
                       onChange={(v) => void changeRole(u, v)}
                       options={roles.map((r) => ({ value: r.id, label: r.name }))}
+                      placeholder="选择角色"
                     />
-                  </td>
-                  <td className="mono">
-                    {u.tokenCount} 钥 · {u.usedQuota.toLocaleString()} /{" "}
-                    {u.quota < 0 ? "∞" : u.quota.toLocaleString()}
                   </td>
                   <td>
                     <span className={`badge ${u.enabled ? "on" : "off"}`}>
@@ -246,7 +242,7 @@ export default function UsersPage() {
               ))}
               {!filtered.length ? (
                 <tr>
-                  <td colSpan={7} className="empty">
+                  <td colSpan={6} className="empty">
                     暂无用户
                   </td>
                 </tr>
