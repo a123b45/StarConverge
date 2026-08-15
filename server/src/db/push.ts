@@ -77,6 +77,9 @@ const statements = [
     rate_limit INTEGER NOT NULL DEFAULT 60,
     enabled INTEGER NOT NULL DEFAULT 1,
     allowed_models TEXT NOT NULL DEFAULT '[]',
+    group_name TEXT DEFAULT '',
+    ip_allowlist TEXT NOT NULL DEFAULT '[]',
+    last_used_at INTEGER,
     expires_at INTEGER,
     remark TEXT DEFAULT '',
     created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000),
@@ -145,6 +148,19 @@ export function migrate() {
     sqlite.exec(`ALTER TABLE tokens ADD COLUMN user_id TEXT`);
   }
   sqlite.exec(`CREATE INDEX IF NOT EXISTS tokens_user_id_idx ON tokens(user_id)`);
+
+  const tokenCols = sqlite.prepare(`PRAGMA table_info(tokens)`).all() as Array<{
+    name: string;
+  }>;
+  if (!tokenCols.some((c) => c.name === "group_name")) {
+    sqlite.exec(`ALTER TABLE tokens ADD COLUMN group_name TEXT DEFAULT ''`);
+  }
+  if (!tokenCols.some((c) => c.name === "ip_allowlist")) {
+    sqlite.exec(`ALTER TABLE tokens ADD COLUMN ip_allowlist TEXT DEFAULT '[]'`);
+  }
+  if (!tokenCols.some((c) => c.name === "last_used_at")) {
+    sqlite.exec(`ALTER TABLE tokens ADD COLUMN last_used_at INTEGER`);
+  }
 
   const logCols = sqlite.prepare(`PRAGMA table_info(request_logs)`).all() as Array<{
     name: string;

@@ -160,6 +160,8 @@ export function publicChannel(row: typeof channels.$inferSelect) {
 }
 
 export function publicToken(row: typeof tokens.$inferSelect) {
+  const remaining =
+    row.quota < 0 ? -1 : Math.max(0, row.quota - (row.usedQuota ?? 0));
   return {
     id: row.id,
     userId: row.userId ?? null,
@@ -168,9 +170,13 @@ export function publicToken(row: typeof tokens.$inferSelect) {
     key: row.keyPlain ?? null,
     quota: row.quota,
     usedQuota: row.usedQuota,
+    remainingQuota: remaining,
     rateLimit: row.rateLimit,
     enabled: row.enabled,
     allowedModels: parseJsonArray(row.allowedModels),
+    groupName: row.groupName ?? "",
+    ipAllowlist: parseJsonArray(row.ipAllowlist ?? "[]"),
+    lastUsedAt: row.lastUsedAt ?? null,
     expiresAt: row.expiresAt,
     remark: row.remark,
     createdAt: row.createdAt,

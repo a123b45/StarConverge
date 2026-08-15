@@ -200,6 +200,9 @@ portalRoutes.post("/keys", async (c) => {
     rateLimit: v.rateLimit,
     enabled: true,
     allowedModels: toJsonArray(v.allowedModels),
+    groupName: "",
+    ipAllowlist: "[]",
+    lastUsedAt: null,
     expiresAt: null,
     remark: "",
   };

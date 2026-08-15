@@ -258,6 +258,26 @@ export function IconCopy({ size = 16 }: SizeProps) {
   );
 }
 
+export function IconPencil({ size = 16 }: SizeProps) {
+  return (
+    <Svg size={size}>
+      <path d="M13.5 4.5 19 10l-9.8 9.8H3.7v-5.5L13.5 4.5Z" />
+      <path d="m11.8 6.2 5.5 5.5" />
+    </Svg>
+  );
+}
+
+export function IconTrash({ size = 16 }: SizeProps) {
+  return (
+    <Svg size={size}>
+      <path d="M4.5 7h15" />
+      <path d="M9.5 7V5.2A1.2 1.2 0 0 1 10.7 4h2.6a1.2 1.2 0 0 1 1.2 1.2V7" />
+      <path d="M6.5 7l.8 11.2A1.5 1.5 0 0 0 8.8 19.5h6.4a1.5 1.5 0 0 0 1.5-1.3L17.5 7" />
+      <path d="M10 10.5v6M14 10.5v6" />
+    </Svg>
+  );
+}
+
 export function IconPerson({ size = 18 }: SizeProps) {
   return (
     <Svg size={size}>

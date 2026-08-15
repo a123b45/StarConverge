@@ -493,8 +493,11 @@ adminRoutes.post("/tokens", async (c) => {
     quota: z.number().int().default(-1),
     rateLimit: z.number().int().min(0).default(60),
     allowedModels: z.array(z.string()).default([]),
+    groupName: z.string().max(64).optional(),
+    ipAllowlist: z.array(z.string()).default([]),
     expiresAt: z.number().nullable().optional(),
     remark: z.string().optional(),
+    enabled: z.boolean().optional(),
   });
   const parsed = schema.safeParse(await c.req.json());
   if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
@@ -510,15 +513,22 @@ adminRoutes.post("/tokens", async (c) => {
     quota: v.quota,
     usedQuota: 0,
     rateLimit: v.rateLimit,
-    enabled: true,
+    enabled: v.enabled ?? true,
     allowedModels: toJsonArray(v.allowedModels),
+    groupName: (v.groupName ?? "").trim(),
+    ipAllowlist: toJsonArray(v.ipAllowlist),
     expiresAt: v.expiresAt ? new Date(v.expiresAt) : null,
     remark: v.remark ?? "",
   };
   await db.insert(tokens).values(row);
   return c.json(
     {
-      data: publicToken({ ...row, createdAt: new Date(), updatedAt: new Date() }),
+      data: publicToken({
+        ...row,
+        lastUsedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }),
       key: key.key,
     },
     201,
@@ -553,6 +563,16 @@ adminRoutes.put("/tokens/:id", async (c) => {
   if (body.rateLimit != null) patch.rateLimit = Number(body.rateLimit);
   if (body.enabled != null) patch.enabled = Boolean(body.enabled);
   if (body.allowedModels != null) patch.allowedModels = toJsonArray(body.allowedModels);
+  if (body.groupName != null) patch.groupName = String(body.groupName).trim();
+  if (body.ipAllowlist != null) {
+    const list = Array.isArray(body.ipAllowlist)
+      ? body.ipAllowlist.map(String)
+      : String(body.ipAllowlist)
+          .split(/[\n,]+/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+    patch.ipAllowlist = toJsonArray(list);
+  }
   if (body.expiresAt !== undefined) {
     patch.expiresAt = body.expiresAt ? new Date(body.expiresAt) : null;
   }

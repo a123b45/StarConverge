@@ -105,6 +105,11 @@ export const tokens = sqliteTable(
     rateLimit: integer("rate_limit").notNull().default(60), // req/min
     enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
     allowedModels: text("allowed_models").notNull().default("[]"), // empty = all
+    /** Logical group label for filtering, e.g. 内部 / 客户A */
+    groupName: text("group_name").default(""),
+    /** JSON string array of allowed IPs/CIDRs; empty = no IP restriction */
+    ipAllowlist: text("ip_allowlist").notNull().default("[]"),
+    lastUsedAt: integer("last_used_at", { mode: "timestamp_ms" }),
     expiresAt: integer("expires_at", { mode: "timestamp_ms" }),
     remark: text("remark").default(""),
     createdAt: integer("created_at", { mode: "timestamp_ms" })
