@@ -1350,6 +1350,8 @@ function serializeModelRoute(r: typeof modelRoutes.$inferSelect) {
     channelIds: parseJsonArray(r.channelIds),
     targets,
     strategy: r.strategy || "full",
+    /** true = created via 路由管理 (alias/strategy); false = synced from 供应商 */
+    selfBuilt: !isAutoCatalogRoute(r),
   };
 }
 

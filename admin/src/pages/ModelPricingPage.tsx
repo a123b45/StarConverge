@@ -34,6 +34,7 @@ type CatalogModel = {
   id: string;
   model: string;
   channelIds: string[];
+  selfBuilt?: boolean;
 };
 
 type FormState = {
@@ -95,18 +96,13 @@ export default function ModelPricingPage() {
     void load();
   }, []);
 
-  const orphanModels = useMemo(() => {
-    const channelIdSet = new Set(channels.map((ch) => ch.id));
+  const selfBuiltModels = useMemo(() => {
     const names = catalog
-      .filter((r) => {
-        const ids = r.channelIds || [];
-        if (!ids.length) return true;
-        return ids.every((id) => !channelIdSet.has(id));
-      })
+      .filter((r) => r.selfBuilt)
       .map((r) => r.model)
       .filter(Boolean);
     return [...new Set(names)].sort((a, b) => a.localeCompare(b));
-  }, [catalog, channels]);
+  }, [catalog]);
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -140,13 +136,13 @@ export default function ModelPricingPage() {
   const isOtherProvider = form.channelId === OTHER_PROVIDER;
   const channelModels = useMemo(() => {
     const base = isOtherProvider
-      ? orphanModels
+      ? selfBuiltModels
       : (selectedChannel?.models ?? []).filter((m) => m && m !== "*");
     if (form.providerModel && !base.includes(form.providerModel)) {
       return [form.providerModel, ...base];
     }
     return base;
-  }, [selectedChannel, form.providerModel, isOtherProvider, orphanModels]);
+  }, [selectedChannel, form.providerModel, isOtherProvider, selfBuiltModels]);
 
   useEffect(() => {
     if (page > pageCount) setPage(pageCount);
@@ -394,7 +390,7 @@ export default function ModelPricingPage() {
                       <>
                         无法找到配置信息，无任何接入代理上游。点击面板的工具栏里的{" "}
                         <Link to="/admin/channels">+ 服务商账户</Link>{" "}
-                        进行建立关联，而后激活价格板块。也可选择「其他服务商」为无归属自建模型定价。
+                        进行建立关联，而后激活价格板块。也可选择「其他服务商」为路由管理创建的自建模型定价。
                       </>
                     ) : (
                       "暂无价格配置，点击「配置新价格」开始。"
@@ -487,7 +483,7 @@ export default function ModelPricingPage() {
                       ? "请先选择服务商"
                       : channelModels.length === 0
                         ? isOtherProvider
-                          ? "暂无无归属自建模型"
+                          ? "暂无自建路由模型"
                           : "该服务商暂无模型"
                         : "选择模型"
                   }
