@@ -70,10 +70,87 @@ export default function DashboardPage() {
         .filter((x) => x.show),
     [trend, grain],
   );
-  const maxModel = useMemo(
-    () => Math.max(1, ...(data?.byModel.map((m) => m.requests) ?? [1])),
-    [data],
-  );
+  const pie = useMemo(() => {
+    const rows = data?.byModel ?? [];
+    const total = rows.reduce((s, r) => s + r.requests, 0);
+    if (!total) return { total: 0, gradient: "var(--bg-soft)", items: [] as Array<{ model: string; requests: number; pct: number; color: string }> };
+    const colors = [
+      "#6d5efc",
+      "#22c3a6",
+      "#f59e0b",
+      "#ef4444",
+      "#3b82f6",
+      "#ec4899",
+      "#84cc16",
+      "#06b6d4",
+    ];
+    let acc = 0;
+    const items = rows.map((r, i) => {
+      const pct = (r.requests / total) * 100;
+      const start = acc;
+      acc += pct;
+      return {
+        model: r.model,
+        requests: r.requests,
+        pct,
+        color: colors[i % colors.length]!,
+        start,
+        end: acc,
+      };
+    });
+    const gradient = `conic-gradient(${items
+      .map((it) => `${it.color} ${it.start}% ${it.end}%`)
+      .join(", ")})`;
+    return { total, gradient, items };
+  }, [data]);
+
+  const tokenLine = useMemo(() => {
+    const rows = trend;
+    const w = 320;
+    const h = 140;
+    const padX = 8;
+    const padY = 12;
+    const maxT = Math.max(1, ...rows.map((r) => r.tokens));
+    type Coord = {
+      x: number;
+      y: number;
+      r: { hour: string; requests: number; tokens: number };
+    };
+    type Label = { i: number; x: number; text: string; show: boolean };
+    if (!rows.length) {
+      return {
+        w,
+        h,
+        points: "",
+        area: "",
+        maxT,
+        labels: [] as Label[],
+        coords: [] as Coord[],
+      };
+    }
+    const coords: Coord[] = rows.map((r, i) => {
+      const x =
+        padX +
+        (rows.length === 1
+          ? (w - padX * 2) / 2
+          : (i / (rows.length - 1)) * (w - padX * 2));
+      const y = h - padY - (r.tokens / maxT) * (h - padY * 2);
+      return { x, y, r };
+    });
+    const points = coords.map((c) => `${c.x},${c.y}`).join(" ");
+    const area = `${padX},${h - padY} ${points} ${coords[coords.length - 1]!.x},${h - padY}`;
+    const labelStep = Math.max(1, Math.ceil(rows.length / 6));
+    const labels: Label[] = coords
+      .map((c, i) => ({
+        i,
+        x: c.x,
+        text: formatTrendLabel(c.r.hour, grain),
+        show: i === 0 || i === rows.length - 1 || i % labelStep === 0,
+      }))
+      .filter((l) => l.show);
+    return { w, h, points, area, maxT, labels, coords };
+  }, [trend, grain]);
+
 
   async function copyEndpoint() {
     await navigator.clipboard.writeText(endpoint);
@@ -219,7 +296,9 @@ export default function DashboardPage() {
                   <div className="track">
                     <div
                       className="fill"
-                      style={{ width: `${(r.requests / maxModel) * 100}%` }}
+                      style={{
+                        width: `${(r.requests / Math.max(1, ...data!.byModel.map((m) => m.requests))) * 100}%`,
+                      }}
                     />
                   </div>
                   <span className="mono">{r.requests}</span>
@@ -232,63 +311,101 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="panel" style={{ marginTop: 16 }}>
-        <div className="panel-head">
-          <strong>最近请求</strong>
+      <div className="dash-grid" style={{ marginTop: 16 }}>
+        <div className="panel">
+          <div className="panel-head">
+            <strong>调用分布</strong>
+            <span className="muted" style={{ fontSize: 12 }}>
+              近 24h 按模型
+            </span>
+          </div>
+          {pie.total > 0 ? (
+            <div className="dash-pie-wrap">
+              <div className="dash-pie" style={{ background: pie.gradient }} title="调用分布" />
+              <div className="dash-pie-legend">
+                {pie.items.map((it) => (
+                  <div key={it.model} className="dash-pie-row" title={it.model}>
+                    <i style={{ background: it.color }} />
+                    <span className="mono">{it.model}</span>
+                    <b>
+                      {it.requests} · {it.pct.toFixed(1)}%
+                    </b>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="empty">暂无调用分布</div>
+          )}
         </div>
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>时间</th>
-                <th>模型 / 路径</th>
-                <th>状态</th>
-                <th>Tokens</th>
-                <th>耗时</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(data?.recent ?? []).map((r) => (
-                <tr key={r.id}>
-                  <td className="mono" style={{ fontSize: "0.8rem" }}>
-                    {formatTime(r.createdAt)}
-                  </td>
-                  <td>
-                    <div>{r.model ?? "—"}</div>
-                    {r.upstreamModel && r.upstreamModel !== r.model ? (
-                      <div
-                        className="mono"
-                        style={{ fontSize: "0.75rem", color: "var(--accent, #6d5efc)" }}
-                      >
-                        上游 {r.upstreamModel}
-                      </div>
-                    ) : null}
-                    <div className="mono" style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
-                      {r.path}
-                    </div>
-                  </td>
-                  <td>
-                    <span
-                      className={`badge ${
-                        Number(r.statusCode) >= 400 || r.error ? "danger" : "on"
-                      }`}
-                    >
-                      {r.statusCode ?? "—"}
-                    </span>
-                  </td>
-                  <td className="mono">{r.totalTokens ?? 0}</td>
-                  <td className="mono">{r.durationMs != null ? `${r.durationMs}ms` : "—"}</td>
-                </tr>
-              ))}
-              {!data?.recent?.length ? (
-                <tr>
-                  <td colSpan={5} className="empty">
-                    暂无请求记录
-                  </td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
+
+        <div className="panel">
+          <div className="panel-head">
+            <strong>Token 趋势</strong>
+            <span className="muted" style={{ fontSize: 12 }}>
+              峰值 {tokenLine.maxT.toLocaleString()}
+            </span>
+          </div>
+          {trend.length > 0 ? (
+            <div className="dash-line-wrap">
+              <svg
+                className="dash-line-svg"
+                viewBox={`0 0 ${tokenLine.w} ${tokenLine.h}`}
+                preserveAspectRatio="none"
+                role="img"
+                aria-label="Token 趋势折线图"
+              >
+                <defs>
+                  <linearGradient id="tokenArea" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#6d5efc" stopOpacity="0.35" />
+                    <stop offset="100%" stopColor="#6d5efc" stopOpacity="0.02" />
+                  </linearGradient>
+                </defs>
+                <polyline
+                  fill="url(#tokenArea)"
+                  stroke="none"
+                  points={tokenLine.area}
+                />
+                <polyline
+                  fill="none"
+                  stroke="#6d5efc"
+                  strokeWidth="2.5"
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                  points={tokenLine.points}
+                />
+                {(tokenLine.coords ?? []).map((c, i) => (
+                  <circle
+                    key={`p-${i}`}
+                    cx={c.x}
+                    cy={c.y}
+                    r="3"
+                    fill="#fff"
+                    stroke="#6d5efc"
+                    strokeWidth="2"
+                  >
+                    <title>
+                      {c.r.hour}
+                      {"\n"}
+                      {c.r.tokens.toLocaleString()} tokens · {c.r.requests} 次
+                    </title>
+                  </circle>
+                ))}
+              </svg>
+              <div className="dash-line-x">
+                {tokenLine.labels.map((l) => (
+                  <span
+                    key={`tl-${l.i}`}
+                    style={{ left: `${(l.x / tokenLine.w) * 100}%` }}
+                  >
+                    {l.text}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="empty">暂无 Token 趋势</div>
+          )}
         </div>
       </div>
     </>
@@ -298,12 +415,6 @@ export default function DashboardPage() {
 function fmt(n?: number) {
   if (n == null) return "—";
   return n.toLocaleString();
-}
-
-function formatTime(v: string | Date) {
-  const d = new Date(v);
-  if (Number.isNaN(d.getTime())) return String(v);
-  return d.toLocaleString();
 }
 
 function formatTrendLabel(bucket: string, grain: Grain) {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, formatTokens } from "../lib/api";
 import SoftSelect from "../components/SoftSelect";
@@ -29,9 +29,29 @@ type UsageData = {
   entities: UsageSeg[];
 };
 
+type Log = {
+  id: string;
+  model: string | null;
+  path: string;
+  statusCode: number | null;
+  totalTokens: number | null;
+  promptTokens?: number | null;
+  completionTokens?: number | null;
+  durationMs: number | null;
+  error: string | null;
+  createdAt: string;
+  requestPreview?: string | null;
+  responsePreview?: string | null;
+};
+
 type GroupBy = "model" | "token";
 type SortMode = "time" | "tokens";
 type Metric = "tokens" | "cost";
+
+function tipSide(index: number, total: number): "tip-left" | "tip-right" {
+  if (total <= 1) return "tip-right";
+  return index / (total - 1) < 0.55 ? "tip-right" : "tip-left";
+}
 
 function fmtCny(n: number) {
   return `¥${n.toLocaleString(undefined, {
@@ -67,10 +87,14 @@ function formatY(n: number, metric: Metric) {
 
 export default function UsagePage() {
   const [data, setData] = useState<UsageData | null>(null);
+  const [logs, setLogs] = useState<Log[]>([]);
+  const [logTotal, setLogTotal] = useState(0);
   const [days, setDays] = useState(30);
   const [groupBy, setGroupBy] = useState<GroupBy>("token");
   const [sortMode, setSortMode] = useState<SortMode>("time");
   const [metric, setMetric] = useState<Metric>("tokens");
+  const [modelFilter, setModelFilter] = useState("");
+  const [openId, setOpenId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -78,13 +102,25 @@ export default function UsagePage() {
     setLoading(true);
     setError("");
     try {
-      const res = await api<UsageData>(
-        `/usage?${new URLSearchParams({
-          days: String(days),
-          groupBy,
-        })}`,
-      );
-      setData(res);
+      const sinceHours = days * 24;
+      const [usage, logRes] = await Promise.all([
+        api<UsageData>(
+          `/usage?${new URLSearchParams({
+            days: String(days),
+            groupBy,
+          })}`,
+        ),
+        api<{ data: Log[]; total: number }>(
+          `/logs?${new URLSearchParams({
+            limit: "50",
+            sinceHours: String(sinceHours),
+            ...(modelFilter.trim() ? { model: modelFilter.trim() } : {}),
+          })}`,
+        ),
+      ]);
+      setData(usage);
+      setLogs(logRes.data);
+      setLogTotal(logRes.total);
     } catch (e) {
       setError(e instanceof Error ? e.message : "加载失败");
     } finally {
@@ -100,9 +136,7 @@ export default function UsagePage() {
   const timeBars = useMemo(() => {
     const series = data?.series ?? [];
     if (sortMode !== "time") return [];
-    const ordered = [...series];
-    // 时间降序：右侧最新（先正序再展示，阅读更自然）；降序选项把最新放左侧
-    return ordered.reverse();
+    return [...series].reverse();
   }, [data, sortMode]);
 
   const entityBars = useMemo(() => {
@@ -134,14 +168,15 @@ export default function UsagePage() {
     return `Tokens ${data.summary.tokens.toLocaleString()}`;
   }, [data, metric]);
 
-  const showLabelsEvery = sortMode === "time" ? Math.max(1, Math.ceil(timeBars.length / 8)) : 1;
+  const showLabelsEvery =
+    sortMode === "time" ? Math.max(1, Math.ceil(timeBars.length / 8)) : 1;
 
   return (
     <>
       <div className="topbar">
         <div className="page-head">
           <h2>用量检测</h2>
-          <p>按 API Key / 模型查看 Token 与消费估算，支持时间与用量排序</p>
+          <p>按 API Key / 模型查看 Token 与消费估算，并查看近期调用明细</p>
         </div>
         <div className="row-actions">
           <SoftSelect
@@ -236,7 +271,8 @@ export default function UsagePage() {
         </div>
 
         <div className="usage-chart-body">
-          {!data || (sortMode === "time" ? timeBars.length === 0 : entityBars.length === 0) ? (
+          {!data ||
+          (sortMode === "time" ? timeBars.length === 0 : entityBars.length === 0) ? (
             <div className="empty">所选范围内暂无用量数据</div>
           ) : sortMode === "time" ? (
             <div className="usage-chart">
@@ -259,6 +295,7 @@ export default function UsagePage() {
                       idx === 0 ||
                       idx === timeBars.length - 1 ||
                       idx % showLabelsEvery === 0;
+                    const side = tipSide(idx, timeBars.length);
                     return (
                       <div
                         key={day.date}
@@ -285,7 +322,7 @@ export default function UsagePage() {
                               );
                             })}
                           </div>
-                          <div className="usage-tip" role="tooltip">
+                          <div className={`usage-tip ${side}`} role="tooltip">
                             <div className="usage-tip-head">
                               <strong>{day.date}</strong>
                               <span>
@@ -339,9 +376,10 @@ export default function UsagePage() {
                   <i />
                 </div>
                 <div className="usage-bars usage-bars-entity">
-                  {entityBars.map((e) => {
+                  {entityBars.map((e, idx) => {
                     const total = metric === "cost" ? e.costCny : e.tokens;
                     const heightPct = total > 0 ? Math.max(4, (total / yMax) * 100) : 0;
+                    const side = tipSide(idx, entityBars.length);
                     return (
                       <div key={e.id} className="usage-col">
                         <div className="usage-hit">
@@ -354,7 +392,7 @@ export default function UsagePage() {
                               style={{ height: "100%", background: e.color }}
                             />
                           </div>
-                          <div className="usage-tip" role="tooltip">
+                          <div className={`usage-tip ${side}`} role="tooltip">
                             <div className="usage-tip-head">
                               <strong title={e.label}>{e.label}</strong>
                               <span>
@@ -393,6 +431,128 @@ export default function UsagePage() {
             ) : null}
           </div>
         ) : null}
+      </div>
+
+      <div className="panel" style={{ marginTop: 16 }}>
+        <div className="panel-head">
+          <strong>近期调用明细</strong>
+          <span className="badge">共 {logTotal} 条</span>
+        </div>
+        <div className="toolbar" style={{ padding: "12px 16px 0" }}>
+          <input
+            className="search"
+            placeholder="按模型筛选后回车"
+            value={modelFilter}
+            onChange={(e) => setModelFilter(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void load();
+            }}
+          />
+          <button className="btn ghost sm" onClick={() => void load()}>
+            筛选
+          </button>
+        </div>
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>时间</th>
+                <th>模型 / 路径</th>
+                <th>状态</th>
+                <th>输入 / 输出</th>
+                <th>Tokens</th>
+                <th>耗时</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {logs.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="empty">
+                    所选范围内暂无调用
+                  </td>
+                </tr>
+              ) : (
+                logs.map((r) => (
+                  <Fragment key={r.id}>
+                    <tr>
+                      <td className="mono" style={{ whiteSpace: "nowrap" }}>
+                        {new Date(r.createdAt).toLocaleString()}
+                      </td>
+                      <td>
+                        <div className="mono">{r.model || "—"}</div>
+                        <div style={{ fontSize: 12, color: "var(--muted)" }}>{r.path}</div>
+                      </td>
+                      <td>
+                        <span
+                          className={`badge ${
+                            r.error || (r.statusCode && r.statusCode >= 400) ? "danger" : "on"
+                          }`}
+                        >
+                          {r.statusCode ?? (r.error ? "ERR" : "—")}
+                        </span>
+                      </td>
+                      <td className="mono">
+                        {(r.promptTokens ?? 0).toLocaleString()} /{" "}
+                        {(r.completionTokens ?? 0).toLocaleString()}
+                      </td>
+                      <td className="mono">{r.totalTokens ?? "—"}</td>
+                      <td className="mono">
+                        {r.durationMs != null ? `${r.durationMs}ms` : "—"}
+                      </td>
+                      <td>
+                        <button
+                          className="btn ghost sm"
+                          onClick={() => setOpenId(openId === r.id ? null : r.id)}
+                        >
+                          {openId === r.id ? "收起" : "内容"}
+                        </button>
+                      </td>
+                    </tr>
+                    {openId === r.id ? (
+                      <tr>
+                        <td colSpan={7}>
+                          <div style={{ display: "grid", gap: 8, padding: "4px 0 12px" }}>
+                            <div>
+                              <div style={{ fontSize: 12, color: "var(--muted)" }}>请求内容</div>
+                              <pre
+                                style={{
+                                  whiteSpace: "pre-wrap",
+                                  wordBreak: "break-word",
+                                  fontSize: 12,
+                                  margin: "6px 0 0",
+                                  maxHeight: 180,
+                                  overflow: "auto",
+                                }}
+                              >
+                                {r.requestPreview || "（无预览，新请求才会记录）"}
+                              </pre>
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 12, color: "var(--muted)" }}>响应内容</div>
+                              <pre
+                                style={{
+                                  whiteSpace: "pre-wrap",
+                                  wordBreak: "break-word",
+                                  fontSize: 12,
+                                  margin: "6px 0 0",
+                                  maxHeight: 180,
+                                  overflow: "auto",
+                                }}
+                              >
+                                {r.responsePreview || r.error || "（无预览）"}
+                              </pre>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : null}
+                  </Fragment>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </>
   );
