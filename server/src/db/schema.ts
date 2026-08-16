@@ -231,6 +231,7 @@ export const modelPrices = sqliteTable(
     channelId: text("channel_id"),
     inputPer1mCents: integer("input_per_1m_cents").notNull().default(0),
     outputPer1mCents: integer("output_per_1m_cents").notNull().default(0),
+    cacheHitPer1mCents: integer("cache_hit_per_1m_cents").notNull().default(0),
     costPer1mCents: integer("cost_per_1m_cents").notNull().default(0),
     enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
     remark: text("remark").default(""),

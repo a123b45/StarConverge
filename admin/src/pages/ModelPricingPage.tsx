@@ -5,6 +5,8 @@ import SoftSelect from "../components/SoftSelect";
 import { IconPencil, IconTrash } from "../components/icons";
 import { softConfirm } from "../components/SoftDialog";
 
+const OTHER_PROVIDER = "__other__";
+
 type PriceRow = {
   id: string;
   externalModel: string;
@@ -14,6 +16,7 @@ type PriceRow = {
   channelName: string | null;
   inputPer1m: number;
   outputPer1m: number;
+  cacheHitPer1m: number;
   costPer1m: number;
   grossMargin: number;
   priceDiff: number;
@@ -27,11 +30,18 @@ type Channel = {
   models: string[];
 };
 
+type CatalogModel = {
+  id: string;
+  model: string;
+  channelIds: string[];
+};
+
 type FormState = {
   providerModel: string;
   channelId: string;
   inputPer1m: string;
   outputPer1m: string;
+  cacheHitPer1m: string;
   costPer1m: string;
 };
 
@@ -40,6 +50,7 @@ const emptyForm = (): FormState => ({
   channelId: "",
   inputPer1m: "0",
   outputPer1m: "0",
+  cacheHitPer1m: "0",
   costPer1m: "0",
 });
 
@@ -50,6 +61,7 @@ function money(n: number) {
 export default function ModelPricingPage() {
   const [rows, setRows] = useState<PriceRow[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
+  const [catalog, setCatalog] = useState<CatalogModel[]>([]);
   const [error, setError] = useState("");
   const [q, setQ] = useState("");
   const [providerFilter, setProviderFilter] = useState("all");
@@ -65,12 +77,14 @@ export default function ModelPricingPage() {
 
   async function load() {
     try {
-      const [p, c] = await Promise.all([
+      const [p, c, m] = await Promise.all([
         api<{ data: PriceRow[] }>("/pricing"),
         api<{ data: Channel[] }>("/channels"),
+        api<{ data: CatalogModel[] }>("/models"),
       ]);
       setRows(p.data);
       setChannels(c.data);
+      setCatalog(m.data);
       setError("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "加载失败");
@@ -81,10 +95,27 @@ export default function ModelPricingPage() {
     void load();
   }, []);
 
+  const orphanModels = useMemo(() => {
+    const channelIdSet = new Set(channels.map((ch) => ch.id));
+    const names = catalog
+      .filter((r) => {
+        const ids = r.channelIds || [];
+        if (!ids.length) return true;
+        return ids.every((id) => !channelIdSet.has(id));
+      })
+      .map((r) => r.model)
+      .filter(Boolean);
+    return [...new Set(names)].sort((a, b) => a.localeCompare(b));
+  }, [catalog, channels]);
+
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
     return rows.filter((r) => {
-      if (providerFilter !== "all" && r.channelId !== providerFilter) return false;
+      if (providerFilter === OTHER_PROVIDER) {
+        if (r.channelId) return false;
+      } else if (providerFilter !== "all" && r.channelId !== providerFilter) {
+        return false;
+      }
       if (statusFilter === "on" && !r.enabled) return false;
       if (statusFilter === "off" && r.enabled) return false;
       if (priceFilter === "set" && r.inputPer1m <= 0 && r.outputPer1m <= 0) {
@@ -106,13 +137,16 @@ export default function ModelPricingPage() {
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const pageRows = filtered.slice((page - 1) * pageSize, page * pageSize);
   const selectedChannel = channels.find((ch) => ch.id === form.channelId);
+  const isOtherProvider = form.channelId === OTHER_PROVIDER;
   const channelModels = useMemo(() => {
-    const base = (selectedChannel?.models ?? []).filter((m) => m && m !== "*");
+    const base = isOtherProvider
+      ? orphanModels
+      : (selectedChannel?.models ?? []).filter((m) => m && m !== "*");
     if (form.providerModel && !base.includes(form.providerModel)) {
       return [form.providerModel, ...base];
     }
     return base;
-  }, [selectedChannel, form.providerModel]);
+  }, [selectedChannel, form.providerModel, isOtherProvider, orphanModels]);
 
   useEffect(() => {
     if (page > pageCount) setPage(pageCount);
@@ -128,9 +162,10 @@ export default function ModelPricingPage() {
     setEditingId(r.id);
     setForm({
       providerModel: r.providerModel || r.globalModel || "",
-      channelId: r.channelId || "",
+      channelId: r.channelId || OTHER_PROVIDER,
       inputPer1m: String(r.inputPer1m),
       outputPer1m: String(r.outputPer1m),
+      cacheHitPer1m: String(r.cacheHitPer1m ?? 0),
       costPer1m: String(r.costPer1m),
     });
     setOpen(true);
@@ -138,9 +173,9 @@ export default function ModelPricingPage() {
 
   async function save(e: FormEvent) {
     e.preventDefault();
-    const channelId = form.channelId.trim();
+    const channelIdRaw = form.channelId.trim();
     const providerModel = form.providerModel.trim();
-    if (!channelId) {
+    if (!channelIdRaw) {
       setError("请选择归属服务商");
       return;
     }
@@ -150,6 +185,7 @@ export default function ModelPricingPage() {
     }
     setBusy(true);
     setError("");
+    const channelId = channelIdRaw === OTHER_PROVIDER ? null : channelIdRaw;
     const body = {
       externalModel: providerModel,
       globalModel: providerModel,
@@ -157,6 +193,7 @@ export default function ModelPricingPage() {
       channelId,
       inputPer1m: Number(form.inputPer1m) || 0,
       outputPer1m: Number(form.outputPer1m) || 0,
+      cacheHitPer1m: Number(form.cacheHitPer1m) || 0,
       costPer1m: Number(form.costPer1m) || 0,
       enabled: true,
     };
@@ -240,6 +277,7 @@ export default function ModelPricingPage() {
             }}
             options={[
               { value: "all", label: "服务商：全部" },
+              { value: OTHER_PROVIDER, label: "服务商：其他服务商" },
               ...channels.map((ch) => ({ value: ch.id, label: ch.name })),
             ]}
           />
@@ -299,6 +337,7 @@ export default function ModelPricingPage() {
                 <th>归属服务商账户</th>
                 <th>输入 $/1M</th>
                 <th>输出 $/1M</th>
+                <th>缓存命中 $/1M</th>
                 <th>进价</th>
                 <th>毛利率</th>
                 <th>实际差价</th>
@@ -319,9 +358,10 @@ export default function ModelPricingPage() {
                   <td className="mono">
                     {r.providerModel || r.externalModel || "—"}
                   </td>
-                  <td>{r.channelName || "—"}</td>
+                  <td>{r.channelName || "其他服务商"}</td>
                   <td className="mono">{money(r.inputPer1m)}</td>
                   <td className="mono">{money(r.outputPer1m)}</td>
+                  <td className="mono">{money(r.cacheHitPer1m ?? 0)}</td>
                   <td className="mono">{money(r.costPer1m)}</td>
                   <td className="mono">{r.grossMargin.toFixed(1)}%</td>
                   <td className="mono">{money(r.priceDiff)}</td>
@@ -349,12 +389,12 @@ export default function ModelPricingPage() {
               ))}
               {!pageRows.length ? (
                 <tr>
-                  <td colSpan={11} className="empty pricing-empty">
+                  <td colSpan={10} className="empty pricing-empty">
                     {noChannels ? (
                       <>
                         无法找到配置信息，无任何接入代理上游。点击面板的工具栏里的{" "}
                         <Link to="/admin/channels">+ 服务商账户</Link>{" "}
-                        进行建立关联，而后激活价格板块。
+                        进行建立关联，而后激活价格板块。也可选择「其他服务商」为无归属自建模型定价。
                       </>
                     ) : (
                       "暂无价格配置，点击「配置新价格」开始。"
@@ -418,10 +458,13 @@ export default function ModelPricingPage() {
                       providerModel: "",
                     }))
                   }
-                  options={channels.map((ch) => ({
-                    value: ch.id,
-                    label: ch.name,
-                  }))}
+                  options={[
+                    { value: OTHER_PROVIDER, label: "其他服务商" },
+                    ...channels.map((ch) => ({
+                      value: ch.id,
+                      label: ch.name,
+                    })),
+                  ]}
                   placeholder="先选择服务商"
                 />
               </label>
@@ -443,7 +486,9 @@ export default function ModelPricingPage() {
                     !form.channelId
                       ? "请先选择服务商"
                       : channelModels.length === 0
-                        ? "该服务商暂无模型"
+                        ? isOtherProvider
+                          ? "暂无无归属自建模型"
+                          : "该服务商暂无模型"
                         : "选择模型"
                   }
                 />
@@ -472,7 +517,19 @@ export default function ModelPricingPage() {
                   }
                 />
               </label>
-              <label className="stack-field modal-user-span">
+              <label className="stack-field">
+                <span>输入（缓存命中）$/1M</span>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={form.cacheHitPer1m}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, cacheHitPer1m: e.target.value }))
+                  }
+                />
+              </label>
+              <label className="stack-field">
                 <span>进价 $/1M</span>
                 <input
                   type="number"

@@ -95,6 +95,7 @@ portalRoutes.get("/models", async (c) => {
     .where(and(eq(modelRoutes.enabled, true), eq(modelRoutes.published, true)));
   const chRows = await db.select().from(channels);
   const chMap = new Map(chRows.map((ch) => [ch.id, ch]));
+  const priceRows = await db.select().from(modelPrices);
 
   type ModelRow = {
     id: string;
@@ -103,7 +104,31 @@ portalRoutes.get("/models", async (c) => {
     providers: { id: string; name: string; type: string }[];
     providerLabel: string;
     enabled: boolean;
+    inputPer1m: number;
+    outputPer1m: number;
+    cacheHitPer1m: number;
   };
+
+  function usdFromCents(cents: number) {
+    return Math.round(cents) / 100;
+  }
+
+  function pickPrice(modelName: string, channelIds: string[]) {
+    const enabled = priceRows.filter((p) => p.enabled);
+    const match = (p: (typeof priceRows)[number]) =>
+      p.externalModel === modelName ||
+      p.globalModel === modelName ||
+      (p.providerModel || "") === modelName;
+    for (const cid of channelIds) {
+      const hit = enabled.find((p) => p.channelId === cid && match(p));
+      if (hit) return hit;
+    }
+    return (
+      enabled.find((p) => !p.channelId && match(p)) ||
+      enabled.find((p) => match(p)) ||
+      null
+    );
+  }
 
   let filtered: ModelRow[] = [];
   for (const r of routes) {
@@ -113,6 +138,7 @@ portalRoutes.get("/models", async (c) => {
       .filter((ch): ch is NonNullable<typeof ch> => !!ch && ch.enabled)
       .map((ch) => ({ id: ch.id, name: ch.name, type: ch.type }));
     if (!providers.length) continue;
+    const price = pickPrice(r.model, channelIds);
     filtered.push({
       id: r.id,
       model: r.model,
@@ -120,6 +146,9 @@ portalRoutes.get("/models", async (c) => {
       providers,
       providerLabel: providers.map((p) => p.name).join(" / "),
       enabled: true,
+      inputPer1m: price ? usdFromCents(price.inputPer1mCents) : 0,
+      outputPer1m: price ? usdFromCents(price.outputPer1mCents) : 0,
+      cacheHitPer1m: price ? usdFromCents(price.cacheHitPer1mCents ?? 0) : 0,
     });
   }
 

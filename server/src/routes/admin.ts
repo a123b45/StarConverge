@@ -794,9 +794,30 @@ adminRoutes.get("/customers/:id/tokens", async (c) => {
 });
 
 // ---- Model pricing ----
+function priceMatchesModel(
+  row: typeof modelPrices.$inferSelect,
+  modelName: string,
+) {
+  const name = modelName.trim();
+  if (!name) return false;
+  return (
+    row.externalModel === name ||
+    row.globalModel === name ||
+    (row.providerModel || "") === name
+  );
+}
+
+async function findEnabledPriceForModel(modelName: string) {
+  const rows = await db.select().from(modelPrices);
+  return (
+    rows.find((p) => p.enabled && priceMatchesModel(p, modelName)) ?? null
+  );
+}
+
 function pricePublic(row: typeof modelPrices.$inferSelect, channelName: string | null) {
   const input = usdFromCents(row.inputPer1mCents);
   const output = usdFromCents(row.outputPer1mCents);
+  const cacheHit = usdFromCents(row.cacheHitPer1mCents ?? 0);
   const cost = usdFromCents(row.costPer1mCents);
   const sell = input;
   const margin = sell > 0 ? ((sell - cost) / sell) * 100 : 0;
@@ -810,6 +831,7 @@ function pricePublic(row: typeof modelPrices.$inferSelect, channelName: string |
     channelName,
     inputPer1m: input,
     outputPer1m: output,
+    cacheHitPer1m: cacheHit,
     costPer1m: cost,
     grossMargin: Math.round(margin * 100) / 100,
     priceDiff: Math.round(diff * 100) / 100,
@@ -834,7 +856,12 @@ adminRoutes.get("/pricing", async (c) => {
     .leftJoin(channels, eq(modelPrices.channelId, channels.id))
     .orderBy(desc(modelPrices.createdAt));
   return c.json({
-    data: rows.map((r) => pricePublic(r.price, r.channelName)),
+    data: rows.map((r) =>
+      pricePublic(
+        r.price,
+        r.price.channelId ? r.channelName : "其他服务商",
+      ),
+    ),
   });
 });
 
@@ -850,6 +877,7 @@ adminRoutes.post("/pricing", async (c) => {
     channelId: z.string().min(1).optional().nullable(),
     inputPer1m: z.number().min(0).max(1_000_000),
     outputPer1m: z.number().min(0).max(1_000_000),
+    cacheHitPer1m: z.number().min(0).max(1_000_000).default(0),
     costPer1m: z.number().min(0).max(1_000_000).default(0),
     enabled: z.boolean().default(true),
     remark: z.string().max(500).optional().nullable(),
@@ -871,6 +899,7 @@ adminRoutes.post("/pricing", async (c) => {
     channelId: v.channelId || null,
     inputPer1mCents: centsFromUsd(v.inputPer1m),
     outputPer1mCents: centsFromUsd(v.outputPer1m),
+    cacheHitPer1mCents: centsFromUsd(v.cacheHitPer1m),
     costPer1mCents: centsFromUsd(v.costPer1m),
     enabled: v.enabled,
     remark: v.remark || "",
@@ -879,7 +908,15 @@ adminRoutes.post("/pricing", async (c) => {
   const ch = row.channelId
     ? await db.query.channels.findFirst({ where: eq(channels.id, row.channelId) })
     : null;
-  return c.json({ data: pricePublic({ ...row, createdAt: new Date(), updatedAt: new Date() }, ch?.name ?? null) }, 201);
+  return c.json(
+    {
+      data: pricePublic(
+        { ...row, createdAt: new Date(), updatedAt: new Date() },
+        ch?.name ?? "其他服务商",
+      ),
+    },
+    201,
+  );
 });
 
 adminRoutes.put("/pricing/:id", async (c) => {
@@ -899,6 +936,7 @@ adminRoutes.put("/pricing/:id", async (c) => {
     channelId: z.string().min(1).optional().nullable(),
     inputPer1m: z.number().min(0).max(1_000_000).optional(),
     outputPer1m: z.number().min(0).max(1_000_000).optional(),
+    cacheHitPer1m: z.number().min(0).max(1_000_000).optional(),
     costPer1m: z.number().min(0).max(1_000_000).optional(),
     enabled: z.boolean().optional(),
     remark: z.string().max(500).optional().nullable(),
@@ -923,6 +961,9 @@ adminRoutes.put("/pricing/:id", async (c) => {
   if (v.channelId !== undefined) patch.channelId = v.channelId || null;
   if (v.inputPer1m != null) patch.inputPer1mCents = centsFromUsd(v.inputPer1m);
   if (v.outputPer1m != null) patch.outputPer1mCents = centsFromUsd(v.outputPer1m);
+  if (v.cacheHitPer1m != null) {
+    patch.cacheHitPer1mCents = centsFromUsd(v.cacheHitPer1m);
+  }
   if (v.costPer1m != null) patch.costPer1mCents = centsFromUsd(v.costPer1m);
   if (v.enabled != null) patch.enabled = v.enabled;
   if (v.remark !== undefined) patch.remark = v.remark || "";
@@ -933,7 +974,9 @@ adminRoutes.put("/pricing/:id", async (c) => {
   const ch = row!.channelId
     ? await db.query.channels.findFirst({ where: eq(channels.id, row!.channelId) })
     : null;
-  return c.json({ data: pricePublic(row!, ch?.name ?? null) });
+  return c.json({
+    data: pricePublic(row!, ch?.name ?? "其他服务商"),
+  });
 });
 
 adminRoutes.delete("/pricing/:id", async (c) => {
@@ -1355,6 +1398,12 @@ adminRoutes.post("/models", async (c) => {
       return c.json({ error: "智能路由需指定简单模型与智能模型" }, 400);
     }
   }
+  if (v.published) {
+    const priced = await findEnabledPriceForModel(v.model);
+    if (!priced) {
+      return c.json({ error: "该模型尚未定价，请前往定价" }, 400);
+    }
+  }
   const derived = deriveFromTargets(targets);
   const row = {
     id: id("mr"),
@@ -1383,6 +1432,10 @@ adminRoutes.post("/models", async (c) => {
 
 adminRoutes.put("/models/:id", async (c) => {
   const idParam = c.req.param("id");
+  const existing = await db.query.modelRoutes.findFirst({
+    where: eq(modelRoutes.id, idParam),
+  });
+  if (!existing) return c.json({ error: "Not found" }, 404);
   const schema = z.object({
     model: z.string().min(1).optional(),
     channelIds: z.array(z.string()).optional(),
@@ -1397,6 +1450,13 @@ adminRoutes.put("/models/:id", async (c) => {
   const parsed = schema.safeParse(await c.req.json());
   if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
   const body = parsed.data;
+  const nextModel = (body.model ?? existing.model).trim();
+  if (body.published === true) {
+    const priced = await findEnabledPriceForModel(nextModel);
+    if (!priced) {
+      return c.json({ error: "该模型尚未定价，请前往定价" }, 400);
+    }
+  }
   const patch: Partial<typeof modelRoutes.$inferInsert> = { updatedAt: new Date() };
   if (body.model != null) patch.model = body.model;
   if (body.targets != null) {

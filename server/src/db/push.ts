@@ -143,6 +143,7 @@ const statements = [
     channel_id TEXT,
     input_per_1m_cents INTEGER NOT NULL DEFAULT 0,
     output_per_1m_cents INTEGER NOT NULL DEFAULT 0,
+    cache_hit_per_1m_cents INTEGER NOT NULL DEFAULT 0,
     cost_per_1m_cents INTEGER NOT NULL DEFAULT 0,
     enabled INTEGER NOT NULL DEFAULT 1,
     remark TEXT DEFAULT '',
@@ -246,6 +247,7 @@ export function migrate() {
     channel_id TEXT,
     input_per_1m_cents INTEGER NOT NULL DEFAULT 0,
     output_per_1m_cents INTEGER NOT NULL DEFAULT 0,
+    cache_hit_per_1m_cents INTEGER NOT NULL DEFAULT 0,
     cost_per_1m_cents INTEGER NOT NULL DEFAULT 0,
     enabled INTEGER NOT NULL DEFAULT 1,
     remark TEXT DEFAULT '',
@@ -258,6 +260,14 @@ export function migrate() {
   sqlite.exec(
     `CREATE INDEX IF NOT EXISTS model_prices_external_idx ON model_prices(external_model)`,
   );
+  const priceCols = sqlite
+    .prepare(`PRAGMA table_info(model_prices)`)
+    .all() as Array<{ name: string }>;
+  if (!priceCols.some((c) => c.name === "cache_hit_per_1m_cents")) {
+    sqlite.exec(
+      `ALTER TABLE model_prices ADD COLUMN cache_hit_per_1m_cents INTEGER NOT NULL DEFAULT 0`,
+    );
+  }
 
   sqlite.exec(`CREATE TABLE IF NOT EXISTS password_resets (
     id TEXT PRIMARY KEY,

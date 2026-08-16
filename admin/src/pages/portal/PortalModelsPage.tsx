@@ -7,11 +7,25 @@ type ModelItem = {
   model: string;
   providerLabel: string;
   providers: { name: string; type: string }[];
+  inputPer1m: number;
+  outputPer1m: number;
+  cacheHitPer1m: number;
 };
 
 function modelInitial(name: string): string {
   const part = name.split(/[-_/]/).find(Boolean) || name;
   return part.slice(0, 1).toUpperCase();
+}
+
+function formatPerMillion(n: number) {
+  const v = Number.isFinite(n) ? n : 0;
+  const text =
+    v >= 100
+      ? v.toFixed(0)
+      : v >= 1
+        ? v.toFixed(2)
+        : v.toFixed(Math.min(4, Math.max(2, (v.toString().split(".")[1] || "").length)));
+  return `$${text} / 百万`;
 }
 
 export default function PortalModelsPage() {
@@ -74,6 +88,26 @@ export default function PortalModelsPage() {
             <p className="portal-model-desc">
               经 StarConverge 路由至上游，调用时消耗您的 API 密钥 token 配额。
             </p>
+            <div className="portal-price-grid" aria-label="模型定价">
+              <div className="portal-price-cell">
+                <span className="portal-price-label">输入</span>
+                <strong className="portal-price-value">
+                  {formatPerMillion(m.inputPer1m ?? 0)}
+                </strong>
+              </div>
+              <div className="portal-price-cell">
+                <span className="portal-price-label">输出</span>
+                <strong className="portal-price-value">
+                  {formatPerMillion(m.outputPer1m ?? 0)}
+                </strong>
+              </div>
+              <div className="portal-price-cell cache">
+                <span className="portal-price-label">缓存命中</span>
+                <strong className="portal-price-value">
+                  {formatPerMillion(m.cacheHitPer1m ?? 0)}
+                </strong>
+              </div>
+            </div>
             <div className="portal-model-meta">
               <span>计量单位 · tokens</span>
               <span className="portal-avail">

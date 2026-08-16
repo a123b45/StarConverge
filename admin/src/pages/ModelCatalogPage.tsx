@@ -100,6 +100,7 @@ export default function ModelCatalogPage() {
     setMsg("");
     let ok = 0;
     let fail = 0;
+    let firstErr = "";
     try {
       for (const row of targets) {
         try {
@@ -108,15 +109,22 @@ export default function ModelCatalogPage() {
             body: JSON.stringify({ published: true }),
           });
           ok += 1;
-        } catch {
+        } catch (e) {
           fail += 1;
+          if (!firstErr) {
+            firstErr = e instanceof Error ? e.message : "同步失败";
+          }
         }
       }
-      setMsg(
-        fail
-          ? `${label}：成功 ${ok} 个，失败 ${fail} 个`
-          : `${label}：已将 ${ok} 个模型同步给用户`,
-      );
+      if (fail && !ok) {
+        setError(firstErr || "该模型尚未定价，请前往定价");
+        setMsg(`${label}：全部失败（${fail}）`);
+      } else if (fail) {
+        setError(firstErr);
+        setMsg(`${label}：成功 ${ok} 个，失败 ${fail} 个`);
+      } else {
+        setMsg(`${label}：已将 ${ok} 个模型同步给用户`);
+      }
       await load();
     } finally {
       setBulkBusy(false);

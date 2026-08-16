@@ -4282,9 +4282,47 @@ html[data-theme="dark"] .portal-user-dropdown button:hover {
 .portal-model-desc {
   font-size: 13px;
   color: var(--muted);
-  margin: 0 0 14px;
+  margin: 0 0 12px;
   line-height: 1.5;
-  flex: 1;
+}
+.portal-price-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+.portal-price-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--muted) 8%, var(--bg-elevated));
+  border: 1px solid var(--line);
+  min-width: 0;
+}
+.portal-price-cell.cache {
+  grid-column: 1 / 2;
+  background: color-mix(in srgb, #10b981 10%, var(--bg-elevated));
+  border-color: color-mix(in srgb, #10b981 28%, var(--line));
+}
+.portal-price-label {
+  font-size: 11px;
+  font-weight: 550;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+.portal-price-cell.cache .portal-price-label,
+.portal-price-cell.cache .portal-price-value {
+  color: #059669;
+}
+.portal-price-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
 }
 .portal-model-meta {
   display: flex;
@@ -5304,6 +5342,7 @@ html[data-theme="dark"] .portal-table th,
 html[data-theme="dark"] .portal-provider,
 html[data-theme="dark"] .portal-model-desc,
 html[data-theme="dark"] .portal-model-meta,
+html[data-theme="dark"] .portal-price-label,
 html[data-theme="dark"] .portal-pager,
 html[data-theme="dark"] .muted,
 html[data-theme="dark"] .portal-hero p,
@@ -5322,6 +5361,7 @@ html[data-theme="dark"] .portal-step h3,
 html[data-theme="dark"] .portal-model-card h3,
 html[data-theme="dark"] .portal-table td,
 html[data-theme="dark"] .portal-key,
+html[data-theme="dark"] .portal-price-value,
 html[data-theme="dark"] .copy-row code,
 html[data-theme="dark"] .stat .value,
 html[data-theme="dark"] .page-head h2,
