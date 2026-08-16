@@ -359,8 +359,6 @@ export default function DashboardPage() {
                     const c = 2 * Math.PI * r;
                     const len = (it.pct / 100) * c;
                     const offset = (it.start / 100) * c;
-                    const midPct = (it.start + it.end) / 2;
-                    const side: "left" | "right" = midPct < 50 ? "right" : "left";
                     return (
                       <circle
                         key={it.model}
@@ -380,7 +378,7 @@ export default function DashboardPage() {
                             pct: it.pct,
                             requests: it.requests,
                             color: it.color,
-                            side,
+                            side: "right",
                           })
                         }
                         onMouseLeave={() => setPieHover(null)}
