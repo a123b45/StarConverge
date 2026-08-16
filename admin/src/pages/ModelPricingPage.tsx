@@ -20,28 +20,27 @@ type PriceRow = {
   enabled: boolean;
 };
 
-type Channel = { id: string; name: string; enabled: boolean };
+type Channel = {
+  id: string;
+  name: string;
+  enabled: boolean;
+  models: string[];
+};
 
 type FormState = {
-  externalModel: string;
-  globalModel: string;
   providerModel: string;
   channelId: string;
   inputPer1m: string;
   outputPer1m: string;
   costPer1m: string;
-  enabled: boolean;
 };
 
 const emptyForm = (): FormState => ({
-  externalModel: "",
-  globalModel: "",
   providerModel: "",
   channelId: "",
   inputPer1m: "0",
   outputPer1m: "0",
   costPer1m: "0",
-  enabled: true,
 });
 
 function money(n: number) {
@@ -106,6 +105,14 @@ export default function ModelPricingPage() {
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const pageRows = filtered.slice((page - 1) * pageSize, page * pageSize);
+  const selectedChannel = channels.find((ch) => ch.id === form.channelId);
+  const channelModels = useMemo(() => {
+    const base = (selectedChannel?.models ?? []).filter((m) => m && m !== "*");
+    if (form.providerModel && !base.includes(form.providerModel)) {
+      return [form.providerModel, ...base];
+    }
+    return base;
+  }, [selectedChannel, form.providerModel]);
 
   useEffect(() => {
     if (page > pageCount) setPage(pageCount);
@@ -120,31 +127,38 @@ export default function ModelPricingPage() {
   function openEdit(r: PriceRow) {
     setEditingId(r.id);
     setForm({
-      externalModel: r.externalModel,
-      globalModel: r.globalModel,
-      providerModel: r.providerModel || "",
+      providerModel: r.providerModel || r.globalModel || "",
       channelId: r.channelId || "",
       inputPer1m: String(r.inputPer1m),
       outputPer1m: String(r.outputPer1m),
       costPer1m: String(r.costPer1m),
-      enabled: r.enabled,
     });
     setOpen(true);
   }
 
   async function save(e: FormEvent) {
     e.preventDefault();
+    const channelId = form.channelId.trim();
+    const providerModel = form.providerModel.trim();
+    if (!channelId) {
+      setError("请选择归属服务商");
+      return;
+    }
+    if (!providerModel) {
+      setError("请选择供应商模型");
+      return;
+    }
     setBusy(true);
     setError("");
     const body = {
-      externalModel: form.externalModel.trim(),
-      globalModel: form.globalModel.trim(),
-      providerModel: form.providerModel.trim() || null,
-      channelId: form.channelId || null,
+      externalModel: providerModel,
+      globalModel: providerModel,
+      providerModel,
+      channelId,
       inputPer1m: Number(form.inputPer1m) || 0,
       outputPer1m: Number(form.outputPer1m) || 0,
       costPer1m: Number(form.costPer1m) || 0,
-      enabled: form.enabled,
+      enabled: true,
     };
     try {
       if (editingId) {
@@ -168,9 +182,10 @@ export default function ModelPricingPage() {
   }
 
   async function remove(r: PriceRow) {
+    const label = r.providerModel || r.externalModel;
     const ok = await softConfirm({
       title: "删除定价",
-      message: `确定删除「${r.externalModel}」的价格配置？`,
+      message: `确定删除「${label}」的价格配置？`,
       confirmText: "删除",
       danger: true,
     });
@@ -280,8 +295,6 @@ export default function ModelPricingPage() {
                     aria-label="全选"
                   />
                 </th>
-                <th>对外模型名</th>
-                <th>全局模型名</th>
                 <th>供应商模型</th>
                 <th>归属服务商账户</th>
                 <th>输入 $/1M</th>
@@ -300,12 +313,12 @@ export default function ModelPricingPage() {
                       type="checkbox"
                       checked={selected.has(r.id)}
                       onChange={(e) => toggleOne(r.id, e.target.checked)}
-                      aria-label={`选择 ${r.externalModel}`}
+                      aria-label={`选择 ${r.providerModel || r.externalModel}`}
                     />
                   </td>
-                  <td className="mono">{r.externalModel}</td>
-                  <td className="mono">{r.globalModel}</td>
-                  <td className="mono">{r.providerModel || "—"}</td>
+                  <td className="mono">
+                    {r.providerModel || r.externalModel || "—"}
+                  </td>
                   <td>{r.channelName || "—"}</td>
                   <td className="mono">{money(r.inputPer1m)}</td>
                   <td className="mono">{money(r.outputPer1m)}</td>
@@ -393,51 +406,46 @@ export default function ModelPricingPage() {
             <div className="modal-user-grid">
               <label className="stack-field">
                 <span>
-                  对外模型名 <em>*</em>
+                  归属服务商 <em>*</em>
                 </span>
-                <input
-                  required
-                  value={form.externalModel}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, externalModel: e.target.value }))
+                <SoftSelect
+                  ariaLabel="服务商"
+                  value={form.channelId}
+                  onChange={(v) =>
+                    setForm((f) => ({
+                      ...f,
+                      channelId: v,
+                      providerModel: "",
+                    }))
                   }
-                  placeholder="对用户展示的名称"
+                  options={channels.map((ch) => ({
+                    value: ch.id,
+                    label: ch.name,
+                  }))}
+                  placeholder="先选择服务商"
                 />
               </label>
               <label className="stack-field">
                 <span>
-                  全局模型名 <em>*</em>
+                  供应商模型 <em>*</em>
                 </span>
-                <input
-                  required
-                  value={form.globalModel}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, globalModel: e.target.value }))
-                  }
-                  placeholder="系统内唯一标识"
-                />
-              </label>
-              <label className="stack-field">
-                <span>供应商模型</span>
-                <input
-                  value={form.providerModel}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, providerModel: e.target.value }))
-                  }
-                  placeholder="上游实际模型名"
-                />
-              </label>
-              <label className="stack-field">
-                <span>归属服务商</span>
                 <SoftSelect
-                  ariaLabel="服务商"
-                  value={form.channelId}
-                  onChange={(v) => setForm((f) => ({ ...f, channelId: v }))}
-                  options={[
-                    { value: "", label: "未绑定" },
-                    ...channels.map((ch) => ({ value: ch.id, label: ch.name })),
-                  ]}
-                  placeholder="选择服务商"
+                  ariaLabel="供应商模型"
+                  value={form.providerModel}
+                  onChange={(v) =>
+                    setForm((f) => ({ ...f, providerModel: v }))
+                  }
+                  options={channelModels.map((m) => ({
+                    value: m,
+                    label: m,
+                  }))}
+                  placeholder={
+                    !form.channelId
+                      ? "请先选择服务商"
+                      : channelModels.length === 0
+                        ? "该服务商暂无模型"
+                        : "选择模型"
+                  }
                 />
               </label>
               <label className="stack-field">
@@ -475,16 +483,6 @@ export default function ModelPricingPage() {
                     setForm((f) => ({ ...f, costPer1m: e.target.value }))
                   }
                 />
-              </label>
-              <label className="stack-field check-row modal-user-span">
-                <input
-                  type="checkbox"
-                  checked={form.enabled}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, enabled: e.target.checked }))
-                  }
-                />
-                <span>启用</span>
               </label>
             </div>
             <div className="modal-actions">
