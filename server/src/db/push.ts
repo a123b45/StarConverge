@@ -268,6 +268,19 @@ export function migrate() {
       `ALTER TABLE model_prices ADD COLUMN cache_hit_per_1m_cents INTEGER NOT NULL DEFAULT 0`,
     );
   }
+  // Upgrade stored price unit from cents (1/100 USD) to milli-USD (1/1000 USD)
+  // so values like 0.025 are preserved.
+  if (!priceCols.some((c) => c.name === "unit_milli")) {
+    sqlite.exec(
+      `ALTER TABLE model_prices ADD COLUMN unit_milli INTEGER NOT NULL DEFAULT 1`,
+    );
+    sqlite.exec(`UPDATE model_prices SET
+      input_per_1m_cents = input_per_1m_cents * 10,
+      output_per_1m_cents = output_per_1m_cents * 10,
+      cache_hit_per_1m_cents = cache_hit_per_1m_cents * 10,
+      cost_per_1m_cents = cost_per_1m_cents * 10
+    `);
+  }
 
   sqlite.exec(`CREATE TABLE IF NOT EXISTS password_resets (
     id TEXT PRIMARY KEY,

@@ -538,6 +538,17 @@ function centsFromUsd(usd: number) {
   return Math.round(usd * 100);
 }
 
+/** Model prices store milli-USD (1/1000 USD) per 1M tokens — supports 3 decimal places. */
+const PRICE_UNIT = 1000;
+
+function usdFromPriceUnit(units: number) {
+  return Math.round(units) / PRICE_UNIT;
+}
+
+function priceUnitFromUsd(usd: number) {
+  return Math.round(usd * PRICE_UNIT);
+}
+
 adminRoutes.get("/customers/stats", async (c) => {
   const auth = c.get("adminAuth");
   if (!hasApiPerm(auth, "api.customers.read")) {
@@ -815,10 +826,10 @@ async function findEnabledPriceForModel(modelName: string) {
 }
 
 function pricePublic(row: typeof modelPrices.$inferSelect, channelName: string | null) {
-  const input = usdFromCents(row.inputPer1mCents);
-  const output = usdFromCents(row.outputPer1mCents);
-  const cacheHit = usdFromCents(row.cacheHitPer1mCents ?? 0);
-  const cost = usdFromCents(row.costPer1mCents);
+  const input = usdFromPriceUnit(row.inputPer1mCents);
+  const output = usdFromPriceUnit(row.outputPer1mCents);
+  const cacheHit = usdFromPriceUnit(row.cacheHitPer1mCents ?? 0);
+  const cost = usdFromPriceUnit(row.costPer1mCents);
   const sell = input;
   const margin = sell > 0 ? ((sell - cost) / sell) * 100 : 0;
   const diff = sell - cost;
@@ -833,8 +844,8 @@ function pricePublic(row: typeof modelPrices.$inferSelect, channelName: string |
     outputPer1m: output,
     cacheHitPer1m: cacheHit,
     costPer1m: cost,
-    grossMargin: Math.round(margin * 100) / 100,
-    priceDiff: Math.round(diff * 100) / 100,
+    grossMargin: Math.round(margin * 1000) / 1000,
+    priceDiff: Math.round(diff * 1000) / 1000,
     enabled: row.enabled,
     remark: row.remark,
     createdAt: row.createdAt,
@@ -897,10 +908,10 @@ adminRoutes.post("/pricing", async (c) => {
     globalModel: v.globalModel.trim(),
     providerModel: (v.providerModel || "").trim(),
     channelId: v.channelId || null,
-    inputPer1mCents: centsFromUsd(v.inputPer1m),
-    outputPer1mCents: centsFromUsd(v.outputPer1m),
-    cacheHitPer1mCents: centsFromUsd(v.cacheHitPer1m),
-    costPer1mCents: centsFromUsd(v.costPer1m),
+    inputPer1mCents: priceUnitFromUsd(v.inputPer1m),
+    outputPer1mCents: priceUnitFromUsd(v.outputPer1m),
+    cacheHitPer1mCents: priceUnitFromUsd(v.cacheHitPer1m),
+    costPer1mCents: priceUnitFromUsd(v.costPer1m),
     enabled: v.enabled,
     remark: v.remark || "",
   };
@@ -959,12 +970,12 @@ adminRoutes.put("/pricing/:id", async (c) => {
     patch.providerModel = (v.providerModel || "").trim();
   }
   if (v.channelId !== undefined) patch.channelId = v.channelId || null;
-  if (v.inputPer1m != null) patch.inputPer1mCents = centsFromUsd(v.inputPer1m);
-  if (v.outputPer1m != null) patch.outputPer1mCents = centsFromUsd(v.outputPer1m);
+  if (v.inputPer1m != null) patch.inputPer1mCents = priceUnitFromUsd(v.inputPer1m);
+  if (v.outputPer1m != null) patch.outputPer1mCents = priceUnitFromUsd(v.outputPer1m);
   if (v.cacheHitPer1m != null) {
-    patch.cacheHitPer1mCents = centsFromUsd(v.cacheHitPer1m);
+    patch.cacheHitPer1mCents = priceUnitFromUsd(v.cacheHitPer1m);
   }
-  if (v.costPer1m != null) patch.costPer1mCents = centsFromUsd(v.costPer1m);
+  if (v.costPer1m != null) patch.costPer1mCents = priceUnitFromUsd(v.costPer1m);
   if (v.enabled != null) patch.enabled = v.enabled;
   if (v.remark !== undefined) patch.remark = v.remark || "";
   await db.update(modelPrices).set(patch).where(eq(modelPrices.id, idParam));

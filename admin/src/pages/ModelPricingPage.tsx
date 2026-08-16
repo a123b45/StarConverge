@@ -55,7 +55,7 @@ const emptyForm = (): FormState => ({
 });
 
 function money(n: number) {
-  return n.toFixed(2);
+  return Number(n.toFixed(3)).toString();
 }
 
 export default function ModelPricingPage() {
@@ -498,7 +498,7 @@ export default function ModelPricingPage() {
                 <input
                   type="number"
                   min={0}
-                  step="0.01"
+                  step="0.001"
                   value={form.inputPer1m}
                   onChange={(e) =>
                     setForm((f) => ({ ...f, inputPer1m: e.target.value }))
@@ -510,7 +510,7 @@ export default function ModelPricingPage() {
                 <input
                   type="number"
                   min={0}
-                  step="0.01"
+                  step="0.001"
                   value={form.outputPer1m}
                   onChange={(e) =>
                     setForm((f) => ({ ...f, outputPer1m: e.target.value }))
@@ -522,7 +522,7 @@ export default function ModelPricingPage() {
                 <input
                   type="number"
                   min={0}
-                  step="0.01"
+                  step="0.001"
                   value={form.cacheHitPer1m}
                   onChange={(e) =>
                     setForm((f) => ({ ...f, cacheHitPer1m: e.target.value }))
@@ -534,7 +534,7 @@ export default function ModelPricingPage() {
                 <input
                   type="number"
                   min={0}
-                  step="0.01"
+                  step="0.001"
                   value={form.costPer1m}
                   onChange={(e) =>
                     setForm((f) => ({ ...f, costPer1m: e.target.value }))

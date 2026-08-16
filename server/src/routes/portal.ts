@@ -109,8 +109,8 @@ portalRoutes.get("/models", async (c) => {
     cacheHitPer1m: number;
   };
 
-  function usdFromCents(cents: number) {
-    return Math.round(cents) / 100;
+  function usdFromPriceUnit(units: number) {
+    return Math.round(units) / 1000;
   }
 
   function pickPrice(modelName: string, channelIds: string[]) {
@@ -146,9 +146,9 @@ portalRoutes.get("/models", async (c) => {
       providers,
       providerLabel: providers.map((p) => p.name).join(" / "),
       enabled: true,
-      inputPer1m: price ? usdFromCents(price.inputPer1mCents) : 0,
-      outputPer1m: price ? usdFromCents(price.outputPer1mCents) : 0,
-      cacheHitPer1m: price ? usdFromCents(price.cacheHitPer1mCents ?? 0) : 0,
+      inputPer1m: price ? usdFromPriceUnit(price.inputPer1mCents) : 0,
+      outputPer1m: price ? usdFromPriceUnit(price.outputPer1mCents) : 0,
+      cacheHitPer1m: price ? usdFromPriceUnit(price.cacheHitPer1mCents ?? 0) : 0,
     });
   }
 
@@ -329,12 +329,12 @@ portalRoutes.get("/usage", async (c) => {
     .where(and(...conditions));
 
   const priceRows = await db.select().from(modelPrices);
-  const priceByModel = new Map<string, { inCents: number; outCents: number }>();
+  const priceByModel = new Map<string, { inMilli: number; outMilli: number }>();
   for (const p of priceRows) {
     if (!p.enabled) continue;
     const rate = {
-      inCents: p.inputPer1mCents ?? 0,
-      outCents: p.outputPer1mCents ?? 0,
+      inMilli: p.inputPer1mCents ?? 0,
+      outMilli: p.outputPer1mCents ?? 0,
     };
     for (const key of [p.externalModel, p.globalModel, p.providerModel]) {
       const k = (key || "").trim();
@@ -347,7 +347,7 @@ portalRoutes.get("/usage", async (c) => {
   let totalTokens = 0;
   let successCalls = 0;
   let errorCalls = 0;
-  let totalCostCents = 0;
+  let totalCostMilli = 0;
   const durations: number[] = [];
   const byModelMap = new Map<
     string,
@@ -389,7 +389,8 @@ portalRoutes.get("/usage", async (c) => {
     const m = log.model || "unknown";
     const rate = priceByModel.get(m);
     if (rate) {
-      totalCostCents += (pt / 1_000_000) * rate.inCents + (ct / 1_000_000) * rate.outCents;
+      totalCostMilli +=
+        (pt / 1_000_000) * rate.inMilli + (ct / 1_000_000) * rate.outMilli;
     }
     const entry = byModelMap.get(m) ?? {
       model: m,
@@ -464,7 +465,7 @@ portalRoutes.get("/usage", async (c) => {
     : 0;
 
   // Prefer priced usage cost; fall back to recharge minus remaining balance.
-  const pricedCost = Math.round(totalCostCents) / 100;
+  const pricedCost = Math.round(totalCostMilli) / 1000;
   const spentFromBalance = Math.max(0, totalRecharged - balance);
   const totalCost = pricedCost > 0 ? pricedCost : spentFromBalance;
 

@@ -220,7 +220,8 @@ export const proxyRoutes = sqliteTable("proxy_routes", {
     .default(sql`(unixepoch() * 1000)`),
 });
 
-/** Model sell/cost prices bound to a provider (channel) account. Amounts in USD cents per 1M tokens. */
+/** Model sell/cost prices bound to a provider (channel) account.
+ *  Amounts stored as milli-USD (1/1000 USD) per 1M tokens — 3 decimal places. */
 export const modelPrices = sqliteTable(
   "model_prices",
   {
