@@ -1167,7 +1167,7 @@ html[data-theme="dark"] .usage-seg button.on {
   position: absolute;
   top: 50%;
   display: inline-flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   padding: 8px 10px;
   border-radius: 8px;
@@ -1176,10 +1176,24 @@ html[data-theme="dark"] .usage-seg button.on {
   border: 1px solid var(--line);
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
   font-size: 12px;
-  font-weight: 600;
   white-space: nowrap;
   z-index: 20;
   pointer-events: none;
+}
+
+.dash-donut-tip-body {
+  display: grid;
+  gap: 2px;
+}
+
+.dash-donut-tip-body strong {
+  font-weight: 650;
+}
+
+.dash-donut-tip-body span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
 }
 
 .dash-donut-tip.tip-right {

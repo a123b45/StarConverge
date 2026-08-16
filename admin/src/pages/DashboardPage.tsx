@@ -353,7 +353,7 @@ export default function DashboardPage() {
           {pie.total > 0 ? (
             <div className="dash-donut-wrap">
               <div className="dash-donut-stage">
-                <svg viewBox="-16 -16 152 152" className="dash-donut-svg">
+                <svg viewBox="0 0 120 120" className="dash-donut-svg">
                   {pie.items.map((it) => {
                     const r = 42;
                     const c = 2 * Math.PI * r;
@@ -388,34 +388,16 @@ export default function DashboardPage() {
                     );
                   })}
                   <circle cx="60" cy="60" r="30" fill="var(--bg-elevated)" />
-                  {pie.items.map((it) => {
-                    const mid =
-                      ((it.start + it.end) / 2 / 100) * 2 * Math.PI - Math.PI / 2;
-                    const lx = 60 + Math.cos(mid) * 42;
-                    const ly = 60 + Math.sin(mid) * 42;
-                    return (
-                      <text
-                        key={`pct-${it.model}`}
-                        x={lx}
-                        y={ly}
-                        textAnchor="middle"
-                        dominantBaseline="middle"
-                        fill="#fff"
-                        fontSize="11"
-                        fontWeight="700"
-                        style={{ pointerEvents: "none" }}
-                      >
-                        {Math.round(it.pct)}%
-                      </text>
-                    );
-                  })}
                 </svg>
                 {pieHover ? (
                   <div className={`dash-donut-tip tip-${pieHover.side}`}>
                     <i style={{ background: pieHover.color }} />
-                    <span>
-                      {pieHover.model} : {pieHover.pct.toFixed(1)}%
-                    </span>
+                    <div className="dash-donut-tip-body">
+                      <strong>{pieHover.model}</strong>
+                      <span>
+                        {pieHover.pct.toFixed(1)}% · {pieHover.requests} 次
+                      </span>
+                    </div>
                   </div>
                 ) : null}
               </div>
@@ -424,9 +406,7 @@ export default function DashboardPage() {
                   <div key={it.model} className="dash-pie-row" title={it.model}>
                     <i style={{ background: it.color }} />
                     <span className="mono">{it.model}</span>
-                    <b>
-                      {it.requests} · {it.pct.toFixed(1)}%
-                    </b>
+                    <b>{it.pct.toFixed(1)}%</b>
                   </div>
                 ))}
               </div>
