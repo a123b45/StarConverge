@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
+import SoftSelect from "../components/SoftSelect";
 import { IconKey, IconPencil, IconUsers, IconWallet } from "../components/icons";
 import { softAlert, softPrompt } from "../components/SoftDialog";
 
@@ -14,6 +15,7 @@ type CustomerRow = {
   totalRecharged: number;
   lastRechargedAt: string | Date | null;
   tokenCount: number;
+  allowedModels?: string[];
   roleName: string;
   roleKey: string | null;
   createdAt: string | Date;
@@ -34,6 +36,13 @@ type Stats = {
   activeCount: number;
 };
 
+type PriceOpt = {
+  id: string;
+  externalModel: string;
+  globalModel: string;
+  enabled: boolean;
+};
+
 type FormState = {
   username: string;
   email: string;
@@ -43,9 +52,12 @@ type FormState = {
 
 type EditState = {
   id: string;
+  username: string;
   email: string;
-  displayName: string;
+  balance: string;
   enabled: boolean;
+  password: string;
+  allowedModels: string[];
 };
 
 const emptyForm = (): FormState => ({
@@ -84,16 +96,26 @@ export default function CustomersPage() {
   const [keys, setKeys] = useState<TokenBrief[]>([]);
   const [form, setForm] = useState<FormState>(emptyForm());
   const [busy, setBusy] = useState(false);
+  const [pricedModels, setPricedModels] = useState<string[]>([]);
 
   async function load(search = appliedQ) {
     try {
       const qs = search.trim() ? `?q=${encodeURIComponent(search.trim())}` : "";
-      const [list, st] = await Promise.all([
+      const [list, st, pricing] = await Promise.all([
         api<{ data: CustomerRow[] }>(`/customers${qs}`),
         api<{ data: Stats }>("/customers/stats"),
+        api<{ data: PriceOpt[] }>("/pricing").catch(() => ({ data: [] as PriceOpt[] })),
       ]);
       setRows(list.data);
       setStats(st.data);
+      const names = [
+        ...new Set(
+          pricing.data
+            .filter((p) => p.enabled)
+            .flatMap((p) => [p.externalModel, p.globalModel].filter(Boolean)),
+        ),
+      ].sort((a, b) => a.localeCompare(b));
+      setPricedModels(names);
       setError("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "加载失败");
@@ -137,15 +159,28 @@ export default function CustomersPage() {
   async function saveEdit(e: FormEvent) {
     e.preventDefault();
     if (!edit) return;
+    const bal = Number(edit.balance);
+    if (!Number.isFinite(bal) || bal < 0) {
+      setError("余额无效");
+      return;
+    }
+    if (edit.password && edit.password.length < 6) {
+      setError("新密码至少 6 位");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
       await api(`/customers/${edit.id}`, {
         method: "PATCH",
         body: JSON.stringify({
+          username: edit.username,
           email: edit.email || null,
-          displayName: edit.displayName,
+          displayName: edit.username,
           enabled: edit.enabled,
+          balance: bal,
+          allowedModels: edit.allowedModels,
+          ...(edit.password ? { password: edit.password } : {}),
         }),
       });
       setEdit(null);
@@ -155,6 +190,19 @@ export default function CustomersPage() {
     } finally {
       setBusy(false);
     }
+  }
+
+  function toggleAllowedModel(model: string) {
+    setEdit((s) => {
+      if (!s) return s;
+      const has = s.allowedModels.includes(model);
+      return {
+        ...s,
+        allowedModels: has
+          ? s.allowedModels.filter((m) => m !== model)
+          : [...s.allowedModels, model],
+      };
+    });
   }
 
   async function recharge(u: CustomerRow) {
@@ -333,9 +381,12 @@ export default function CustomersPage() {
                         onClick={() =>
                           setEdit({
                             id: u.id,
+                            username: u.username,
                             email: u.email || "",
-                            displayName: u.displayName || u.username,
+                            balance: String(u.balance),
                             enabled: u.enabled,
+                            password: "",
+                            allowedModels: [...(u.allowedModels ?? [])],
                           })
                         }
                       >
@@ -377,45 +428,53 @@ export default function CustomersPage() {
               <p>创建门户客户账号，默认角色为「用户」</p>
             </div>
             {error ? <div className="alert">{error}</div> : null}
-            <label>
-              用户名
-              <input
-                required
-                minLength={3}
-                maxLength={32}
-                pattern="[a-zA-Z0-9_]+"
-                value={form.username}
-                onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
-              />
-            </label>
-            <label>
-              邮箱
-              <input
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-              />
-            </label>
-            <label>
-              密码
-              <input
-                type="password"
-                required
-                minLength={6}
-                value={form.password}
-                onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-              />
-            </label>
-            <label>
-              确认密码
-              <input
-                type="password"
-                required
-                minLength={6}
-                value={form.confirm}
-                onChange={(e) => setForm((f) => ({ ...f, confirm: e.target.value }))}
-              />
-            </label>
+            <div className="modal-user-grid">
+              <label className="stack-field">
+                <span>
+                  用户名 <em>*</em>
+                </span>
+                <input
+                  required
+                  minLength={3}
+                  maxLength={32}
+                  pattern="[a-zA-Z0-9_]+"
+                  value={form.username}
+                  onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
+                />
+              </label>
+              <label className="stack-field">
+                <span>邮箱</span>
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                />
+              </label>
+              <label className="stack-field">
+                <span>
+                  密码 <em>*</em>
+                </span>
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  value={form.password}
+                  onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                />
+              </label>
+              <label className="stack-field">
+                <span>
+                  确认密码 <em>*</em>
+                </span>
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  value={form.confirm}
+                  onChange={(e) => setForm((f) => ({ ...f, confirm: e.target.value }))}
+                />
+              </label>
+            </div>
             <div className="modal-actions">
               <button type="button" className="btn ghost" onClick={() => setOpen(false)}>
                 取消
@@ -431,44 +490,114 @@ export default function CustomersPage() {
       {edit ? (
         <div className="modal-backdrop" onClick={() => setEdit(null)}>
           <form
-            className="modal modal-user"
+            className="modal modal-user modal-customer-edit"
             onClick={(e) => e.stopPropagation()}
             onSubmit={saveEdit}
           >
-            <div className="modal-user-head">
-              <h3>编辑客户</h3>
-              <p>更新邮箱、显示名与启用状态</p>
+            <div className="modal-user-head modal-head-row">
+              <div>
+                <h3>编辑客户</h3>
+              </div>
+              <button
+                type="button"
+                className="modal-close"
+                aria-label="关闭"
+                onClick={() => setEdit(null)}
+              >
+                ×
+              </button>
             </div>
             {error ? <div className="alert">{error}</div> : null}
-            <label>
-              显示名
+
+            <div className="modal-section-label">账户信息</div>
+            <div className="modal-user-grid">
+              <label className="stack-field">
+                <span>用户名</span>
+                <input
+                  required
+                  minLength={3}
+                  maxLength={32}
+                  pattern="[a-zA-Z0-9_]+"
+                  value={edit.username}
+                  onChange={(e) =>
+                    setEdit((s) => (s ? { ...s, username: e.target.value } : s))
+                  }
+                />
+              </label>
+              <label className="stack-field">
+                <span>邮箱</span>
+                <input
+                  type="email"
+                  value={edit.email}
+                  onChange={(e) =>
+                    setEdit((s) => (s ? { ...s, email: e.target.value } : s))
+                  }
+                />
+              </label>
+              <label className="stack-field">
+                <span>余额</span>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={edit.balance}
+                  onChange={(e) =>
+                    setEdit((s) => (s ? { ...s, balance: e.target.value } : s))
+                  }
+                />
+              </label>
+              <label className="stack-field">
+                <span>状态</span>
+                <SoftSelect
+                  ariaLabel="状态"
+                  value={edit.enabled ? "1" : "0"}
+                  onChange={(v) =>
+                    setEdit((s) => (s ? { ...s, enabled: v === "1" } : s))
+                  }
+                  options={[
+                    { value: "1", label: "正常" },
+                    { value: "0", label: "禁用" },
+                  ]}
+                />
+              </label>
+            </div>
+
+            <label className="stack-field">
+              <span>新密码 (可选)</span>
               <input
-                value={edit.displayName}
+                type="password"
+                minLength={6}
+                placeholder="留空则不修改登录密码"
+                value={edit.password}
                 onChange={(e) =>
-                  setEdit((s) => (s ? { ...s, displayName: e.target.value } : s))
+                  setEdit((s) => (s ? { ...s, password: e.target.value } : s))
                 }
               />
             </label>
-            <label>
-              邮箱
-              <input
-                type="email"
-                value={edit.email}
-                onChange={(e) =>
-                  setEdit((s) => (s ? { ...s, email: e.target.value } : s))
-                }
-              />
-            </label>
-            <label className="check-row">
-              <input
-                type="checkbox"
-                checked={edit.enabled}
-                onChange={(e) =>
-                  setEdit((s) => (s ? { ...s, enabled: e.target.checked } : s))
-                }
-              />
-              启用账户
-            </label>
+
+            <div className="stack-field">
+              <span>模型权限</span>
+              <p className="muted" style={{ margin: "0 0 8px" }}>
+                不勾选任何项表示不限制，可使用全部已定价模型。
+              </p>
+              {pricedModels.length ? (
+                <div className="model-perm-list">
+                  {pricedModels.map((m) => (
+                    <label key={m} className="model-perm-item">
+                      <input
+                        type="checkbox"
+                        checked={edit.allowedModels.includes(m)}
+                        onChange={() => toggleAllowedModel(m)}
+                      />
+                      <span className="mono">{m}</span>
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <div className="model-perm-empty">暂无已定价模型。</div>
+              )}
+            </div>
+
             <div className="modal-actions">
               <button type="button" className="btn ghost" onClick={() => setEdit(null)}>
                 取消

@@ -23,6 +23,8 @@ export const users = sqliteTable(
     /** Cumulative recharged amount in USD cents */
     totalRechargedCents: integer("total_recharged_cents").notNull().default(0),
     lastRechargedAt: integer("last_recharged_at", { mode: "timestamp_ms" }),
+    /** JSON string array of allowed model names; empty = all priced models */
+    allowedModels: text("allowed_models").notNull().default("[]"),
     createdAt: integer("created_at", { mode: "timestamp_ms" })
       .notNull()
       .default(sql`(unixepoch() * 1000)`),

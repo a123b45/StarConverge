@@ -580,6 +580,7 @@ adminRoutes.get("/customers", async (c) => {
       totalRecharged: usdFromCents(u.totalRechargedCents ?? 0),
       lastRechargedAt: u.lastRechargedAt,
       tokenCount: tks.length,
+      allowedModels: parseJsonArray(u.allowedModels || "[]"),
       roleId: u.roleId,
       roleName: role?.name ?? u.role,
       roleKey: role?.key ?? null,
@@ -675,6 +676,37 @@ adminRoutes.patch("/customers/:id", async (c) => {
   if (body.password != null && String(body.password).length >= 6) {
     patch.passwordHash = hashPassword(String(body.password));
   }
+  if (body.balance != null) {
+    const bal = Number(body.balance);
+    if (!Number.isFinite(bal) || bal < 0) {
+      return c.json({ error: "余额无效" }, 400);
+    }
+    patch.balanceCents = centsFromUsd(bal);
+  }
+  if (body.allowedModels != null) {
+    if (!Array.isArray(body.allowedModels)) {
+      return c.json({ error: "模型权限格式错误" }, 400);
+    }
+    patch.allowedModels = toJsonArray(
+      body.allowedModels.map((m: unknown) => String(m).trim()).filter(Boolean),
+    );
+  }
+  if (body.username != null) {
+    const next = String(body.username).trim();
+    if (!/^[a-zA-Z0-9_]{3,32}$/.test(next)) {
+      return c.json({ error: "用户名格式无效" }, 400);
+    }
+    if (next !== existing.username) {
+      const clash = await db.query.users.findFirst({
+        where: eq(users.username, next),
+      });
+      if (clash) return c.json({ error: "用户名已被占用" }, 409);
+      patch.username = next;
+      if (!existing.displayName || existing.displayName === existing.username) {
+        patch.displayName = next;
+      }
+    }
+  }
   await db.update(users).set(patch).where(eq(users.id, idParam));
   const row = await db.query.users.findFirst({ where: eq(users.id, idParam) });
   const role = await getRoleById(row!.roleId);
@@ -690,6 +722,7 @@ adminRoutes.patch("/customers/:id", async (c) => {
       totalRecharged: usdFromCents(row!.totalRechargedCents ?? 0),
       lastRechargedAt: row!.lastRechargedAt,
       tokenCount: tks.length,
+      allowedModels: parseJsonArray(row!.allowedModels || "[]"),
       roleId: row!.roleId,
       roleName: role?.name ?? row!.role,
       roleKey: role?.key ?? null,

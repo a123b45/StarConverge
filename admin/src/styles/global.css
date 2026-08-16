@@ -520,6 +520,71 @@ code,
   width: 100%;
 }
 
+.modal-head-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.modal-close {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.modal-close:hover {
+  color: var(--text);
+}
+
+.modal-section-label {
+  margin: 4px 0 10px;
+  font-size: 12px;
+  font-weight: 550;
+  color: var(--muted);
+}
+
+.modal-customer-edit {
+  width: min(640px, 100%);
+}
+
+.model-perm-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+  max-height: 200px;
+  overflow: auto;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.model-perm-item {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px;
+  margin: 0 !important;
+  font-size: 13px;
+}
+
+.model-perm-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 88px;
+  border: 1.5px dashed var(--line);
+  border-radius: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  background: var(--bg-soft, #f8fafc);
+}
+
 html[data-theme="dark"] .customer-avatar,
 html[data-theme="dark"] .role-chip {
   background: #e8e8e8;

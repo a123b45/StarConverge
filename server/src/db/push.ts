@@ -230,6 +230,11 @@ export function migrate() {
   if (!userCols.some((c) => c.name === "last_recharged_at")) {
     sqlite.exec(`ALTER TABLE users ADD COLUMN last_recharged_at INTEGER`);
   }
+  if (!userCols.some((c) => c.name === "allowed_models")) {
+    sqlite.exec(
+      `ALTER TABLE users ADD COLUMN allowed_models TEXT NOT NULL DEFAULT '[]'`,
+    );
+  }
   sqlite.exec(`CREATE INDEX IF NOT EXISTS users_email_idx ON users(email)`);
   sqlite.exec(`CREATE INDEX IF NOT EXISTS users_role_id_idx ON users(role_id)`);
 
