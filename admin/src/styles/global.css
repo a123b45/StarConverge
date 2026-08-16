@@ -3682,6 +3682,7 @@ html[data-theme="dark"] .modal-token .stack-field > span {
   flex: 1;
   min-height: 0;
   overflow: auto;
+  scrollbar-gutter: stable;
 }
 .portal-body:has(.ds-chat) {
   overflow: hidden;
@@ -4052,9 +4053,11 @@ html[data-theme="dark"] .portal-user-dropdown button:hover {
 }
 .portal-page {
   max-width: 1100px;
+  width: 100%;
   margin: 0 auto;
   padding: 24px 24px 48px;
   color: var(--text);
+  box-sizing: border-box;
 }
 .portal-hero {
   display: flex;
@@ -4063,22 +4066,33 @@ html[data-theme="dark"] .portal-user-dropdown button:hover {
   gap: 16px;
   margin-bottom: 18px;
   flex-wrap: wrap;
+  width: 100%;
+}
+.portal-hero > div:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .portal-hero h1 {
   margin: 0 0 6px;
   font-size: 22px;
   letter-spacing: -0.03em;
   color: var(--text);
+  line-height: 1.25;
 }
 .portal-hero p {
   margin: 0;
   color: var(--p-muted);
   font-size: 13.5px;
+  line-height: 1.45;
+  max-width: 42rem;
 }
 .portal-hero-actions {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+  flex: 0 0 auto;
+  align-items: center;
+  margin-left: auto;
 }
 .portal-search {
   min-width: 220px;

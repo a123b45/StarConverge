@@ -182,14 +182,16 @@ export default function PortalKeysPage() {
     <div className="portal-page">
       <SoftToast message={toast} tone={toastTone} onDone={() => setToast(null)} />
 
-      <div className="topbar">
-        <div className="page-head">
-          <h2>API 密钥</h2>
+      <div className="portal-hero">
+        <div>
+          <h1>API 密钥</h1>
           <p>创建与管理您的访问密钥，保障 StarConverge 接入安全</p>
         </div>
-        <button type="button" className="btn" onClick={startCreate}>
-          创建 API Key
-        </button>
+        <div className="portal-hero-actions">
+          <button type="button" className="portal-btn" onClick={startCreate}>
+            创建 API Key
+          </button>
+        </div>
       </div>
 
       {error && !open ? <div className="alert">{error}</div> : null}
