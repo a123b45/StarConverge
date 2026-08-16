@@ -4469,9 +4469,10 @@ html[data-theme="dark"] .portal-bar-tip::after {
 }
 .portal-stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+  grid-template-columns: minmax(240px, 1.8fr) repeat(4, minmax(0, 1fr)) minmax(170px, 1.25fr);
   gap: 10px;
   margin-bottom: 16px;
+  align-items: stretch;
 }
 .portal-stat {
   background: var(--bg-elevated);
@@ -4480,6 +4481,10 @@ html[data-theme="dark"] .portal-bar-tip::after {
   border-radius: 12px;
   padding: 14px;
   min-width: 0;
+  overflow: hidden;
+  position: relative;
+  z-index: 0;
+  box-sizing: border-box;
 }
 .portal-stat .label,
 .portal-stat-label {
@@ -4488,11 +4493,16 @@ html[data-theme="dark"] .portal-bar-tip::after {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .portal-stat-icon {
   display: inline-flex;
   color: var(--muted);
   opacity: 0.9;
+  flex-shrink: 0;
 }
 .portal-stat .value {
   font-size: 22px;
@@ -4502,24 +4512,34 @@ html[data-theme="dark"] .portal-bar-tip::after {
   letter-spacing: -0.02em;
   color: var(--text);
   line-height: 1.15;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .portal-stat-money {
-  min-width: 200px;
+  min-width: 0;
 }
 .portal-stat-balance {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: baseline;
   gap: 6px;
+  min-width: 0;
+  overflow: hidden;
 }
 .portal-stat-balance strong {
   font-weight: 700;
   color: var(--text);
+  flex-shrink: 0;
 }
 .portal-stat-balance span {
   font-size: 0.85em;
   font-weight: 500;
   color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .portal-stat.wide .bar {
   height: 6px;
@@ -4539,6 +4559,7 @@ html[data-theme="dark"] .portal-bar-tip::after {
   grid-template-columns: 1fr 1fr;
   gap: 10px;
   margin-top: 8px;
+  min-width: 0;
 }
 .portal-latency-k {
   display: block;
@@ -5090,6 +5111,15 @@ html[data-theme="dark"] .copy-row .portal-btn.ghost:hover {
   box-shadow: none;
 }
 
+@media (max-width: 1200px) {
+  .portal-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .portal-stat-money {
+    grid-column: span 2;
+  }
+}
+
 @media (max-width: 900px) {
   .portal-shell {
     grid-template-columns: 1fr;
@@ -5100,6 +5130,7 @@ html[data-theme="dark"] .copy-row .portal-btn.ghost:hover {
   .portal-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  .portal-stat-money,
   .portal-stat-latency {
     grid-column: 1 / -1;
   }
