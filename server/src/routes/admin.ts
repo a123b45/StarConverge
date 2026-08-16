@@ -22,7 +22,7 @@ import {
   hashPassword,
 } from "../utils/crypto.js";
 import { signToken } from "../utils/jwt.js";
-import { getDashboardStats, publicChannel, publicToken } from "../services/stats.js";
+import { getDashboardStats, getUsageAnalytics, publicChannel, publicToken } from "../services/stats.js";
 import {
   explicitChannelModels,
   fetchUpstreamModels,
@@ -300,6 +300,22 @@ adminRoutes.get("/dashboard", async (c) => {
       ? grainRaw
       : "hour";
   return c.json(await getDashboardStats(grain));
+});
+
+adminRoutes.get("/usage", async (c) => {
+  const auth = c.get("adminAuth");
+  if (!hasApiPerm(auth, "api.usage.read", "api.dashboard.read")) {
+    return c.json({ error: "无权限" }, 403);
+  }
+  const days = Number(c.req.query("days") ?? 30);
+  const groupByRaw = String(c.req.query("groupBy") ?? "model");
+  const groupBy = groupByRaw === "token" ? "token" : "model";
+  return c.json(
+    await getUsageAnalytics({
+      days: Number.isFinite(days) ? days : 30,
+      groupBy,
+    }),
+  );
 });
 
 // ---- Roles ----

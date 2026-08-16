@@ -230,6 +230,186 @@ function fillTrendBuckets(
   return out;
 }
 
+/** Estimated CNY per 1M tokens (until per-model pricing exists). */
+export const USAGE_CNY_PER_1M_TOKENS = 2;
+
+export function tokensToCny(tokens: number): number {
+  return (Math.max(0, tokens) / 1_000_000) * USAGE_CNY_PER_1M_TOKENS;
+}
+
+const USAGE_PALETTE = [
+  "#4f6ef7",
+  "#7c5cfc",
+  "#22c3a6",
+  "#f59e0b",
+  "#ef4444",
+  "#06b6d4",
+  "#84cc16",
+  "#ec4899",
+  "#8b5cf6",
+  "#14b8a6",
+  "#f97316",
+  "#3b82f6",
+];
+
+function usageColorFor(key: string): string {
+  let h = 2166136261;
+  for (let i = 0; i < key.length; i++) {
+    h ^= key.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return USAGE_PALETTE[Math.abs(h) % USAGE_PALETTE.length]!;
+}
+
+function formatLocalDay(ms: number) {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
+function alignLocalDayMs(ms: number) {
+  const d = new Date(ms);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+export type UsageGroupBy = "model" | "token";
+
+/**
+ * Usage analytics for 用量检测: summary cards + daily stacked series by model or API key.
+ */
+export async function getUsageAnalytics(opts?: {
+  days?: number;
+  groupBy?: UsageGroupBy;
+}) {
+  const days = Math.min(90, Math.max(1, opts?.days ?? 30));
+  const groupBy: UsageGroupBy = opts?.groupBy === "token" ? "token" : "model";
+  const end = alignLocalDayMs(Date.now());
+  const start = end - (days - 1) * 24 * 60 * 60 * 1000;
+  const since = new Date(start);
+
+  const tokenRows = await db.select().from(tokens);
+  const tokenLabel = new Map(
+    tokenRows.map((t) => {
+      const prefix = (t.keyPrefix || "").trim();
+      const short = prefix
+        ? `${prefix}${"*".repeat(Math.min(4, Math.max(0, 8 - prefix.length)))}`
+        : t.id.slice(0, 8);
+      return [t.id, `${t.name} ${short}`] as const;
+    }),
+  );
+
+  const dimExpr =
+    groupBy === "token"
+      ? sql`coalesce(${requestLogs.tokenId}, '(unknown)')`
+      : sql`coalesce(${requestLogs.model}, '(unknown)')`;
+
+  const dayExpr = sql`strftime('%Y-%m-%d', ${requestLogs.createdAt} / 1000, 'unixepoch', 'localtime')`;
+
+  const raw = await db
+    .select({
+      day: dayExpr,
+      dim: dimExpr,
+      requests: sql<number>`count(*)`,
+      tokens: sql<number>`coalesce(sum(${requestLogs.totalTokens}), 0)`,
+    })
+    .from(requestLogs)
+    .where(gte(requestLogs.createdAt, since))
+    .groupBy(dayExpr, dimExpr)
+    .orderBy(dayExpr);
+
+  type Seg = {
+    id: string;
+    label: string;
+    color: string;
+    requests: number;
+    tokens: number;
+    costCny: number;
+  };
+
+  const entityMap = new Map<string, Seg>();
+  const dayMap = new Map<
+    string,
+    { date: string; requests: number; tokens: number; costCny: number; segments: Seg[] }
+  >();
+
+  for (let t = start; t <= end; t += 24 * 60 * 60 * 1000) {
+    const date = formatLocalDay(t);
+    dayMap.set(date, {
+      date,
+      requests: 0,
+      tokens: 0,
+      costCny: 0,
+      segments: [],
+    });
+  }
+
+  for (const r of raw) {
+    const date = String(r.day);
+    const id = String(r.dim || "(unknown)");
+    const requests = Number(r.requests) || 0;
+    const tokens = Number(r.tokens) || 0;
+    const costCny = tokensToCny(tokens);
+    const label =
+      groupBy === "token" ? tokenLabel.get(id) ?? (id === "(unknown)" ? "未绑定密钥" : id) : id;
+    const color = usageColorFor(id);
+
+    let ent = entityMap.get(id);
+    if (!ent) {
+      ent = { id, label, color, requests: 0, tokens: 0, costCny: 0 };
+      entityMap.set(id, ent);
+    }
+    ent.requests += requests;
+    ent.tokens += tokens;
+    ent.costCny += costCny;
+
+    let day = dayMap.get(date);
+    if (!day) {
+      day = { date, requests: 0, tokens: 0, costCny: 0, segments: [] };
+      dayMap.set(date, day);
+    }
+    day.requests += requests;
+    day.tokens += tokens;
+    day.costCny += costCny;
+    const existing = day.segments.find((s) => s.id === id);
+    if (existing) {
+      existing.requests += requests;
+      existing.tokens += tokens;
+      existing.costCny += costCny;
+    } else {
+      day.segments.push({ id, label, color, requests, tokens, costCny });
+    }
+  }
+
+  const series = [...dayMap.values()].map((d) => ({
+    ...d,
+    costCny: Number(d.costCny.toFixed(4)),
+    segments: d.segments
+      .map((s) => ({ ...s, costCny: Number(s.costCny.toFixed(4)) }))
+      .sort((a, b) => b.tokens - a.tokens),
+  }));
+
+  const entities = [...entityMap.values()]
+    .map((e) => ({ ...e, costCny: Number(e.costCny.toFixed(4)) }))
+    .sort((a, b) => b.tokens - a.tokens);
+
+  const totalTokens = entities.reduce((s, e) => s + e.tokens, 0);
+  const totalRequests = entities.reduce((s, e) => s + e.requests, 0);
+  const totalCost = tokensToCny(totalTokens);
+
+  return {
+    days,
+    groupBy,
+    priceCnyPer1MTokens: USAGE_CNY_PER_1M_TOKENS,
+    summary: {
+      requests: totalRequests,
+      tokens: totalTokens,
+      costCny: Number(totalCost.toFixed(2)),
+    },
+    series,
+    entities,
+  };
+}
+
 export function maskSecret(value: string, keep = 4): string {
   if (!value || value.length <= keep * 2) return "****";
   return `${value.slice(0, keep)}****${value.slice(-keep)}`;
