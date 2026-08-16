@@ -46,7 +46,7 @@ type Log = {
 
 type GroupBy = "model" | "token";
 type SortMode = "time" | "tokens";
-type Metric = "tokens" | "cost";
+type Metric = "tokens" | "cost" | "requests";
 
 function tipSide(index: number, total: number): "tip-left" | "tip-right" {
   if (total <= 1) return "tip-right";
@@ -58,6 +58,24 @@ function fmtCny(n: number) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
+}
+
+function metricOf(
+  row: { requests: number; tokens: number; costCny: number },
+  metric: Metric,
+) {
+  if (metric === "cost") return row.costCny;
+  if (metric === "requests") return row.requests;
+  return row.tokens;
+}
+
+function formatMetricValue(
+  row: { requests: number; tokens: number; costCny: number },
+  metric: Metric,
+) {
+  if (metric === "cost") return fmtCny(row.costCny);
+  if (metric === "requests") return `${row.requests.toLocaleString()} 次`;
+  return row.tokens.toLocaleString();
 }
 
 function shortDate(iso: string) {
@@ -146,24 +164,25 @@ export default function UsagePage() {
 
   const peak = useMemo(() => {
     if (sortMode === "tokens") {
-      return Math.max(
-        0,
-        ...entityBars.map((e) => (metric === "cost" ? e.costCny : e.tokens)),
-      );
+      return Math.max(0, ...entityBars.map((e) => metricOf(e, metric)));
     }
-    return Math.max(
-      0,
-      ...timeBars.map((d) => (metric === "cost" ? d.costCny : d.tokens)),
-    );
+    return Math.max(0, ...timeBars.map((d) => metricOf(d, metric)));
   }, [sortMode, entityBars, timeBars, metric]);
 
   const yMax = useMemo(() => niceMax(peak), [peak]);
   const yTicks = useMemo(() => [yMax, yMax / 2, 0], [yMax]);
 
   const chartTitle = useMemo(() => {
-    if (!data) return metric === "cost" ? "消费金额 (CNY)" : "Tokens";
+    if (!data) {
+      if (metric === "cost") return "消费金额 (CNY)";
+      if (metric === "requests") return "请求次数";
+      return "Tokens";
+    }
     if (metric === "cost") {
       return `消费金额 (CNY) ${fmtCny(data.summary.costCny)}`;
+    }
+    if (metric === "requests") {
+      return `请求次数 ${data.summary.requests.toLocaleString()}`;
     }
     return `Tokens ${data.summary.tokens.toLocaleString()}`;
   }, [data, metric]);
@@ -239,6 +258,7 @@ export default function UsagePage() {
               options={[
                 { value: "tokens", label: "Tokens" },
                 { value: "cost", label: "消费金额" },
+                { value: "requests", label: "请求次数" },
               ]}
             />
             <SoftSelect
@@ -289,7 +309,7 @@ export default function UsagePage() {
                 </div>
                 <div className="usage-bars">
                   {timeBars.map((day, idx) => {
-                    const total = metric === "cost" ? day.costCny : day.tokens;
+                    const total = metricOf(day, metric);
                     const heightPct = total > 0 ? Math.max(4, (total / yMax) * 100) : 0;
                     const showLabel =
                       idx === 0 ||
@@ -307,7 +327,7 @@ export default function UsagePage() {
                             style={{ height: `${heightPct}%` }}
                           >
                             {day.segments.map((s) => {
-                              const v = metric === "cost" ? s.costCny : s.tokens;
+                              const v = metricOf(s, metric);
                               const share = total > 0 ? (v / total) * 100 : 0;
                               if (share <= 0) return null;
                               return (
@@ -325,22 +345,14 @@ export default function UsagePage() {
                           <div className={`usage-tip ${side}`} role="tooltip">
                             <div className="usage-tip-head">
                               <strong>{day.date}</strong>
-                              <span>
-                                {metric === "cost"
-                                  ? fmtCny(day.costCny)
-                                  : day.tokens.toLocaleString()}
-                              </span>
+                              <span>{formatMetricValue(day, metric)}</span>
                             </div>
                             {day.segments.length ? (
                               day.segments.map((s) => (
                                 <div className="usage-tip-row" key={s.id}>
                                   <i style={{ background: s.color }} />
                                   <em title={s.label}>{s.label}</em>
-                                  <b>
-                                    {metric === "cost"
-                                      ? fmtCny(s.costCny)
-                                      : s.tokens.toLocaleString()}
-                                  </b>
+                                  <b>{formatMetricValue(s, metric)}</b>
                                 </div>
                               ))
                             ) : (
@@ -348,9 +360,11 @@ export default function UsagePage() {
                                 <em>无调用</em>
                               </div>
                             )}
-                            <div className="usage-tip-foot">
-                              请求 {day.requests.toLocaleString()} 次
-                            </div>
+                            {metric !== "requests" ? (
+                              <div className="usage-tip-foot">
+                                请求 {day.requests.toLocaleString()} 次
+                              </div>
+                            ) : null}
                           </div>
                         </div>
                         <span className={showLabel ? "" : "is-hidden"}>
@@ -377,7 +391,7 @@ export default function UsagePage() {
                 </div>
                 <div className="usage-bars usage-bars-entity">
                   {entityBars.map((e, idx) => {
-                    const total = metric === "cost" ? e.costCny : e.tokens;
+                    const total = metricOf(e, metric);
                     const heightPct = total > 0 ? Math.max(4, (total / yMax) * 100) : 0;
                     const side = tipSide(idx, entityBars.length);
                     return (
@@ -395,17 +409,21 @@ export default function UsagePage() {
                           <div className={`usage-tip ${side}`} role="tooltip">
                             <div className="usage-tip-head">
                               <strong title={e.label}>{e.label}</strong>
-                              <span>
-                                {metric === "cost"
-                                  ? fmtCny(e.costCny)
-                                  : e.tokens.toLocaleString()}
-                              </span>
+                              <span>{formatMetricValue(e, metric)}</span>
                             </div>
-                            <div className="usage-tip-row">
-                              <i style={{ background: e.color }} />
-                              <em>请求</em>
-                              <b>{e.requests.toLocaleString()} 次</b>
-                            </div>
+                            {metric !== "requests" ? (
+                              <div className="usage-tip-row">
+                                <i style={{ background: e.color }} />
+                                <em>请求</em>
+                                <b>{e.requests.toLocaleString()} 次</b>
+                              </div>
+                            ) : (
+                              <div className="usage-tip-row">
+                                <i style={{ background: e.color }} />
+                                <em>Tokens</em>
+                                <b>{e.tokens.toLocaleString()}</b>
+                              </div>
+                            )}
                           </div>
                         </div>
                         <span title={e.label}>{e.label}</span>
