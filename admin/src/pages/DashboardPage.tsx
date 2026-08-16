@@ -148,12 +148,12 @@ export default function DashboardPage() {
 
   const tokenChart = useMemo(() => {
     const buckets = trend.map((t) => t.hour);
-    const w = 640;
-    const h = 200;
-    const padL = 36;
-    const padR = 12;
-    const padT = 16;
-    const padB = 28;
+    const w = 520;
+    const h = 240;
+    const padL = 40;
+    const padR = 16;
+    const padT = 18;
+    const padB = 32;
     const peak = Math.max(
       1,
       ...visibleModels.flatMap((m) => m.series.map((p) => p.tokens)),
@@ -353,7 +353,7 @@ export default function DashboardPage() {
           {pie.total > 0 ? (
             <div className="dash-donut-wrap">
               <div className="dash-donut-stage">
-                <svg viewBox="0 0 120 120" className="dash-donut-svg">
+                <svg viewBox="-16 -16 152 152" className="dash-donut-svg">
                   {pie.items.map((it) => {
                     const r = 42;
                     const c = 2 * Math.PI * r;
@@ -388,6 +388,27 @@ export default function DashboardPage() {
                     );
                   })}
                   <circle cx="60" cy="60" r="30" fill="var(--bg-elevated)" />
+                  {pie.items.map((it) => {
+                    const mid =
+                      ((it.start + it.end) / 2 / 100) * 2 * Math.PI - Math.PI / 2;
+                    const lx = 60 + Math.cos(mid) * 42;
+                    const ly = 60 + Math.sin(mid) * 42;
+                    return (
+                      <text
+                        key={`pct-${it.model}`}
+                        x={lx}
+                        y={ly}
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        fill="#fff"
+                        fontSize="11"
+                        fontWeight="700"
+                        style={{ pointerEvents: "none" }}
+                      >
+                        {Math.round(it.pct)}%
+                      </text>
+                    );
+                  })}
                 </svg>
                 {pieHover ? (
                   <div className={`dash-donut-tip tip-${pieHover.side}`}>
@@ -397,25 +418,6 @@ export default function DashboardPage() {
                     </span>
                   </div>
                 ) : null}
-                <div className="dash-donut-labels" aria-hidden>
-                  {pie.items.map((it) => {
-                    const mid = ((it.start + it.end) / 2 / 100) * 2 * Math.PI - Math.PI / 2;
-                    const lx = 60 + Math.cos(mid) * 54;
-                    const ly = 60 + Math.sin(mid) * 54;
-                    return (
-                      <span
-                        key={`lbl-${it.model}`}
-                        style={{
-                          left: `${(lx / 120) * 100}%`,
-                          top: `${(ly / 120) * 100}%`,
-                          color: it.color,
-                        }}
-                      >
-                        {Math.round(it.pct)}%
-                      </span>
-                    );
-                  })}
-                </div>
               </div>
               <div className="dash-pie-legend">
                 {pie.items.map((it) => (
@@ -435,22 +437,23 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="panel" style={{ marginTop: 16 }}>
-        <div className="panel-head">
-          <strong>Token 趋势</strong>
-          <span className="muted" style={{ fontSize: 12 }}>
-            按模型 · 峰值 {tokenChart.yMaxLocal.toLocaleString()}
-          </span>
-        </div>
-        {modelSeries.length > 0 && trend.length > 0 ? (
-          <div className="dash-mline-wrap">
-            <div className="dash-mline-chart">
-              <svg
-                className="dash-mline-svg"
-                viewBox={`0 0 ${tokenChart.w} ${tokenChart.h}`}
-                preserveAspectRatio="none"
-                onMouseLeave={() => setLineHover(null)}
-              >
+      <div className="dash-grid" style={{ marginTop: 16 }}>
+        <div className="panel">
+          <div className="panel-head">
+            <strong>Token 趋势</strong>
+            <span className="muted" style={{ fontSize: 12 }}>
+              按模型 · 峰值 {tokenChart.yMaxLocal.toLocaleString()}
+            </span>
+          </div>
+          {modelSeries.length > 0 && trend.length > 0 ? (
+            <div className="dash-mline-wrap">
+              <div className="dash-mline-chart">
+                <svg
+                  className="dash-mline-svg"
+                  viewBox={`0 0 ${tokenChart.w} ${tokenChart.h}`}
+                  preserveAspectRatio="xMidYMid meet"
+                  onMouseLeave={() => setLineHover(null)}
+                >
                 {tokenChart.yTicksLocal.map((t, i) => {
                   const y =
                     tokenChart.padT +
@@ -563,6 +566,35 @@ export default function DashboardPage() {
         ) : (
           <div className="empty">暂无 Token 趋势</div>
         )}
+        </div>
+
+        <div className="panel">
+          <div className="panel-head">
+            <strong>热门模型 · 24h</strong>
+          </div>
+          {(data?.byModel?.length ?? 0) > 0 ? (
+            <div className="bar-list">
+              {data!.byModel.map((r) => (
+                <div className="bar-row" key={r.model}>
+                  <span className="mono bar-model" title={r.model}>
+                    {r.model}
+                  </span>
+                  <div className="track">
+                    <div
+                      className="fill"
+                      style={{
+                        width: `${(r.requests / Math.max(1, ...data!.byModel.map((m) => m.requests))) * 100}%`,
+                      }}
+                    />
+                  </div>
+                  <span className="mono">{r.requests}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="empty">暂无数据</div>
+          )}
+        </div>
       </div>
     </>
   );

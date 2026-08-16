@@ -1144,6 +1144,7 @@ html[data-theme="dark"] .usage-seg button.on {
   max-width: 200px;
   justify-self: center;
   overflow: visible;
+  padding: 4px;
 }
 
 .dash-donut-svg {
@@ -1182,12 +1183,12 @@ html[data-theme="dark"] .usage-seg button.on {
 }
 
 .dash-donut-tip.tip-right {
-  left: calc(100% - 8px);
+  left: calc(100% + 4px);
   transform: translateY(-50%);
 }
 
 .dash-donut-tip.tip-left {
-  right: calc(100% - 8px);
+  right: calc(100% + 4px);
   transform: translateY(-50%);
 }
 
@@ -1196,14 +1197,6 @@ html[data-theme="dark"] .usage-seg button.on {
   height: 8px;
   border-radius: 99px;
   flex: 0 0 auto;
-}
-
-.dash-donut-labels span {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  font-size: 11px;
-  font-weight: 700;
-  pointer-events: none;
 }
 
 html[data-theme="dark"] .dash-donut-tip {
@@ -1244,6 +1237,10 @@ html[data-theme="dark"] .dash-donut-tip {
   white-space: nowrap;
 }
 
+.dash-donut-labels span {
+  display: none;
+}
+
 .dash-mline-wrap {
   padding: 8px 16px 16px;
   overflow: visible;
@@ -1252,13 +1249,16 @@ html[data-theme="dark"] .dash-donut-tip {
 .dash-mline-chart {
   position: relative;
   overflow: visible;
+  max-width: 100%;
 }
 
 .dash-mline-svg {
   width: 100%;
-  height: 220px;
+  height: auto;
+  max-height: 260px;
   display: block;
   overflow: visible;
+  aspect-ratio: 520 / 240;
 }
 
 .dash-mline-x {
