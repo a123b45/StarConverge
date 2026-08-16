@@ -107,6 +107,7 @@ portalRoutes.get("/models", async (c) => {
     inputPer1m: number;
     outputPer1m: number;
     cacheHitPer1m: number;
+    latencyMs: number;
   };
 
   function usdFromPriceUnit(units: number) {
@@ -149,6 +150,7 @@ portalRoutes.get("/models", async (c) => {
       inputPer1m: price ? usdFromPriceUnit(price.inputPer1mCents) : 0,
       outputPer1m: price ? usdFromPriceUnit(price.outputPer1mCents) : 0,
       cacheHitPer1m: price ? usdFromPriceUnit(price.cacheHitPer1mCents ?? 0) : 0,
+      latencyMs: 0,
     });
   }
 
@@ -164,6 +166,39 @@ portalRoutes.get("/models", async (c) => {
   if (hasAnyKey && !unrestrictedKey) {
     const allow = new Set(allowSets.flat());
     filtered = filtered.filter((d) => allow.has(d.model));
+  }
+
+  // P50 latency from recent calls (platform-wide, last 7 days)
+  if (filtered.length) {
+    const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const modelNames = filtered.map((m) => m.model);
+    const latencyLogs = await db
+      .select({
+        model: requestLogs.model,
+        durationMs: requestLogs.durationMs,
+      })
+      .from(requestLogs)
+      .where(
+        and(
+          inArray(requestLogs.model, modelNames),
+          gte(requestLogs.createdAt, since),
+        ),
+      );
+    const buckets = new Map<string, number[]>();
+    for (const log of latencyLogs) {
+      if (log.durationMs == null || log.durationMs < 0) continue;
+      const key = log.model || "";
+      if (!key) continue;
+      const arr = buckets.get(key) ?? [];
+      arr.push(log.durationMs);
+      buckets.set(key, arr);
+    }
+    for (const row of filtered) {
+      const samples = buckets.get(row.model);
+      if (!samples?.length) continue;
+      samples.sort((a, b) => a - b);
+      row.latencyMs = samples[Math.floor((samples.length - 1) * 0.5)] ?? 0;
+    }
   }
 
   filtered.sort((a, b) => a.model.localeCompare(b.model));

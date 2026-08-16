@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { portalApi } from "../../lib/api";
+import { IconBolt } from "../../components/icons";
 
 type ModelItem = {
   id: string;
@@ -10,6 +11,7 @@ type ModelItem = {
   inputPer1m: number;
   outputPer1m: number;
   cacheHitPer1m: number;
+  latencyMs?: number;
 };
 
 function modelInitial(name: string): string {
@@ -26,6 +28,11 @@ function formatPerMillion(n: number) {
         ? v.toFixed(2)
         : v.toFixed(Math.min(4, Math.max(2, (v.toString().split(".")[1] || "").length)));
   return `$${text} / 百万`;
+}
+
+function formatLatency(ms: number) {
+  const v = Number.isFinite(ms) && ms > 0 ? ms : 0;
+  return `${(v / 1000).toFixed(1)}s`;
 }
 
 export default function PortalModelsPage() {
@@ -109,7 +116,10 @@ export default function PortalModelsPage() {
               </div>
             </div>
             <div className="portal-model-meta">
-              <span>计量单位 · tokens</span>
+              <span className="portal-model-latency">
+                <IconBolt size={14} />
+                延迟 {formatLatency(m.latencyMs ?? 0)}
+              </span>
               <span className="portal-avail">
                 <i className="ok-dot" aria-hidden />
                 可用
