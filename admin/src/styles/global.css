@@ -4117,7 +4117,7 @@ html[data-theme="dark"] .portal-user-dropdown button:hover {
   box-shadow: 0 8px 18px rgba(109, 94, 252, 0.25);
 }
 .portal-btn.ghost {
-  background: transparent;
+  background: var(--bg-elevated, #fff);
   color: inherit;
   border: 1px solid var(--p-line);
   box-shadow: none;
@@ -5388,5 +5388,5 @@ html[data-theme="dark"] .portal-tool-badge.text {
   color: var(--accent) !important;
 }
 html[data-theme="dark"] .portal-btn.ghost {
-  background: var(--bg-soft) !important;
+  background: var(--bg-elevated) !important;
 }
