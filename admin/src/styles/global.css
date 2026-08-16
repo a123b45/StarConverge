@@ -4503,24 +4503,27 @@ html[data-theme="dark"] .portal-bar-tip::after {
   color: var(--text);
   line-height: 1.15;
 }
+.portal-stat-money {
+  min-width: 200px;
+}
 .portal-stat-balance {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 4px;
+  gap: 6px;
 }
 .portal-stat-balance strong {
   font-weight: 700;
   color: var(--text);
 }
 .portal-stat-balance span {
-  font-size: 0.78em;
+  font-size: 0.85em;
   font-weight: 500;
   color: var(--muted);
 }
 .portal-stat.wide .bar {
   height: 6px;
-  background: var(--bg-soft);
+  background: var(--bg-soft, #eef0f4);
   border-radius: 999px;
   margin-top: 12px;
   overflow: hidden;
@@ -4528,7 +4531,8 @@ html[data-theme="dark"] .portal-bar-tip::after {
 .portal-stat.wide .bar i {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, #0f766e, #2dd4bf);
+  background: #12b76a;
+  border-radius: 999px;
 }
 .portal-stat-latency .portal-latency-grid {
   display: grid;

@@ -4,7 +4,6 @@ import SoftSelect from "../../components/SoftSelect";
 import {
   IconBolt,
   IconClock,
-  IconDollar,
   IconDownload,
   IconHash,
   IconUpload,
@@ -154,9 +153,10 @@ export default function PortalUsagePage() {
   const balance = summary?.balance ?? 0;
   const totalRecharged = summary?.totalRecharged ?? 0;
   const totalCost = summary?.totalCost ?? 0;
+  const pool = totalRecharged > 0 ? totalRecharged : balance + totalCost;
   const balancePct =
-    totalRecharged > 0
-      ? Math.min(100, Math.max(0, (balance / totalRecharged) * 100))
+    pool > 0
+      ? Math.min(100, Math.max(0, (balance / pool) * 100))
       : balance > 0
         ? 100
         : 0;
@@ -208,19 +208,15 @@ export default function PortalUsagePage() {
         <>
           {summary ? (
             <div className="portal-stats">
-              <div className="portal-stat">
-                <StatLabel icon={<IconDollar size={14} />}>总消费</StatLabel>
-                <div className="value">{money(totalCost)}</div>
-              </div>
-              <div className="portal-stat wide">
-                <StatLabel icon={<IconWallet size={14} />}>剩余余额</StatLabel>
+              <div className="portal-stat wide portal-stat-money">
+                <StatLabel icon={<IconWallet size={14} />}>
+                  总消费 / 剩余余额
+                </StatLabel>
                 <div className="value portal-stat-balance">
-                  <strong>{money(balance, 2)}</strong>
-                  {totalRecharged > 0 ? (
-                    <span> / {money(totalRecharged, 2)}</span>
-                  ) : null}
+                  <strong>{money(totalCost)}</strong>
+                  <span> / {money(balance, 2)}</span>
                 </div>
-                <div className="bar">
+                <div className="bar" title={`剩余 ${balancePct.toFixed(0)}%`}>
                   <i style={{ width: `${balancePct}%` }} />
                 </div>
               </div>
