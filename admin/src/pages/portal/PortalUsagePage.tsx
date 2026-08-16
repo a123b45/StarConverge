@@ -1,10 +1,22 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
 import { formatTokens, portalApi } from "../../lib/api";
 import SoftSelect from "../../components/SoftSelect";
+import {
+  IconBolt,
+  IconClock,
+  IconDollar,
+  IconDownload,
+  IconHash,
+  IconUpload,
+  IconWallet,
+} from "../../components/icons";
 
 type Summary = {
   quota: number;
   usedQuota: number;
+  balance?: number;
+  totalRecharged?: number;
+  totalCost?: number;
   calls: number;
   promptTokens: number;
   completionTokens: number;
@@ -52,6 +64,30 @@ type Req = {
   messageCount?: number;
 };
 
+function money(n: number, digits = 3) {
+  return `$${n.toFixed(digits)}`;
+}
+
+function fmtLatency(ms: number) {
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
+function StatLabel({
+  icon,
+  children,
+}: {
+  icon: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div className="label portal-stat-label">
+      <span className="portal-stat-icon">{icon}</span>
+      {children}
+    </div>
+  );
+}
+
 export default function PortalUsagePage() {
   const [tab, setTab] = useState<"usage" | "trace">("usage");
   const [summary, setSummary] = useState<Summary | null>(null);
@@ -87,7 +123,6 @@ export default function PortalUsagePage() {
       setSummary(usage.summary);
       setByModel(usage.byModel);
       setDaily(usage.daily ?? []);
-      // Keep full model list for the filter; don't shrink options when a model is selected.
       if (!model) {
         setModelOptions(usage.byModel.map((m) => m.model));
       } else if (!modelOptions.length) {
@@ -115,6 +150,16 @@ export default function PortalUsagePage() {
     void load(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [model]);
+
+  const balance = summary?.balance ?? 0;
+  const totalRecharged = summary?.totalRecharged ?? 0;
+  const totalCost = summary?.totalCost ?? 0;
+  const balancePct =
+    totalRecharged > 0
+      ? Math.min(100, Math.max(0, (balance / totalRecharged) * 100))
+      : balance > 0
+        ? 100
+        : 0;
 
   return (
     <div className="portal-page">
@@ -163,46 +208,51 @@ export default function PortalUsagePage() {
         <>
           {summary ? (
             <div className="portal-stats">
+              <div className="portal-stat">
+                <StatLabel icon={<IconDollar size={14} />}>总消费</StatLabel>
+                <div className="value">{money(totalCost)}</div>
+              </div>
               <div className="portal-stat wide">
-                <div className="label">已用 / 总额度</div>
-                <div className="value">
-                  {formatTokens(summary.usedQuota)} / {formatTokens(summary.quota)}
+                <StatLabel icon={<IconWallet size={14} />}>剩余余额</StatLabel>
+                <div className="value portal-stat-balance">
+                  <strong>{money(balance, 2)}</strong>
+                  {totalRecharged > 0 ? (
+                    <span> / {money(totalRecharged, 2)}</span>
+                  ) : null}
                 </div>
                 <div className="bar">
-                  <i
-                    style={{
-                      width:
-                        summary.quota < 0
-                          ? "8%"
-                          : `${Math.min(
-                              100,
-                              (summary.usedQuota / Math.max(1, summary.quota)) * 100,
-                            )}%`,
-                    }}
-                  />
+                  <i style={{ width: `${balancePct}%` }} />
                 </div>
               </div>
               <div className="portal-stat">
-                <div className="label">总调用</div>
+                <StatLabel icon={<IconHash size={14} />}>总调用次数</StatLabel>
                 <div className="value">{summary.calls}</div>
               </div>
               <div className="portal-stat">
-                <div className="label">输入 TOKEN</div>
+                <StatLabel icon={<IconDownload size={14} />}>总输入 TOKEN</StatLabel>
                 <div className="value">{formatTokens(summary.promptTokens)}</div>
               </div>
               <div className="portal-stat">
-                <div className="label">输出 TOKEN</div>
-                <div className="value">{formatTokens(summary.completionTokens)}</div>
+                <StatLabel icon={<IconUpload size={14} />}>总输出 TOKEN</StatLabel>
+                <div className="value">
+                  {formatTokens(summary.completionTokens)}
+                </div>
               </div>
               <div className="portal-stat">
-                <div className="label">总 TOKENS</div>
+                <StatLabel icon={<IconBolt size={14} />}>总 TOKENS</StatLabel>
                 <div className="value">{formatTokens(summary.totalTokens)}</div>
               </div>
-              <div className="portal-stat">
-                <div className="label">平均 / P95</div>
-                <div className="value">
-                  {((summary.avgMs ?? summary.p50Ms) / 1000).toFixed(1)}s /{" "}
-                  {(summary.p95Ms / 1000).toFixed(1)}s
+              <div className="portal-stat portal-stat-latency">
+                <StatLabel icon={<IconClock size={14} />}>延迟</StatLabel>
+                <div className="portal-latency-grid">
+                  <div>
+                    <span className="portal-latency-k">P50</span>
+                    <strong>{fmtLatency(summary.p50Ms)}</strong>
+                  </div>
+                  <div>
+                    <span className="portal-latency-k">P95</span>
+                    <strong>{fmtLatency(summary.p95Ms)}</strong>
+                  </div>
                 </div>
               </div>
             </div>
@@ -296,7 +346,8 @@ export default function PortalUsagePage() {
                     </td>
                     <td>{m.totalTokens.toLocaleString()}</td>
                     <td>
-                      {m.promptTokens.toLocaleString()} / {m.completionTokens.toLocaleString()}
+                      {m.promptTokens.toLocaleString()} /{" "}
+                      {m.completionTokens.toLocaleString()}
                     </td>
                     <td>{(m.p50Ms / 1000).toFixed(1)}s</td>
                     <td>{(m.p95Ms / 1000).toFixed(1)}s</td>
@@ -346,7 +397,9 @@ export default function PortalUsagePage() {
                     <td>{r.promptTokens.toLocaleString()}</td>
                     <td>{r.completionTokens.toLocaleString()}</td>
                     <td>
-                      {r.durationMs != null ? `${(r.durationMs / 1000).toFixed(1)}s` : "—"}
+                      {r.durationMs != null
+                        ? `${(r.durationMs / 1000).toFixed(1)}s`
+                        : "—"}
                     </td>
                     <td>
                       <span className={`badge ${r.ok ? "ok" : "danger"}`}>
@@ -373,12 +426,16 @@ export default function PortalUsagePage() {
                           </div>
                           <div>
                             <div className="label">响应内容</div>
-                            <pre>{r.responsePreview || r.error || "（无预览）"}</pre>
+                            <pre>
+                              {r.responsePreview || r.error || "（无预览）"}
+                            </pre>
                           </div>
                           <div className="portal-trace-meta">
                             <span>消息数 {r.messageCount ?? 0}</span>
                             <span>{r.path || "—"}</span>
-                            {r.error ? <span className="danger-text">{r.error}</span> : null}
+                            {r.error ? (
+                              <span className="danger-text">{r.error}</span>
+                            ) : null}
                           </div>
                         </div>
                       </td>

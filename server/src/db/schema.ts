@@ -18,6 +18,11 @@ export const users = sqliteTable(
     roleId: text("role_id"),
     enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
     lastLoginAt: integer("last_login_at", { mode: "timestamp_ms" }),
+    /** USD balance in cents */
+    balanceCents: integer("balance_cents").notNull().default(0),
+    /** Cumulative recharged amount in USD cents */
+    totalRechargedCents: integer("total_recharged_cents").notNull().default(0),
+    lastRechargedAt: integer("last_recharged_at", { mode: "timestamp_ms" }),
     createdAt: integer("created_at", { mode: "timestamp_ms" })
       .notNull()
       .default(sql`(unixepoch() * 1000)`),
@@ -213,6 +218,33 @@ export const proxyRoutes = sqliteTable("proxy_routes", {
     .default(sql`(unixepoch() * 1000)`),
 });
 
+/** Model sell/cost prices bound to a provider (channel) account. Amounts in USD cents per 1M tokens. */
+export const modelPrices = sqliteTable(
+  "model_prices",
+  {
+    id: text("id").primaryKey(),
+    externalModel: text("external_model").notNull(),
+    globalModel: text("global_model").notNull(),
+    providerModel: text("provider_model").default(""),
+    channelId: text("channel_id"),
+    inputPer1mCents: integer("input_per_1m_cents").notNull().default(0),
+    outputPer1mCents: integer("output_per_1m_cents").notNull().default(0),
+    costPer1mCents: integer("cost_per_1m_cents").notNull().default(0),
+    enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+    remark: text("remark").default(""),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(unixepoch() * 1000)`),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(unixepoch() * 1000)`),
+  },
+  (t) => [
+    index("model_prices_channel_idx").on(t.channelId),
+    index("model_prices_external_idx").on(t.externalModel),
+  ],
+);
+
 export type User = typeof users.$inferSelect;
 export type Role = typeof roles.$inferSelect;
 export type Channel = typeof channels.$inferSelect;
@@ -220,3 +252,4 @@ export type Token = typeof tokens.$inferSelect;
 export type ModelRoute = typeof modelRoutes.$inferSelect;
 export type RequestLog = typeof requestLogs.$inferSelect;
 export type ProxyRoute = typeof proxyRoutes.$inferSelect;
+export type ModelPrice = typeof modelPrices.$inferSelect;

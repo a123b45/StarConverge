@@ -135,6 +135,22 @@ const statements = [
     created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000),
     updated_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
   )`,
+  `CREATE TABLE IF NOT EXISTS model_prices (
+    id TEXT PRIMARY KEY,
+    external_model TEXT NOT NULL,
+    global_model TEXT NOT NULL,
+    provider_model TEXT DEFAULT '',
+    channel_id TEXT,
+    input_per_1m_cents INTEGER NOT NULL DEFAULT 0,
+    output_per_1m_cents INTEGER NOT NULL DEFAULT 0,
+    cost_per_1m_cents INTEGER NOT NULL DEFAULT 0,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    remark TEXT DEFAULT '',
+    created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000),
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
+  )`,
+  `CREATE INDEX IF NOT EXISTS model_prices_channel_idx ON model_prices(channel_id)`,
+  `CREATE INDEX IF NOT EXISTS model_prices_external_idx ON model_prices(external_model)`,
 ];
 
 export function migrate() {
@@ -203,8 +219,40 @@ export function migrate() {
   if (!userCols.some((c) => c.name === "last_login_at")) {
     sqlite.exec(`ALTER TABLE users ADD COLUMN last_login_at INTEGER`);
   }
+  if (!userCols.some((c) => c.name === "balance_cents")) {
+    sqlite.exec(`ALTER TABLE users ADD COLUMN balance_cents INTEGER NOT NULL DEFAULT 0`);
+  }
+  if (!userCols.some((c) => c.name === "total_recharged_cents")) {
+    sqlite.exec(
+      `ALTER TABLE users ADD COLUMN total_recharged_cents INTEGER NOT NULL DEFAULT 0`,
+    );
+  }
+  if (!userCols.some((c) => c.name === "last_recharged_at")) {
+    sqlite.exec(`ALTER TABLE users ADD COLUMN last_recharged_at INTEGER`);
+  }
   sqlite.exec(`CREATE INDEX IF NOT EXISTS users_email_idx ON users(email)`);
   sqlite.exec(`CREATE INDEX IF NOT EXISTS users_role_id_idx ON users(role_id)`);
+
+  sqlite.exec(`CREATE TABLE IF NOT EXISTS model_prices (
+    id TEXT PRIMARY KEY,
+    external_model TEXT NOT NULL,
+    global_model TEXT NOT NULL,
+    provider_model TEXT DEFAULT '',
+    channel_id TEXT,
+    input_per_1m_cents INTEGER NOT NULL DEFAULT 0,
+    output_per_1m_cents INTEGER NOT NULL DEFAULT 0,
+    cost_per_1m_cents INTEGER NOT NULL DEFAULT 0,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    remark TEXT DEFAULT '',
+    created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000),
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
+  )`);
+  sqlite.exec(
+    `CREATE INDEX IF NOT EXISTS model_prices_channel_idx ON model_prices(channel_id)`,
+  );
+  sqlite.exec(
+    `CREATE INDEX IF NOT EXISTS model_prices_external_idx ON model_prices(external_model)`,
+  );
 
   sqlite.exec(`CREATE TABLE IF NOT EXISTS password_resets (
     id TEXT PRIMARY KEY,
@@ -345,10 +393,12 @@ function requireRoles() {
     "menu.usage",
     "menu.logs",
     "menu.channels",
+    "menu.proxy",
+    "menu.pricing",
     "menu.apiKeys",
     "menu.tokens",
     "menu.routes",
-    "menu.proxy",
+    "menu.customers",
     "menu.users",
     "menu.roles",
     "menu.settings",
@@ -362,6 +412,10 @@ function requireRoles() {
     "api.routes.write",
     "api.proxy.read",
     "api.proxy.write",
+    "api.pricing.read",
+    "api.pricing.write",
+    "api.customers.read",
+    "api.customers.write",
     "api.users.read",
     "api.users.write",
     "api.roles.read",
@@ -384,7 +438,7 @@ function requireRoles() {
         key: "admin",
         name: "管理员",
         description:
-          "管理端：运营（控制台/用量/日志）、资源与策略（供应商/模型/路由/密钥）、系统（用户/角色/文档）",
+          "管理端：运营（控制台/用量/日志）、资源与策略（供应商/模型/定价/路由/密钥）、系统（客户/用户/角色/文档）",
         menuPerms: adminMenus,
         apiPerms: adminApis,
       },

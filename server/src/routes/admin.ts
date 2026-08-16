@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db } from "../db/index.js";
 import {
   channels,
+  modelPrices,
   modelRoutes,
   proxyRoutes,
   requestLogs,
@@ -525,6 +526,389 @@ adminRoutes.delete("/users/:id", async (c) => {
   const idParam = c.req.param("id");
   await db.delete(tokens).where(eq(tokens.userId, idParam));
   await db.delete(users).where(eq(users.id, idParam));
+  return c.json({ ok: true });
+});
+
+// ---- Customers (billing view of users) ----
+function usdFromCents(cents: number) {
+  return Math.round(cents) / 100;
+}
+
+function centsFromUsd(usd: number) {
+  return Math.round(usd * 100);
+}
+
+adminRoutes.get("/customers/stats", async (c) => {
+  const auth = c.get("adminAuth");
+  if (!hasApiPerm(auth, "api.customers.read")) {
+    return c.json({ error: "无权限" }, 403);
+  }
+  const allUsers = await db.select().from(users);
+  const allTokens = await db.select({ id: tokens.id }).from(tokens);
+  const active = allUsers.filter((u) => u.enabled).length;
+  return c.json({
+    data: {
+      customerCount: allUsers.length,
+      keyCount: allTokens.length,
+      activeCount: active,
+    },
+  });
+});
+
+adminRoutes.get("/customers", async (c) => {
+  const auth = c.get("adminAuth");
+  if (!hasApiPerm(auth, "api.customers.read")) {
+    return c.json({ error: "无权限" }, 403);
+  }
+  const q = (c.req.query("q") || "").trim().toLowerCase();
+  const rows = await db.select().from(users).orderBy(desc(users.createdAt));
+  const data = [];
+  for (const u of rows) {
+    if (q) {
+      const hay = `${u.username} ${u.email || ""} ${u.displayName || ""}`.toLowerCase();
+      if (!hay.includes(q)) continue;
+    }
+    const tks = await db.select().from(tokens).where(eq(tokens.userId, u.id));
+    const role = await getRoleById(u.roleId);
+    data.push({
+      id: u.id,
+      username: u.username,
+      displayName: u.displayName,
+      email: u.email,
+      enabled: u.enabled,
+      balance: usdFromCents(u.balanceCents ?? 0),
+      totalRecharged: usdFromCents(u.totalRechargedCents ?? 0),
+      lastRechargedAt: u.lastRechargedAt,
+      tokenCount: tks.length,
+      roleId: u.roleId,
+      roleName: role?.name ?? u.role,
+      roleKey: role?.key ?? null,
+      createdAt: u.createdAt,
+    });
+  }
+  return c.json({ data });
+});
+
+adminRoutes.post("/customers", async (c) => {
+  const auth = c.get("adminAuth");
+  if (!hasApiPerm(auth, "api.customers.write")) {
+    return c.json({ error: "无权限" }, 403);
+  }
+  const schema = z.object({
+    username: z
+      .string()
+      .min(3)
+      .max(32)
+      .regex(/^[a-zA-Z0-9_]+$/),
+    password: z.string().min(6).max(128),
+    email: z.string().email().max(128).optional().nullable(),
+    displayName: z.string().max(64).optional(),
+    enabled: z.boolean().default(true),
+  });
+  const parsed = schema.safeParse(await c.req.json());
+  if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
+  const v = parsed.data;
+  if (safeEqual(v.username, config.adminUsername)) {
+    return c.json({ error: "Username reserved" }, 409);
+  }
+  const portalRole = await db.query.roles.findFirst({
+    where: eq(roles.key, "portal_user"),
+  });
+  if (!portalRole) return c.json({ error: "用户角色不存在" }, 500);
+  const emailNorm = v.email?.toLowerCase() || null;
+  const existing = await db.query.users.findFirst({
+    where: emailNorm
+      ? or(eq(users.username, v.username), eq(users.email, emailNorm))
+      : eq(users.username, v.username),
+  });
+  if (existing) return c.json({ error: "用户名或邮箱已被占用" }, 409);
+  const row = {
+    id: id("usr"),
+    username: v.username,
+    passwordHash: hashPassword(v.password),
+    displayName: v.displayName?.trim() || v.username,
+    email: emailNorm,
+    role: portalRole.name,
+    roleId: portalRole.id,
+    enabled: v.enabled,
+    balanceCents: 0,
+    totalRechargedCents: 0,
+  };
+  await db.insert(users).values(row);
+  return c.json(
+    {
+      data: {
+        id: row.id,
+        username: row.username,
+        displayName: row.displayName,
+        email: row.email,
+        enabled: row.enabled,
+        balance: 0,
+        totalRecharged: 0,
+        lastRechargedAt: null,
+        tokenCount: 0,
+        roleId: row.roleId,
+        roleName: portalRole.name,
+        roleKey: portalRole.key,
+        createdAt: new Date(),
+      },
+    },
+    201,
+  );
+});
+
+adminRoutes.patch("/customers/:id", async (c) => {
+  const auth = c.get("adminAuth");
+  if (!hasApiPerm(auth, "api.customers.write")) {
+    return c.json({ error: "无权限" }, 403);
+  }
+  const idParam = c.req.param("id");
+  const existing = await db.query.users.findFirst({ where: eq(users.id, idParam) });
+  if (!existing) return c.json({ error: "Not found" }, 404);
+  const body = await c.req.json();
+  const patch: Partial<typeof users.$inferInsert> = { updatedAt: new Date() };
+  if (body.displayName != null) patch.displayName = String(body.displayName);
+  if (body.email != null) {
+    patch.email = String(body.email).trim().toLowerCase() || null;
+  }
+  if (body.enabled != null) patch.enabled = Boolean(body.enabled);
+  if (body.password != null && String(body.password).length >= 6) {
+    patch.passwordHash = hashPassword(String(body.password));
+  }
+  await db.update(users).set(patch).where(eq(users.id, idParam));
+  const row = await db.query.users.findFirst({ where: eq(users.id, idParam) });
+  const role = await getRoleById(row!.roleId);
+  const tks = await db.select().from(tokens).where(eq(tokens.userId, idParam));
+  return c.json({
+    data: {
+      id: row!.id,
+      username: row!.username,
+      displayName: row!.displayName,
+      email: row!.email,
+      enabled: row!.enabled,
+      balance: usdFromCents(row!.balanceCents ?? 0),
+      totalRecharged: usdFromCents(row!.totalRechargedCents ?? 0),
+      lastRechargedAt: row!.lastRechargedAt,
+      tokenCount: tks.length,
+      roleId: row!.roleId,
+      roleName: role?.name ?? row!.role,
+      roleKey: role?.key ?? null,
+      createdAt: row!.createdAt,
+    },
+  });
+});
+
+adminRoutes.post("/customers/:id/recharge", async (c) => {
+  const auth = c.get("adminAuth");
+  if (!hasApiPerm(auth, "api.customers.write")) {
+    return c.json({ error: "无权限" }, 403);
+  }
+  const idParam = c.req.param("id");
+  const existing = await db.query.users.findFirst({ where: eq(users.id, idParam) });
+  if (!existing) return c.json({ error: "Not found" }, 404);
+  const schema = z.object({
+    amount: z.number().positive().max(1_000_000),
+    remark: z.string().max(200).optional(),
+  });
+  const parsed = schema.safeParse(await c.req.json());
+  if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
+  const add = centsFromUsd(parsed.data.amount);
+  const now = new Date();
+  await db
+    .update(users)
+    .set({
+      balanceCents: (existing.balanceCents ?? 0) + add,
+      totalRechargedCents: (existing.totalRechargedCents ?? 0) + add,
+      lastRechargedAt: now,
+      updatedAt: now,
+    })
+    .where(eq(users.id, idParam));
+  const row = await db.query.users.findFirst({ where: eq(users.id, idParam) });
+  return c.json({
+    data: {
+      id: row!.id,
+      balance: usdFromCents(row!.balanceCents ?? 0),
+      totalRecharged: usdFromCents(row!.totalRechargedCents ?? 0),
+      lastRechargedAt: row!.lastRechargedAt,
+    },
+  });
+});
+
+adminRoutes.get("/customers/:id/tokens", async (c) => {
+  const auth = c.get("adminAuth");
+  if (
+    !hasApiPerm(auth, "api.customers.read") &&
+    !hasApiPerm(auth, "api.tokens.read")
+  ) {
+    return c.json({ error: "无权限" }, 403);
+  }
+  const idParam = c.req.param("id");
+  const tks = await db
+    .select()
+    .from(tokens)
+    .where(eq(tokens.userId, idParam))
+    .orderBy(desc(tokens.createdAt));
+  return c.json({
+    data: tks.map((t) => ({
+      id: t.id,
+      name: t.name,
+      keyPrefix: t.keyPrefix,
+      enabled: t.enabled,
+      createdAt: t.createdAt,
+      lastUsedAt: t.lastUsedAt,
+    })),
+  });
+});
+
+// ---- Model pricing ----
+function pricePublic(row: typeof modelPrices.$inferSelect, channelName: string | null) {
+  const input = usdFromCents(row.inputPer1mCents);
+  const output = usdFromCents(row.outputPer1mCents);
+  const cost = usdFromCents(row.costPer1mCents);
+  const sell = input;
+  const margin = sell > 0 ? ((sell - cost) / sell) * 100 : 0;
+  const diff = sell - cost;
+  return {
+    id: row.id,
+    externalModel: row.externalModel,
+    globalModel: row.globalModel,
+    providerModel: row.providerModel || "",
+    channelId: row.channelId,
+    channelName,
+    inputPer1m: input,
+    outputPer1m: output,
+    costPer1m: cost,
+    grossMargin: Math.round(margin * 100) / 100,
+    priceDiff: Math.round(diff * 100) / 100,
+    enabled: row.enabled,
+    remark: row.remark,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+adminRoutes.get("/pricing", async (c) => {
+  const auth = c.get("adminAuth");
+  if (!hasApiPerm(auth, "api.pricing.read")) {
+    return c.json({ error: "无权限" }, 403);
+  }
+  const rows = await db
+    .select({
+      price: modelPrices,
+      channelName: channels.name,
+    })
+    .from(modelPrices)
+    .leftJoin(channels, eq(modelPrices.channelId, channels.id))
+    .orderBy(desc(modelPrices.createdAt));
+  return c.json({
+    data: rows.map((r) => pricePublic(r.price, r.channelName)),
+  });
+});
+
+adminRoutes.post("/pricing", async (c) => {
+  const auth = c.get("adminAuth");
+  if (!hasApiPerm(auth, "api.pricing.write")) {
+    return c.json({ error: "无权限" }, 403);
+  }
+  const schema = z.object({
+    externalModel: z.string().min(1).max(128),
+    globalModel: z.string().min(1).max(128),
+    providerModel: z.string().max(128).optional().nullable(),
+    channelId: z.string().min(1).optional().nullable(),
+    inputPer1m: z.number().min(0).max(1_000_000),
+    outputPer1m: z.number().min(0).max(1_000_000),
+    costPer1m: z.number().min(0).max(1_000_000).default(0),
+    enabled: z.boolean().default(true),
+    remark: z.string().max(500).optional().nullable(),
+  });
+  const parsed = schema.safeParse(await c.req.json());
+  if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
+  const v = parsed.data;
+  if (v.channelId) {
+    const ch = await db.query.channels.findFirst({
+      where: eq(channels.id, v.channelId),
+    });
+    if (!ch) return c.json({ error: "服务商不存在" }, 400);
+  }
+  const row = {
+    id: id("price"),
+    externalModel: v.externalModel.trim(),
+    globalModel: v.globalModel.trim(),
+    providerModel: (v.providerModel || "").trim(),
+    channelId: v.channelId || null,
+    inputPer1mCents: centsFromUsd(v.inputPer1m),
+    outputPer1mCents: centsFromUsd(v.outputPer1m),
+    costPer1mCents: centsFromUsd(v.costPer1m),
+    enabled: v.enabled,
+    remark: v.remark || "",
+  };
+  await db.insert(modelPrices).values(row);
+  const ch = row.channelId
+    ? await db.query.channels.findFirst({ where: eq(channels.id, row.channelId) })
+    : null;
+  return c.json({ data: pricePublic({ ...row, createdAt: new Date(), updatedAt: new Date() }, ch?.name ?? null) }, 201);
+});
+
+adminRoutes.put("/pricing/:id", async (c) => {
+  const auth = c.get("adminAuth");
+  if (!hasApiPerm(auth, "api.pricing.write")) {
+    return c.json({ error: "无权限" }, 403);
+  }
+  const idParam = c.req.param("id");
+  const existing = await db.query.modelPrices.findFirst({
+    where: eq(modelPrices.id, idParam),
+  });
+  if (!existing) return c.json({ error: "Not found" }, 404);
+  const schema = z.object({
+    externalModel: z.string().min(1).max(128).optional(),
+    globalModel: z.string().min(1).max(128).optional(),
+    providerModel: z.string().max(128).optional().nullable(),
+    channelId: z.string().min(1).optional().nullable(),
+    inputPer1m: z.number().min(0).max(1_000_000).optional(),
+    outputPer1m: z.number().min(0).max(1_000_000).optional(),
+    costPer1m: z.number().min(0).max(1_000_000).optional(),
+    enabled: z.boolean().optional(),
+    remark: z.string().max(500).optional().nullable(),
+  });
+  const parsed = schema.safeParse(await c.req.json());
+  if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
+  const v = parsed.data;
+  if (v.channelId) {
+    const ch = await db.query.channels.findFirst({
+      where: eq(channels.id, v.channelId),
+    });
+    if (!ch) return c.json({ error: "服务商不存在" }, 400);
+  }
+  const patch: Partial<typeof modelPrices.$inferInsert> = {
+    updatedAt: new Date(),
+  };
+  if (v.externalModel != null) patch.externalModel = v.externalModel.trim();
+  if (v.globalModel != null) patch.globalModel = v.globalModel.trim();
+  if (v.providerModel !== undefined) {
+    patch.providerModel = (v.providerModel || "").trim();
+  }
+  if (v.channelId !== undefined) patch.channelId = v.channelId || null;
+  if (v.inputPer1m != null) patch.inputPer1mCents = centsFromUsd(v.inputPer1m);
+  if (v.outputPer1m != null) patch.outputPer1mCents = centsFromUsd(v.outputPer1m);
+  if (v.costPer1m != null) patch.costPer1mCents = centsFromUsd(v.costPer1m);
+  if (v.enabled != null) patch.enabled = v.enabled;
+  if (v.remark !== undefined) patch.remark = v.remark || "";
+  await db.update(modelPrices).set(patch).where(eq(modelPrices.id, idParam));
+  const row = await db.query.modelPrices.findFirst({
+    where: eq(modelPrices.id, idParam),
+  });
+  const ch = row!.channelId
+    ? await db.query.channels.findFirst({ where: eq(channels.id, row!.channelId) })
+    : null;
+  return c.json({ data: pricePublic(row!, ch?.name ?? null) });
+});
+
+adminRoutes.delete("/pricing/:id", async (c) => {
+  const auth = c.get("adminAuth");
+  if (!hasApiPerm(auth, "api.pricing.write")) {
+    return c.json({ error: "无权限" }, 403);
+  }
+  await db.delete(modelPrices).where(eq(modelPrices.id, c.req.param("id")));
   return c.json({ ok: true });
 });
 

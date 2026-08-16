@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db } from "../db/index.js";
 import {
   channels,
+  modelPrices,
   modelRoutes,
   requestLogs,
   tokens,
@@ -47,6 +48,8 @@ portalRoutes.get("/me", async (c) => {
     role: "user",
     quota: unlimited ? -1 : quota,
     usedQuota,
+    balance: (user.balanceCents ?? 0) / 100,
+    totalRecharged: (user.totalRechargedCents ?? 0) / 100,
     tokenCount: userTokens.length,
     menuPerms: auth.menuPerms ?? [],
   });
@@ -239,6 +242,12 @@ portalRoutes.get("/usage", async (c) => {
   const from = Number(c.req.query("from") ?? Date.now() - 7 * 86400_000);
   const modelFilter = c.req.query("model");
 
+  const user = await db.query.users.findFirst({
+    where: eq(users.id, auth.userId!),
+  });
+  const balance = (user?.balanceCents ?? 0) / 100;
+  const totalRecharged = (user?.totalRechargedCents ?? 0) / 100;
+
   const userTokens = await db
     .select()
     .from(tokens)
@@ -254,21 +263,26 @@ portalRoutes.get("/usage", async (c) => {
     else quota += t.quota;
   }
 
+  const emptySummary = {
+    quota: unlimited ? -1 : quota,
+    usedQuota,
+    balance,
+    totalRecharged,
+    totalCost: 0,
+    calls: 0,
+    promptTokens: 0,
+    completionTokens: 0,
+    totalTokens: 0,
+    p50Ms: 0,
+    p95Ms: 0,
+    successCalls: 0,
+    errorCalls: 0,
+    avgMs: 0,
+  };
+
   if (tokenIds.length === 0) {
     return c.json({
-      summary: {
-        quota: unlimited ? -1 : quota,
-        usedQuota,
-        calls: 0,
-        promptTokens: 0,
-        completionTokens: 0,
-        totalTokens: 0,
-        p50Ms: 0,
-        p95Ms: 0,
-        successCalls: 0,
-        errorCalls: 0,
-        avgMs: 0,
-      },
+      summary: emptySummary,
       byModel: [],
       daily: [],
     });
@@ -285,11 +299,26 @@ portalRoutes.get("/usage", async (c) => {
     .from(requestLogs)
     .where(and(...conditions));
 
+  const priceRows = await db.select().from(modelPrices);
+  const priceByModel = new Map<string, { inCents: number; outCents: number }>();
+  for (const p of priceRows) {
+    if (!p.enabled) continue;
+    const rate = {
+      inCents: p.inputPer1mCents ?? 0,
+      outCents: p.outputPer1mCents ?? 0,
+    };
+    for (const key of [p.externalModel, p.globalModel, p.providerModel]) {
+      const k = (key || "").trim();
+      if (k && !priceByModel.has(k)) priceByModel.set(k, rate);
+    }
+  }
+
   let promptTokens = 0;
   let completionTokens = 0;
   let totalTokens = 0;
   let successCalls = 0;
   let errorCalls = 0;
+  let totalCostCents = 0;
   const durations: number[] = [];
   const byModelMap = new Map<
     string,
@@ -329,6 +358,10 @@ portalRoutes.get("/usage", async (c) => {
     else errorCalls += 1;
     if (log.durationMs != null) durations.push(log.durationMs);
     const m = log.model || "unknown";
+    const rate = priceByModel.get(m);
+    if (rate) {
+      totalCostCents += (pt / 1_000_000) * rate.inCents + (ct / 1_000_000) * rate.outCents;
+    }
     const entry = byModelMap.get(m) ?? {
       model: m,
       calls: 0,
@@ -401,10 +434,18 @@ portalRoutes.get("/usage", async (c) => {
     ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
     : 0;
 
+  // Prefer priced usage cost; fall back to recharge minus remaining balance.
+  const pricedCost = Math.round(totalCostCents) / 100;
+  const spentFromBalance = Math.max(0, totalRecharged - balance);
+  const totalCost = pricedCost > 0 ? pricedCost : spentFromBalance;
+
   return c.json({
     summary: {
       quota: unlimited ? -1 : quota,
       usedQuota,
+      balance,
+      totalRecharged,
+      totalCost,
       calls: logs.length,
       promptTokens,
       completionTokens,

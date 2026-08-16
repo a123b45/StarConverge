@@ -8,7 +8,7 @@ import {
   useLocation,
   useNavigate,
 } from "react-router-dom";
-import { formatTokens, getRole, getToken, portalApi, setSession, api } from "./lib/api";
+import { getRole, getToken, portalApi, setSession, api } from "./lib/api";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
@@ -22,7 +22,9 @@ import ModelCatalogPage from "./pages/ModelCatalogPage";
 import LogsPage from "./pages/LogsPage";
 import SettingsPage from "./pages/SettingsPage";
 import UsersPage from "./pages/UsersPage";
+import CustomersPage from "./pages/CustomersPage";
 import RolesPage from "./pages/RolesPage";
+import ModelPricingPage from "./pages/ModelPricingPage";
 import PortalModelsPage from "./pages/portal/PortalModelsPage";
 import PortalKeysPage from "./pages/portal/PortalKeysPage";
 import PortalUsagePage from "./pages/portal/PortalUsagePage";
@@ -47,6 +49,8 @@ import {
   IconShield,
   IconLayers,
   IconLock,
+  IconTag,
+  IconUsers,
   NavIconBills,
   NavIconChat,
   NavIconDocs,
@@ -80,6 +84,8 @@ const ADMIN_TITLES: Record<string, string> = {
   "/admin/api-keys": "API 密钥",
   "/admin/models": "路由管理",
   "/admin/proxy": "模型管理",
+  "/admin/pricing": "模型定价",
+  "/admin/customers": "客户管理",
   "/admin/users": "用户管理",
   "/admin/roles": "角色管理",
   "/admin/settings": "API 文档",
@@ -160,6 +166,12 @@ function AdminShell() {
                 模型管理
               </NavLink>
             ) : null}
+            {can("menu.pricing") ? (
+              <NavLink to="/admin/pricing">
+                <IconTag />
+                模型定价
+              </NavLink>
+            ) : null}
           </div>
           <div className="nav-group">
             <div className="nav-label nav-label-icon">
@@ -190,6 +202,12 @@ function AdminShell() {
               <IconGear size={14} />
               系统
             </div>
+            {can("menu.customers") ? (
+              <NavLink to="/admin/customers">
+                <IconUsers />
+                客户管理
+              </NavLink>
+            ) : null}
             {can("menu.users") ? (
               <NavLink to="/admin/users">
                 <AdminIconUsers />
@@ -260,6 +278,8 @@ function PortalShell() {
     displayName?: string | null;
     usedQuota: number;
     quota: number;
+    balance?: number;
+    totalRecharged?: number;
     menuPerms?: string[];
   } | null>(null);
   const [menuPerms, setMenuPerms] = useState<string[] | null>(null);
@@ -271,6 +291,8 @@ function PortalShell() {
       displayName?: string | null;
       usedQuota: number;
       quota: number;
+      balance?: number;
+      totalRecharged?: number;
       menuPerms?: string[];
     }>("/me")
       .then((data) => {
@@ -357,15 +379,13 @@ function PortalShell() {
         </nav>
         <div className="portal-sider-foot">
           <div className="portal-balance">
-            <span>可用配额</span>
+            <span>剩余余额</span>
             <strong>
-              {me
-                ? `${formatTokens(Math.max(0, me.quota - me.usedQuota))}`
-                : "—"}
+              {me ? `$${(me.balance ?? 0).toFixed(2)}` : "—"}
             </strong>
             <em>
               {me
-                ? `已用 ${formatTokens(me.usedQuota)} / ${formatTokens(me.quota)}`
+                ? `累计充值 $${(me.totalRecharged ?? 0).toFixed(2)}`
                 : "加载中…"}
             </em>
           </div>
@@ -391,11 +411,9 @@ function PortalShell() {
           </div>
           <TopTools
             leading={
-              <span className="portal-quota-pill" title="Token 配额">
+              <span className="portal-quota-pill" title="账户余额">
                 <span className="ok-dot" />
-                {me
-                  ? `${formatTokens(me.usedQuota)} / ${formatTokens(me.quota)}`
-                  : "—"}
+                {me ? `$${(me.balance ?? 0).toFixed(2)}` : "—"}
               </span>
             }
             user={{
@@ -466,8 +484,10 @@ export default function App() {
         <Route path="tokens" element={<TokensPage />} />
         <Route path="models" element={<ModelsPage />} />
         <Route path="proxy" element={<ModelCatalogPage />} />
+        <Route path="pricing" element={<ModelPricingPage />} />
         <Route path="logs" element={<LogsPage />} />
         <Route path="usage" element={<UsagePage />} />
+        <Route path="customers" element={<CustomersPage />} />
         <Route path="users" element={<UsersPage />} />
         <Route path="roles" element={<RolesPage />} />
         <Route path="settings" element={<SettingsPage />} />

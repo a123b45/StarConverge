@@ -345,6 +345,79 @@ export function IconMore({ size = 16 }: SizeProps) {
   );
 }
 
+export function IconTag({ size = 16 }: SizeProps) {
+  return (
+    <Svg size={size}>
+      <path d="M3.5 12.2 11.8 3.9a2 2 0 0 1 1.4-.6H19.5v6.3a2 2 0 0 1-.6 1.4L10.6 19.3a1.5 1.5 0 0 1-2.1 0L3.5 14.3a1.5 1.5 0 0 1 0-2.1Z" />
+      <circle cx="16" cy="8" r="1.2" fill="currentColor" stroke="none" />
+    </Svg>
+  );
+}
+
+export function IconWallet({ size = 16 }: SizeProps) {
+  return (
+    <Svg size={size}>
+      <path d="M3.5 8.5h15.5a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 18V8.5Z" />
+      <path d="M3.5 8.5 5.2 5.8A1.5 1.5 0 0 1 6.5 5h11" />
+      <circle cx="16.5" cy="14" r="1.1" fill="currentColor" stroke="none" />
+    </Svg>
+  );
+}
+
+export function IconClock({ size = 16 }: SizeProps) {
+  return (
+    <Svg size={size}>
+      <circle cx="12" cy="12" r="8" />
+      <path d="M12 8v4.5l3 1.5" />
+    </Svg>
+  );
+}
+
+export function IconDollar({ size = 16 }: SizeProps) {
+  return (
+    <Svg size={size}>
+      <path d="M12 4v16" />
+      <path d="M15.5 8.2c-.6-1.2-1.8-2-3.5-2s-3.2.9-3.2 2.4c0 3.4 6.7 1.6 6.7 5 0 1.6-1.4 2.6-3.5 2.6s-3.1-.9-3.7-2.2" />
+    </Svg>
+  );
+}
+
+export function IconHash({ size = 16 }: SizeProps) {
+  return (
+    <Svg size={size}>
+      <path d="M9 5 7.5 19M16.5 5 15 19M5 9.5h14M4.5 14.5h14" />
+    </Svg>
+  );
+}
+
+export function IconDownload({ size = 16 }: SizeProps) {
+  return (
+    <Svg size={size}>
+      <path d="M12 4v11" />
+      <path d="m8 11 4 4 4-4" />
+      <path d="M5 19h14" />
+    </Svg>
+  );
+}
+
+export function IconUpload({ size = 16 }: SizeProps) {
+  return (
+    <Svg size={size}>
+      <path d="M12 20V9" />
+      <path d="m8 13 4-4 4 4" />
+      <path d="M5 5h14" />
+    </Svg>
+  );
+}
+
+export function IconBolt({ size = 16 }: SizeProps) {
+  return (
+    <Svg size={size}>
+      <path d="M13 3 6.5 13.5h5L11 21l6.5-10.5h-5L13 3Z" />
+    </Svg>
+  );
+}
+
 /* Aliases kept for existing imports */
 export const IconEyeOpen = IconEye;
 export const AdminIconDash = IconGrid;

@@ -27,6 +27,7 @@ export const MENU_GROUPS: PermGroup[] = [
     items: [
       { key: "menu.channels", label: "供应商管理" },
       { key: "menu.proxy", label: "模型管理" },
+      { key: "menu.pricing", label: "模型定价" },
     ],
   },
   {
@@ -42,6 +43,7 @@ export const MENU_GROUPS: PermGroup[] = [
     id: "system",
     label: "系统",
     items: [
+      { key: "menu.customers", label: "客户管理" },
       { key: "menu.users", label: "用户管理" },
       { key: "menu.roles", label: "角色管理" },
       { key: "menu.settings", label: "API 文档" },
@@ -96,6 +98,22 @@ export const API_GROUPS: PermGroup[] = [
     ],
   },
   {
+    id: "pricing",
+    label: "模型定价",
+    items: [
+      { key: "api.pricing.read", label: "查看" },
+      { key: "api.pricing.write", label: "增改删" },
+    ],
+  },
+  {
+    id: "customers",
+    label: "客户",
+    items: [
+      { key: "api.customers.read", label: "查看" },
+      { key: "api.customers.write", label: "创建/充值/编辑" },
+    ],
+  },
+  {
     id: "users",
     label: "用户",
     items: [
@@ -141,6 +159,8 @@ export const MENU_PATH_MAP: Record<string, string> = {
   "menu.tokens": "/admin/tokens",
   "menu.routes": "/admin/models",
   "menu.proxy": "/admin/proxy",
+  "menu.pricing": "/admin/pricing",
+  "menu.customers": "/admin/customers",
   "menu.users": "/admin/users",
   "menu.roles": "/admin/roles",
   "menu.settings": "/admin/settings",
@@ -177,7 +197,7 @@ export const DEFAULT_ROLES = [
     key: "admin",
     name: "管理员",
     description:
-      "管理端：运营（控制台/用量/日志）、资源与策略（供应商/模型/路由/密钥）、系统（用户/角色/文档）",
+      "管理端：运营（控制台/用量/日志）、资源与策略（供应商/模型/定价/路由/密钥）、系统（客户/用户/角色/文档）",
     isSystem: true,
     menuPerms: ALL_MENU_KEYS.filter((k) => !k.startsWith("menu.portal.")),
     apiPerms: ALL_API_KEYS,
