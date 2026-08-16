@@ -210,7 +210,7 @@ export default function PortalUsagePage() {
             <div className="portal-stats">
               <div className="portal-stat wide portal-stat-money">
                 <StatLabel icon={<IconWallet size={14} />}>
-                  总消费 / 剩余余额
+                  总消费 / 总余额
                 </StatLabel>
                 <div className="value portal-stat-balance">
                   <strong>{money(totalCost)}</strong>
