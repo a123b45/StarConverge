@@ -4256,13 +4256,26 @@ html[data-theme="dark"] .portal-user-dropdown button:hover {
   min-width: 0;
   flex: 1;
 }
+.portal-model-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
 .portal-model-card h3 {
-  margin: 0 0 6px;
+  margin: 0;
   font-size: 15px;
   font-weight: 650;
   letter-spacing: -0.02em;
   line-height: 1.35;
   word-break: break-word;
+  min-width: 0;
+}
+.portal-model-title-row .portal-avail {
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin-top: 2px;
 }
 .portal-provider-pill {
   display: inline-flex;
@@ -4326,7 +4339,7 @@ html[data-theme="dark"] .portal-user-dropdown button:hover {
 }
 .portal-model-meta {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
   gap: 10px;
   font-size: 12px;

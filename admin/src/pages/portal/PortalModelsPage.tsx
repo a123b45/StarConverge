@@ -27,7 +27,7 @@ function formatPerMillion(n: number) {
       : v >= 1
         ? v.toFixed(2)
         : v.toFixed(Math.min(4, Math.max(2, (v.toString().split(".")[1] || "").length)));
-  return `$${text} / 百万`;
+  return `$${text} / 百万tokens`;
 }
 
 function formatLatency(ms: number) {
@@ -88,7 +88,13 @@ export default function PortalModelsPage() {
                 {modelInitial(m.model)}
               </div>
               <div className="portal-model-title">
-                <h3 title={m.model}>{m.model}</h3>
+                <div className="portal-model-title-row">
+                  <h3 title={m.model}>{m.model}</h3>
+                  <span className="portal-avail">
+                    <i className="ok-dot" aria-hidden />
+                    可用
+                  </span>
+                </div>
                 <span className="portal-provider-pill">{m.providerLabel}</span>
               </div>
             </div>
@@ -119,10 +125,6 @@ export default function PortalModelsPage() {
               <span className="portal-model-latency">
                 <IconBolt size={14} />
                 延迟 {formatLatency(m.latencyMs ?? 0)}
-              </span>
-              <span className="portal-avail">
-                <i className="ok-dot" aria-hidden />
-                可用
               </span>
             </div>
           </article>
