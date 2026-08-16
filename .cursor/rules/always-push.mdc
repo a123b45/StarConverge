@@ -1,0 +1,13 @@
+---
+description: Always commit and push completed work to GitHub main
+alwaysApply: true
+---
+
+# Always commit and push
+
+When finishing user-requested feature/fix work in this repo:
+
+1. Commit the relevant files (skip unrelated line-ending noise).
+2. Push to `origin/main` without waiting for the user to ask again.
+3. If direct GitHub fails, use the established ghproxy + PAT push path, then scrub the token from `remote.origin.url`.
+4. Confirm with the short commit hash after a successful push.
