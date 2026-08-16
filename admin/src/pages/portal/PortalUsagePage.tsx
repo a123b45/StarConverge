@@ -240,15 +240,15 @@ export default function PortalUsagePage() {
               </div>
               <div className="portal-stat portal-stat-latency">
                 <StatLabel icon={<IconClock size={14} />}>延迟</StatLabel>
-                <div className="value portal-latency-values">
-                  <span className="portal-latency-cell">
+                <div className="portal-latency-grid">
+                  <div>
                     <span className="portal-latency-k">P50</span>
-                    {fmtLatency(summary.p50Ms)}
-                  </span>
-                  <span className="portal-latency-cell">
+                    <strong>{fmtLatency(summary.p50Ms)}</strong>
+                  </div>
+                  <div>
                     <span className="portal-latency-k">P95</span>
-                    {fmtLatency(summary.p95Ms)}
-                  </span>
+                    <strong>{fmtLatency(summary.p95Ms)}</strong>
+                  </div>
                 </div>
               </div>
             </div>

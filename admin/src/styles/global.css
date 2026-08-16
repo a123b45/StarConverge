@@ -4573,7 +4573,7 @@ html[data-theme="dark"] .portal-bar-tip::after {
 }
 .portal-stats {
   display: grid;
-  grid-template-columns: minmax(240px, 1.8fr) repeat(4, minmax(0, 1fr)) minmax(170px, 1.25fr);
+  grid-template-columns: minmax(220px, 1.6fr) repeat(4, minmax(0, 1fr)) minmax(200px, 1.35fr);
   gap: 10px;
   margin-bottom: 16px;
   align-items: stretch;
@@ -4589,10 +4589,6 @@ html[data-theme="dark"] .portal-bar-tip::after {
   position: relative;
   z-index: 0;
   box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  min-height: 78px;
 }
 .portal-stat .label,
 .portal-stat-label {
@@ -4605,7 +4601,6 @@ html[data-theme="dark"] .portal-bar-tip::after {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  flex-shrink: 0;
 }
 .portal-stat-icon {
   display: inline-flex;
@@ -4616,11 +4611,11 @@ html[data-theme="dark"] .portal-bar-tip::after {
 .portal-stat .value {
   font-size: 22px;
   font-weight: 700;
-  margin-top: 8px;
+  margin-top: 6px;
   font-family: "JetBrains Mono", monospace;
   letter-spacing: -0.02em;
   color: var(--text);
-  line-height: 1.2;
+  line-height: 1.15;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4628,7 +4623,6 @@ html[data-theme="dark"] .portal-bar-tip::after {
 }
 .portal-stat-money {
   min-width: 0;
-  min-height: 0;
 }
 .portal-stat-balance {
   display: flex;
@@ -4664,27 +4658,32 @@ html[data-theme="dark"] .portal-bar-tip::after {
   background: #12b76a;
   border-radius: 999px;
 }
-.portal-latency-values {
+.portal-stat-latency {
+  overflow: visible;
+}
+.portal-latency-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  white-space: nowrap;
-  overflow: hidden;
-}
-.portal-latency-cell {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 5px;
+  gap: 12px;
+  margin-top: 6px;
   min-width: 0;
-  overflow: hidden;
 }
 .portal-latency-k {
-  display: inline;
+  display: block;
   font-size: 11px;
   font-weight: 600;
   color: var(--muted);
-  flex-shrink: 0;
-  letter-spacing: 0.02em;
+  margin-bottom: 2px;
+}
+.portal-latency-grid strong {
+  display: block;
+  font-size: 20px;
+  font-weight: 700;
+  font-family: "JetBrains Mono", monospace;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  line-height: 1.15;
+  white-space: nowrap;
 }
 .portal-pager {
   display: flex;
