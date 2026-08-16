@@ -499,6 +499,27 @@ code,
   gap: 8px;
 }
 
+.stack-field.check-row {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.stack-field.check-row > span {
+  margin: 0;
+  font-weight: 550;
+}
+
+.modal-user-grid .soft-select {
+  width: 100%;
+}
+
+.modal-user-grid .soft-select-trigger {
+  width: 100%;
+}
+
 html[data-theme="dark"] .customer-avatar,
 html[data-theme="dark"] .role-chip {
   background: #e8e8e8;

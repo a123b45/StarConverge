@@ -390,51 +390,58 @@ export default function ModelPricingPage() {
               <p>价格与服务商账户绑定，单位为 USD / 百万 tokens</p>
             </div>
             {error ? <div className="alert">{error}</div> : null}
-            <label>
-              对外模型名
-              <input
-                required
-                value={form.externalModel}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, externalModel: e.target.value }))
-                }
-              />
-            </label>
-            <label>
-              全局模型名
-              <input
-                required
-                value={form.globalModel}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, globalModel: e.target.value }))
-                }
-              />
-            </label>
-            <label>
-              供应商模型
-              <input
-                value={form.providerModel}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, providerModel: e.target.value }))
-                }
-              />
-            </label>
-            <label>
-              归属服务商
-              <SoftSelect
-                ariaLabel="服务商"
-                value={form.channelId}
-                onChange={(v) => setForm((f) => ({ ...f, channelId: v }))}
-                options={[
-                  { value: "", label: "未绑定" },
-                  ...channels.map((ch) => ({ value: ch.id, label: ch.name })),
-                ]}
-                placeholder="选择服务商"
-              />
-            </label>
-            <div className="form-grid-2">
-              <label>
-                输入 $/1M
+            <div className="modal-user-grid">
+              <label className="stack-field">
+                <span>
+                  对外模型名 <em>*</em>
+                </span>
+                <input
+                  required
+                  value={form.externalModel}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, externalModel: e.target.value }))
+                  }
+                  placeholder="对用户展示的名称"
+                />
+              </label>
+              <label className="stack-field">
+                <span>
+                  全局模型名 <em>*</em>
+                </span>
+                <input
+                  required
+                  value={form.globalModel}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, globalModel: e.target.value }))
+                  }
+                  placeholder="系统内唯一标识"
+                />
+              </label>
+              <label className="stack-field">
+                <span>供应商模型</span>
+                <input
+                  value={form.providerModel}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, providerModel: e.target.value }))
+                  }
+                  placeholder="上游实际模型名"
+                />
+              </label>
+              <label className="stack-field">
+                <span>归属服务商</span>
+                <SoftSelect
+                  ariaLabel="服务商"
+                  value={form.channelId}
+                  onChange={(v) => setForm((f) => ({ ...f, channelId: v }))}
+                  options={[
+                    { value: "", label: "未绑定" },
+                    ...channels.map((ch) => ({ value: ch.id, label: ch.name })),
+                  ]}
+                  placeholder="选择服务商"
+                />
+              </label>
+              <label className="stack-field">
+                <span>输入 $/1M</span>
                 <input
                   type="number"
                   min={0}
@@ -445,8 +452,8 @@ export default function ModelPricingPage() {
                   }
                 />
               </label>
-              <label>
-                输出 $/1M
+              <label className="stack-field">
+                <span>输出 $/1M</span>
                 <input
                   type="number"
                   min={0}
@@ -457,29 +464,29 @@ export default function ModelPricingPage() {
                   }
                 />
               </label>
+              <label className="stack-field modal-user-span">
+                <span>进价 $/1M</span>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={form.costPer1m}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, costPer1m: e.target.value }))
+                  }
+                />
+              </label>
+              <label className="stack-field check-row modal-user-span">
+                <input
+                  type="checkbox"
+                  checked={form.enabled}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, enabled: e.target.checked }))
+                  }
+                />
+                <span>启用</span>
+              </label>
             </div>
-            <label>
-              进价 $/1M
-              <input
-                type="number"
-                min={0}
-                step="0.01"
-                value={form.costPer1m}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, costPer1m: e.target.value }))
-                }
-              />
-            </label>
-            <label className="check-row">
-              <input
-                type="checkbox"
-                checked={form.enabled}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, enabled: e.target.checked }))
-                }
-              />
-              启用
-            </label>
             <div className="modal-actions">
               <button type="button" className="btn ghost" onClick={() => setOpen(false)}>
                 取消
