@@ -143,6 +143,40 @@ export async function getDashboardStats(
     })),
   );
 
+  const modelExpr = sql`coalesce(${requestLogs.model}, '(unknown)')`;
+  const trendByModelRaw = await db
+    .select({
+      bucket: bucketExpr,
+      model: modelExpr,
+      requests: sql<number>`count(*)`,
+      tokens: sql<number>`coalesce(sum(${requestLogs.totalTokens}), 0)`,
+    })
+    .from(requestLogs)
+    .where(gte(requestLogs.createdAt, sinceTrend))
+    .groupBy(bucketExpr, modelExpr)
+    .orderBy(bucketExpr);
+
+  const modelKeys = [
+    ...new Set(trendByModelRaw.map((r) => String(r.model || "(unknown)"))),
+  ];
+  const modelTrend = modelKeys.map((model) => {
+    const raw = trendByModelRaw
+      .filter((r) => String(r.model || "(unknown)") === model)
+      .map((r) => ({
+        hour: String(r.bucket),
+        requests: Number(r.requests),
+        tokens: Number(r.tokens),
+      }));
+    return {
+      model,
+      series: fillTrendBuckets(grain, sinceMs, raw),
+    };
+  }).sort((a, b) => {
+    const ta = a.series.reduce((s, p) => s + p.tokens, 0);
+    const tb = b.series.reduce((s, p) => s + p.tokens, 0);
+    return tb - ta;
+  });
+
   return {
     last24h: {
       requests: Number(totals?.requests ?? 0),
@@ -169,6 +203,7 @@ export async function getDashboardStats(
     grain,
     hourly: trend,
     trend,
+    modelTrend,
   };
 }
 

@@ -4,6 +4,8 @@ import SoftSelect from "../components/SoftSelect";
 
 type Grain = "hour" | "minute" | "day";
 
+type TrendPoint = { hour: string; requests: number; tokens: number };
+
 type Dashboard = {
   last24h: { requests: number; tokens: number; errors: number };
   allTime: { requests: number; tokens: number };
@@ -14,21 +16,11 @@ type Dashboard = {
     tokensEnabled: number;
     models: number;
   };
-  recent: Array<{
-    id: string;
-    model: string | null;
-    upstreamModel?: string | null;
-    path: string;
-    statusCode: number | null;
-    totalTokens: number | null;
-    durationMs: number | null;
-    createdAt: string;
-    error: string | null;
-  }>;
   byModel: Array<{ model: string; requests: number; tokens: number }>;
   grain?: Grain;
-  hourly: Array<{ hour: string; requests: number; tokens: number }>;
-  trend?: Array<{ hour: string; requests: number; tokens: number }>;
+  hourly: TrendPoint[];
+  trend?: TrendPoint[];
+  modelTrend?: Array<{ model: string; series: TrendPoint[] }>;
 };
 
 const GRAIN_OPTIONS = [
@@ -37,16 +29,51 @@ const GRAIN_OPTIONS = [
   { value: "day", label: "按天" },
 ];
 
+const MODEL_COLORS = [
+  "#4f6ef7",
+  "#d4a017",
+  "#22c3a6",
+  "#ef4444",
+  "#8b5cf6",
+  "#06b6d4",
+  "#f97316",
+  "#ec4899",
+  "#84cc16",
+  "#6366f1",
+];
+
+function colorForModel(_model: string, index: number) {
+  return MODEL_COLORS[index % MODEL_COLORS.length]!;
+}
+
 export default function DashboardPage() {
   const [data, setData] = useState<Dashboard | null>(null);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [grain, setGrain] = useState<Grain>("hour");
+  const [hiddenModels, setHiddenModels] = useState<Set<string>>(new Set());
+  const [pieHover, setPieHover] = useState<{
+    model: string;
+    pct: number;
+    requests: number;
+    color: string;
+    side: "left" | "right";
+  } | null>(null);
+  const [lineHover, setLineHover] = useState<{
+    hour: string;
+    model: string;
+    tokens: number;
+    color: string;
+    x: number;
+    y: number;
+    side: "left" | "right";
+  } | null>(null);
 
   const endpoint = `${window.location.origin}/v1`;
 
   useEffect(() => {
     setError("");
+    setHiddenModels(new Set());
     api<Dashboard>(`/dashboard?grain=${grain}`)
       .then(setData)
       .catch((e) => setError(e.message));
@@ -70,20 +97,23 @@ export default function DashboardPage() {
         .filter((x) => x.show),
     [trend, grain],
   );
+
   const pie = useMemo(() => {
     const rows = data?.byModel ?? [];
     const total = rows.reduce((s, r) => s + r.requests, 0);
-    if (!total) return { total: 0, gradient: "var(--bg-soft)", items: [] as Array<{ model: string; requests: number; pct: number; color: string }> };
-    const colors = [
-      "#6d5efc",
-      "#22c3a6",
-      "#f59e0b",
-      "#ef4444",
-      "#3b82f6",
-      "#ec4899",
-      "#84cc16",
-      "#06b6d4",
-    ];
+    if (!total) {
+      return {
+        total: 0,
+        items: [] as Array<{
+          model: string;
+          requests: number;
+          pct: number;
+          color: string;
+          start: number;
+          end: number;
+        }>,
+      };
+    }
     let acc = 0;
     const items = rows.map((r, i) => {
       const pct = (r.requests / total) * 100;
@@ -93,64 +123,96 @@ export default function DashboardPage() {
         model: r.model,
         requests: r.requests,
         pct,
-        color: colors[i % colors.length]!,
+        color: colorForModel(r.model, i),
         start,
         end: acc,
       };
     });
-    const gradient = `conic-gradient(${items
-      .map((it) => `${it.color} ${it.start}% ${it.end}%`)
-      .join(", ")})`;
-    return { total, gradient, items };
+    return { total, items };
   }, [data]);
 
-  const tokenLine = useMemo(() => {
-    const rows = trend;
-    const w = 320;
-    const h = 140;
-    const padX = 8;
-    const padY = 12;
-    const maxT = Math.max(1, ...rows.map((r) => r.tokens));
-    type Coord = {
-      x: number;
-      y: number;
-      r: { hour: string; requests: number; tokens: number };
-    };
-    type Label = { i: number; x: number; text: string; show: boolean };
-    if (!rows.length) {
+  const modelSeries = useMemo(() => {
+    const list = data?.modelTrend ?? [];
+    return list.map((m, i) => ({
+      model: m.model,
+      color: colorForModel(m.model, i),
+      series: m.series,
+      totalTokens: m.series.reduce((s, p) => s + p.tokens, 0),
+    }));
+  }, [data]);
+
+  const visibleModels = useMemo(
+    () => modelSeries.filter((m) => !hiddenModels.has(m.model)),
+    [modelSeries, hiddenModels],
+  );
+
+  const tokenChart = useMemo(() => {
+    const buckets = trend.map((t) => t.hour);
+    const w = 640;
+    const h = 200;
+    const padL = 36;
+    const padR = 12;
+    const padT = 16;
+    const padB = 28;
+    const peak = Math.max(
+      1,
+      ...visibleModels.flatMap((m) => m.series.map((p) => p.tokens)),
+    );
+    const yMaxLocal = niceAxisMax(peak);
+    const yTicksLocal = [yMaxLocal, Math.round(yMaxLocal / 2), 0];
+    const n = Math.max(1, buckets.length);
+
+    const xAt = (i: number) =>
+      padL + (n === 1 ? (w - padL - padR) / 2 : (i / (n - 1)) * (w - padL - padR));
+    const yAt = (tokens: number) =>
+      padT + (1 - tokens / yMaxLocal) * (h - padT - padB);
+
+    const lines = visibleModels.map((m) => {
+      const points = buckets.map((hour, i) => {
+        const pt = m.series.find((s) => s.hour === hour) ?? {
+          hour,
+          tokens: 0,
+          requests: 0,
+        };
+        return {
+          i,
+          x: xAt(i),
+          y: yAt(pt.tokens),
+          hour,
+          tokens: pt.tokens,
+          model: m.model,
+          color: m.color,
+        };
+      });
       return {
-        w,
-        h,
-        points: "",
-        area: "",
-        maxT,
-        labels: [] as Label[],
-        coords: [] as Coord[],
+        model: m.model,
+        color: m.color,
+        polyline: points.map((p) => `${p.x},${p.y}`).join(" "),
+        points,
       };
-    }
-    const coords: Coord[] = rows.map((r, i) => {
-      const x =
-        padX +
-        (rows.length === 1
-          ? (w - padX * 2) / 2
-          : (i / (rows.length - 1)) * (w - padX * 2));
-      const y = h - padY - (r.tokens / maxT) * (h - padY * 2);
-      return { x, y, r };
     });
-    const points = coords.map((c) => `${c.x},${c.y}`).join(" ");
-    const area = `${padX},${h - padY} ${points} ${coords[coords.length - 1]!.x},${h - padY}`;
-    const labelStep = Math.max(1, Math.ceil(rows.length / 6));
-    const labels: Label[] = coords
-      .map((c, i) => ({
+
+    const labelStep = Math.max(1, Math.ceil(n / 7));
+    const labels = buckets
+      .map((hour, i) => ({
         i,
-        x: c.x,
-        text: formatTrendLabel(c.r.hour, grain),
-        show: i === 0 || i === rows.length - 1 || i % labelStep === 0,
+        x: xAt(i),
+        text: formatTrendLabel(hour, grain),
+        show: i === 0 || i === n - 1 || i % labelStep === 0,
       }))
       .filter((l) => l.show);
-    return { w, h, points, area, maxT, labels, coords };
-  }, [trend, grain]);
 
+    return { w, h, padL, padT, padB, yMaxLocal, yTicksLocal, lines, labels, n };
+  }, [trend, visibleModels, grain]);
+
+  function toggleModel(model: string) {
+    setHiddenModels((prev) => {
+      const next = new Set(prev);
+      if (next.has(model)) next.delete(model);
+      else next.add(model);
+      return next;
+    });
+  }
 
   async function copyEndpoint() {
     await navigator.clipboard.writeText(endpoint);
@@ -212,7 +274,7 @@ export default function DashboardPage() {
       <div className="dash-grid">
         <div className="panel">
           <div className="panel-head">
-            <strong>请求趋势</strong>
+            <strong>调用趋势</strong>
             <SoftSelect
               className="soft-select-sm soft-select-filter dash-grain-select"
               ariaLabel="趋势粒度"
@@ -236,22 +298,21 @@ export default function DashboardPage() {
                     <i />
                   </div>
                   <div className="trend-bars">
-                    {trend.map((h) => {
+                    {trend.map((h, idx) => {
                       const pct =
-                        h.requests > 0
-                          ? Math.max(4, (h.requests / yMax) * 100)
-                          : 0;
+                        h.requests > 0 ? Math.max(4, (h.requests / yMax) * 100) : 0;
+                      const side =
+                        idx / Math.max(trend.length - 1, 1) < 0.55
+                          ? "tip-right"
+                          : "tip-left";
                       return (
                         <div
                           key={h.hour}
                           className={`trend-col${h.requests === 0 ? " is-zero" : ""}`}
                         >
                           <div className="trend-hit">
-                            <div
-                              className="trend-bar"
-                              style={{ height: `${pct}%` }}
-                            />
-                            <div className="trend-tip" role="tooltip">
+                            <div className="trend-bar" style={{ height: `${pct}%` }} />
+                            <div className={`trend-tip ${side}`} role="tooltip">
                               <strong>{h.hour}</strong>
                               <em>
                                 {h.requests} 次 · {h.tokens.toLocaleString()} tokens
@@ -284,44 +345,78 @@ export default function DashboardPage() {
 
         <div className="panel">
           <div className="panel-head">
-            <strong>热门模型 · 24h</strong>
-          </div>
-          {(data?.byModel?.length ?? 0) > 0 ? (
-            <div className="bar-list">
-              {data!.byModel.map((r) => (
-                <div className="bar-row" key={r.model}>
-                  <span className="mono bar-model" title={r.model}>
-                    {r.model}
-                  </span>
-                  <div className="track">
-                    <div
-                      className="fill"
-                      style={{
-                        width: `${(r.requests / Math.max(1, ...data!.byModel.map((m) => m.requests))) * 100}%`,
-                      }}
-                    />
-                  </div>
-                  <span className="mono">{r.requests}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="empty">暂无数据</div>
-          )}
-        </div>
-      </div>
-
-      <div className="dash-grid" style={{ marginTop: 16 }}>
-        <div className="panel">
-          <div className="panel-head">
             <strong>调用分布</strong>
             <span className="muted" style={{ fontSize: 12 }}>
               近 24h 按模型
             </span>
           </div>
           {pie.total > 0 ? (
-            <div className="dash-pie-wrap">
-              <div className="dash-pie" style={{ background: pie.gradient }} title="调用分布" />
+            <div className="dash-donut-wrap">
+              <div className="dash-donut-stage">
+                <svg viewBox="0 0 120 120" className="dash-donut-svg">
+                  {pie.items.map((it) => {
+                    const r = 42;
+                    const c = 2 * Math.PI * r;
+                    const len = (it.pct / 100) * c;
+                    const offset = (it.start / 100) * c;
+                    const midPct = (it.start + it.end) / 2;
+                    const side: "left" | "right" = midPct < 50 ? "right" : "left";
+                    return (
+                      <circle
+                        key={it.model}
+                        className="dash-donut-seg"
+                        cx="60"
+                        cy="60"
+                        r={r}
+                        fill="none"
+                        stroke={it.color}
+                        strokeWidth="16"
+                        strokeDasharray={`${len} ${c - len}`}
+                        strokeDashoffset={-offset}
+                        transform="rotate(-90 60 60)"
+                        onMouseEnter={() =>
+                          setPieHover({
+                            model: it.model,
+                            pct: it.pct,
+                            requests: it.requests,
+                            color: it.color,
+                            side,
+                          })
+                        }
+                        onMouseLeave={() => setPieHover(null)}
+                      />
+                    );
+                  })}
+                  <circle cx="60" cy="60" r="30" fill="var(--bg-elevated)" />
+                </svg>
+                {pieHover ? (
+                  <div className={`dash-donut-tip tip-${pieHover.side}`}>
+                    <i style={{ background: pieHover.color }} />
+                    <span>
+                      {pieHover.model} : {pieHover.pct.toFixed(1)}%
+                    </span>
+                  </div>
+                ) : null}
+                <div className="dash-donut-labels" aria-hidden>
+                  {pie.items.map((it) => {
+                    const mid = ((it.start + it.end) / 2 / 100) * 2 * Math.PI - Math.PI / 2;
+                    const lx = 60 + Math.cos(mid) * 54;
+                    const ly = 60 + Math.sin(mid) * 54;
+                    return (
+                      <span
+                        key={`lbl-${it.model}`}
+                        style={{
+                          left: `${(lx / 120) * 100}%`,
+                          top: `${(ly / 120) * 100}%`,
+                          color: it.color,
+                        }}
+                      >
+                        {Math.round(it.pct)}%
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
               <div className="dash-pie-legend">
                 {pie.items.map((it) => (
                   <div key={it.model} className="dash-pie-row" title={it.model}>
@@ -338,75 +433,136 @@ export default function DashboardPage() {
             <div className="empty">暂无调用分布</div>
           )}
         </div>
+      </div>
 
-        <div className="panel">
-          <div className="panel-head">
-            <strong>Token 趋势</strong>
-            <span className="muted" style={{ fontSize: 12 }}>
-              峰值 {tokenLine.maxT.toLocaleString()}
-            </span>
-          </div>
-          {trend.length > 0 ? (
-            <div className="dash-line-wrap">
+      <div className="panel" style={{ marginTop: 16 }}>
+        <div className="panel-head">
+          <strong>Token 趋势</strong>
+          <span className="muted" style={{ fontSize: 12 }}>
+            按模型 · 峰值 {tokenChart.yMaxLocal.toLocaleString()}
+          </span>
+        </div>
+        {modelSeries.length > 0 && trend.length > 0 ? (
+          <div className="dash-mline-wrap">
+            <div className="dash-mline-chart">
               <svg
-                className="dash-line-svg"
-                viewBox={`0 0 ${tokenLine.w} ${tokenLine.h}`}
+                className="dash-mline-svg"
+                viewBox={`0 0 ${tokenChart.w} ${tokenChart.h}`}
                 preserveAspectRatio="none"
-                role="img"
-                aria-label="Token 趋势折线图"
+                onMouseLeave={() => setLineHover(null)}
               >
-                <defs>
-                  <linearGradient id="tokenArea" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#6d5efc" stopOpacity="0.35" />
-                    <stop offset="100%" stopColor="#6d5efc" stopOpacity="0.02" />
-                  </linearGradient>
-                </defs>
-                <polyline
-                  fill="url(#tokenArea)"
-                  stroke="none"
-                  points={tokenLine.area}
-                />
-                <polyline
-                  fill="none"
-                  stroke="#6d5efc"
-                  strokeWidth="2.5"
-                  strokeLinejoin="round"
-                  strokeLinecap="round"
-                  points={tokenLine.points}
-                />
-                {(tokenLine.coords ?? []).map((c, i) => (
-                  <circle
-                    key={`p-${i}`}
-                    cx={c.x}
-                    cy={c.y}
-                    r="3"
-                    fill="#fff"
-                    stroke="#6d5efc"
-                    strokeWidth="2"
-                  >
-                    <title>
-                      {c.r.hour}
-                      {"\n"}
-                      {c.r.tokens.toLocaleString()} tokens · {c.r.requests} 次
-                    </title>
-                  </circle>
+                {tokenChart.yTicksLocal.map((t, i) => {
+                  const y =
+                    tokenChart.padT +
+                    (i / Math.max(tokenChart.yTicksLocal.length - 1, 1)) *
+                      (tokenChart.h - tokenChart.padT - tokenChart.padB);
+                  return (
+                    <g key={`gy-${i}`}>
+                      <line
+                        x1={tokenChart.padL}
+                        x2={tokenChart.w - 12}
+                        y1={y}
+                        y2={y}
+                        stroke="var(--line)"
+                        strokeDasharray="4 4"
+                        strokeWidth="1"
+                      />
+                      <text
+                        x={tokenChart.padL - 6}
+                        y={y + 3}
+                        textAnchor="end"
+                        fontSize="10"
+                        fill="var(--muted)"
+                      >
+                        {formatCompact(t)}
+                      </text>
+                    </g>
+                  );
+                })}
+                {tokenChart.lines.map((line) => (
+                  <g key={line.model}>
+                    <polyline
+                      fill="none"
+                      stroke={line.color}
+                      strokeWidth="2.4"
+                      strokeLinejoin="round"
+                      strokeLinecap="round"
+                      points={line.polyline}
+                    />
+                    {line.points.map((p) => (
+                      <circle
+                        key={`${line.model}-${p.hour}`}
+                        cx={p.x}
+                        cy={p.y}
+                        r="4"
+                        fill="#fff"
+                        stroke={line.color}
+                        strokeWidth="2"
+                        style={{ cursor: "pointer" }}
+                        onMouseEnter={() =>
+                          setLineHover({
+                            hour: p.hour,
+                            model: p.model,
+                            tokens: p.tokens,
+                            color: p.color,
+                            x: p.x,
+                            y: p.y,
+                            side: p.i / Math.max(tokenChart.n - 1, 1) < 0.55 ? "right" : "left",
+                          })
+                        }
+                      />
+                    ))}
+                  </g>
                 ))}
               </svg>
-              <div className="dash-line-x">
-                {tokenLine.labels.map((l) => (
+              {lineHover ? (
+                <div
+                  className={`dash-mline-tip tip-${lineHover.side}`}
+                  style={{
+                    left: `${(lineHover.x / tokenChart.w) * 100}%`,
+                    top: `${(lineHover.y / tokenChart.h) * 100}%`,
+                  }}
+                >
+                  <strong>{formatTrendLabel(lineHover.hour, grain)}</strong>
+                  <div className="dash-mline-tip-row">
+                    <i style={{ background: lineHover.color }} />
+                    <em>{lineHover.model}</em>
+                    <b>{lineHover.tokens.toLocaleString()} tokens</b>
+                  </div>
+                </div>
+              ) : null}
+              <div className="dash-mline-x">
+                {tokenChart.labels.map((l) => (
                   <span
-                    key={`tl-${l.i}`}
-                    style={{ left: `${(l.x / tokenLine.w) * 100}%` }}
+                    key={`mlx-${l.i}`}
+                    style={{ left: `${(l.x / tokenChart.w) * 100}%` }}
                   >
                     {l.text}
                   </span>
                 ))}
               </div>
             </div>
-          ) : (
-            <div className="empty">暂无 Token 趋势</div>
-          )}
-        </div>
+            <div className="dash-mline-legend">
+              {modelSeries.map((m) => {
+                const on = !hiddenModels.has(m.model);
+                return (
+                  <button
+                    key={m.model}
+                    type="button"
+                    className={`dash-mline-leg${on ? "" : " off"}`}
+                    onClick={() => toggleModel(m.model)}
+                    title={on ? "点击隐藏" : "点击显示"}
+                  >
+                    <i style={{ background: on ? m.color : "var(--line)" }} />
+                    <span>{m.model}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div className="empty">暂无 Token 趋势</div>
+        )}
       </div>
     </>
   );
@@ -415,6 +571,12 @@ export default function DashboardPage() {
 function fmt(n?: number) {
   if (n == null) return "—";
   return n.toLocaleString();
+}
+
+function formatCompact(n: number) {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1000) return `${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}k`;
+  return String(n);
 }
 
 function formatTrendLabel(bucket: string, grain: Grain) {
@@ -434,7 +596,6 @@ function shouldShowTrendLabel(index: number, total: number, grain: Grain) {
   return index === 0 || index === total - 1 || index % step === 0;
 }
 
-/** Round up to a clean Y-axis top so ticks stay evenly spaced. */
 function niceAxisMax(peak: number) {
   if (peak <= 0) return 1;
   if (peak <= 5) return 5;
