@@ -187,22 +187,20 @@ export default function PortalKeysPage() {
           <h1>API 密钥</h1>
           <p>创建与管理您的访问密钥，保障 StarConverge 接入安全</p>
         </div>
-        <div className="portal-hero-actions">
-          <button type="button" className="portal-btn" onClick={startCreate}>
-            创建 API Key
-          </button>
-        </div>
       </div>
 
       {error && !open ? <div className="alert">{error}</div> : null}
 
-      <div className="ak-toolbar">
+      <div className="portal-toolbar ak-toolbar">
         <input
-          className="search"
+          className="search portal-search"
           placeholder="按名称或密钥前缀搜索"
           value={kw}
           onChange={(e) => setKw(e.target.value)}
         />
+        <button type="button" className="portal-btn" onClick={startCreate}>
+          创建 API Key
+        </button>
       </div>
 
       <div className="panel">

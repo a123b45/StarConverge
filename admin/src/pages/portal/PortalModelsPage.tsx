@@ -69,17 +69,22 @@ export default function PortalModelsPage() {
   }, [models, q, family, modality]);
 
   return (
-    <div className="portal-page">
-      <div className="portal-hero">
-        <div>
-          <h1>模型列表</h1>
-          <p>
-            {models.length
-              ? `共 ${models.length} 个可用模型 · 按 token 配额计量`
-              : "暂无可用模型 · 需管理员在模型管理中同步给用户"}
-          </p>
+    <div className="portal-models-page">
+      <div className="portal-page portal-page-head">
+        <div className="portal-hero portal-hero-title">
+          <div>
+            <h1>模型列表</h1>
+            <p>
+              {models.length
+                ? `共 ${models.length} 个可用模型 · 按 token 配额计量`
+                : "暂无可用模型 · 需管理员在模型管理中同步给用户"}
+            </p>
+          </div>
         </div>
-        <div className="portal-hero-actions">
+      </div>
+
+      <div className="portal-models-layout">
+        <div className="portal-toolbar">
           <input
             className="portal-search"
             placeholder="搜索模型…"
@@ -90,73 +95,73 @@ export default function PortalModelsPage() {
             获取 API Key
           </Link>
         </div>
-      </div>
-      {error ? <div className="alert">{error}</div> : null}
+        {error ? <div className="alert">{error}</div> : null}
 
-      <div className="portal-models-body">
-        <ModelCatalogFilters
-          models={models}
-          family={family}
-          modality={modality}
-          onFamilyChange={setFamily}
-          onModalityChange={setModality}
-        />
-        <div className="portal-models-main">
-          <div className="portal-model-grid">
-            {filtered.map((m) => (
-              <article key={m.id} className="portal-model-card">
-                <div className="portal-model-top">
-                  <div className="portal-model-icon" aria-hidden>
-                    {modelInitial(m.model)}
-                  </div>
-                  <div className="portal-model-title">
-                    <div className="portal-model-title-row">
-                      <h3 title={m.model}>{m.model}</h3>
-                      <span className="portal-avail">
-                        <i className="ok-dot" aria-hidden />
-                        可用
-                      </span>
+        <div className="portal-models-body">
+          <ModelCatalogFilters
+            models={models}
+            family={family}
+            modality={modality}
+            onFamilyChange={setFamily}
+            onModalityChange={setModality}
+          />
+          <div className="portal-models-main">
+            <div className="portal-model-grid">
+              {filtered.map((m) => (
+                <article key={m.id} className="portal-model-card">
+                  <div className="portal-model-top">
+                    <div className="portal-model-icon" aria-hidden>
+                      {modelInitial(m.model)}
                     </div>
-                    <span className="portal-provider-pill">{m.providerLabel}</span>
+                    <div className="portal-model-title">
+                      <div className="portal-model-title-row">
+                        <h3 title={m.model}>{m.model}</h3>
+                        <span className="portal-avail">
+                          <i className="ok-dot" aria-hidden />
+                          可用
+                        </span>
+                      </div>
+                      <span className="portal-provider-pill">{m.providerLabel}</span>
+                    </div>
                   </div>
-                </div>
-                <p className="portal-model-desc">
-                  经 StarConverge 路由至上游，调用消耗 API 密钥配额。
-                </p>
-                <div className="portal-price-grid" aria-label="模型定价">
-                  <div className="portal-price-cell">
-                    <span className="portal-price-label">输入</span>
-                    <strong className="portal-price-value">
-                      {formatPerMillion(m.inputPer1m ?? 0)}
-                    </strong>
+                  <p className="portal-model-desc">
+                    经 StarConverge 路由至上游，调用消耗 API 密钥配额。
+                  </p>
+                  <div className="portal-price-grid" aria-label="模型定价">
+                    <div className="portal-price-cell">
+                      <span className="portal-price-label">输入</span>
+                      <strong className="portal-price-value">
+                        {formatPerMillion(m.inputPer1m ?? 0)}
+                      </strong>
+                    </div>
+                    <div className="portal-price-cell">
+                      <span className="portal-price-label">输出</span>
+                      <strong className="portal-price-value">
+                        {formatPerMillion(m.outputPer1m ?? 0)}
+                      </strong>
+                    </div>
+                    <div className="portal-price-cell cache">
+                      <span className="portal-price-label">缓存命中</span>
+                      <strong className="portal-price-value">
+                        {formatPerMillion(m.cacheHitPer1m ?? 0)}
+                      </strong>
+                    </div>
                   </div>
-                  <div className="portal-price-cell">
-                    <span className="portal-price-label">输出</span>
-                    <strong className="portal-price-value">
-                      {formatPerMillion(m.outputPer1m ?? 0)}
-                    </strong>
+                  <div className="portal-model-meta">
+                    <span className="portal-model-latency">
+                      <IconBolt size={14} />
+                      延迟 {formatLatency(m.latencyMs ?? 0)}
+                    </span>
                   </div>
-                  <div className="portal-price-cell cache">
-                    <span className="portal-price-label">缓存命中</span>
-                    <strong className="portal-price-value">
-                      {formatPerMillion(m.cacheHitPer1m ?? 0)}
-                    </strong>
-                  </div>
-                </div>
-                <div className="portal-model-meta">
-                  <span className="portal-model-latency">
-                    <IconBolt size={14} />
-                    延迟 {formatLatency(m.latencyMs ?? 0)}
-                  </span>
-                </div>
-              </article>
-            ))}
-          </div>
-          {!filtered.length ? (
-            <div className="portal-empty">
-              没有匹配的模型。试试调整左侧筛选或搜索关键词。
+                </article>
+              ))}
             </div>
-          ) : null}
+            {!filtered.length ? (
+              <div className="portal-empty">
+                没有匹配的模型。试试调整左侧筛选或搜索关键词。
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
     </div>
