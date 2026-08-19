@@ -4,11 +4,8 @@ import { portalApi } from "../../lib/api";
 import { IconBolt } from "../../components/icons";
 import ModelCatalogFilters from "../../components/portal/ModelCatalogFilters";
 import {
-  loadFilterLayout,
   matchesFamily,
   matchesModality,
-  saveFilterLayout,
-  type FilterLayout,
   type ModelFamily,
   type ModelModality,
 } from "../../lib/model-taxonomy";
@@ -51,18 +48,12 @@ export default function PortalModelsPage() {
   const [error, setError] = useState("");
   const [family, setFamily] = useState<ModelFamily>("all");
   const [modality, setModality] = useState<ModelModality>("all");
-  const [filterLayout, setFilterLayout] = useState<FilterLayout>(() => loadFilterLayout());
 
   useEffect(() => {
     portalApi<{ data: ModelItem[] }>("/models")
       .then((r) => setModels(r.data))
       .catch((e: unknown) => setError(e instanceof Error ? e.message : "加载失败"));
   }, []);
-
-  function changeLayout(next: FilterLayout) {
-    setFilterLayout(next);
-    saveFilterLayout(next);
-  }
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -77,19 +68,14 @@ export default function PortalModelsPage() {
     });
   }, [models, q, family, modality]);
 
-  const activeFilterCount =
-    (family !== "all" ? 1 : 0) + (modality !== "all" ? 1 : 0);
-
   return (
-    <div className="portal-page portal-models-page">
+    <div className="portal-page">
       <div className="portal-hero">
         <div>
           <h1>模型列表</h1>
           <p>
-            {filtered.length
-              ? `共 ${filtered.length} 个可用模型 · 按 token 配额计量${
-                  activeFilterCount ? ` · 已启用 ${activeFilterCount} 项筛选` : ""
-                }`
+            {models.length
+              ? `共 ${models.length} 个可用模型 · 按 token 配额计量`
               : "暂无可用模型 · 需管理员在模型管理中同步给用户"}
           </p>
         </div>
@@ -107,15 +93,13 @@ export default function PortalModelsPage() {
       </div>
       {error ? <div className="alert">{error}</div> : null}
 
-      <div className={`portal-models-body filter-layout-${filterLayout}`}>
+      <div className="portal-models-body">
         <ModelCatalogFilters
           models={models}
           family={family}
           modality={modality}
-          layout={filterLayout}
           onFamilyChange={setFamily}
           onModalityChange={setModality}
-          onLayoutChange={changeLayout}
         />
         <div className="portal-models-main">
           <div className="portal-model-grid">

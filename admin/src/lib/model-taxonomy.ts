@@ -13,10 +13,6 @@ export type ModelFamily =
 
 export type ModelModality = "all" | "text" | "multimodal";
 
-export type FilterLayout = "sidebar" | "compact" | "accordion";
-
-export const FILTER_LAYOUT_KEY = "portal-model-filter-layout";
-
 export const MODEL_FAMILIES: Array<{ id: ModelFamily; label: string }> = [
   { id: "all", label: "全部系列" },
   { id: "gpt", label: "GPT / OpenAI" },
@@ -75,16 +71,4 @@ export function matchesFamily(name: string, family: ModelFamily) {
 export function matchesModality(name: string, modality: ModelModality) {
   if (modality === "all") return true;
   return detectModelModality(name) === modality;
-}
-
-export function loadFilterLayout(): FilterLayout {
-  if (typeof window === "undefined") return "sidebar";
-  const v = window.localStorage.getItem(FILTER_LAYOUT_KEY);
-  if (v === "compact" || v === "accordion" || v === "sidebar") return v;
-  return "sidebar";
-}
-
-export function saveFilterLayout(layout: FilterLayout) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(FILTER_LAYOUT_KEY, layout);
 }
