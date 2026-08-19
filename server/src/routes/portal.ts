@@ -154,20 +154,7 @@ portalRoutes.get("/models", async (c) => {
     });
   }
 
-  const userTokens = await db
-    .select({ allowedModels: tokens.allowedModels, enabled: tokens.enabled })
-    .from(tokens)
-    .where(eq(tokens.userId, auth.userId!));
-  const allowSets = userTokens
-    .filter((t) => t.enabled)
-    .map((t) => parseJsonArray(t.allowedModels));
-  const hasAnyKey = allowSets.length > 0;
-  const unrestrictedKey = allowSets.some((a) => a.length === 0);
-  if (hasAnyKey && !unrestrictedKey) {
-    const allow = new Set(allowSets.flat());
-    filtered = filtered.filter((d) => allow.has(d.model));
-  }
-
+  // Model list shows all admin-published models. Per-key allowedModels is enforced on /v1/* calls.
   // P50 latency from recent calls (platform-wide, last 7 days)
   if (filtered.length) {
     const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
