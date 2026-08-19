@@ -57,6 +57,42 @@ const emptyForm = (): FormState => ({
 });
 
 const STEPS = ["选择模型厂商", "填写密钥", "设置与启用"] as const;
+const MODEL_PREVIEW_COUNT = 4;
+
+function ChannelModelTags({ models }: { models: string[] }) {
+  const [expanded, setExpanded] = useState(false);
+
+  if (!models.length) {
+    return <span className="muted">（未限制）</span>;
+  }
+
+  const hiddenCount = Math.max(0, models.length - MODEL_PREVIEW_COUNT);
+  const visible = expanded ? models : models.slice(0, MODEL_PREVIEW_COUNT);
+
+  return (
+    <div className={`ch-model-tags ${expanded ? "is-expanded" : "is-collapsed"}`}>
+      <div className="ch-model-tags-list">
+        {visible.map((m) => (
+          <span key={m} className="badge blue">
+            {m}
+          </span>
+        ))}
+      </div>
+      {hiddenCount > 0 ? (
+        <button
+          type="button"
+          className="ch-model-toggle"
+          onClick={() => setExpanded((v) => !v)}
+        >
+          {expanded ? "收起" : `展开 +${hiddenCount}`}
+          <span className="ch-model-count">共 {models.length} 个</span>
+        </button>
+      ) : (
+        <span className="ch-model-count muted">共 {models.length} 个</span>
+      )}
+    </div>
+  );
+}
 
 export default function ChannelsPage() {
   const [rows, setRows] = useState<Channel[]>([]);
@@ -327,7 +363,7 @@ export default function ChannelsPage() {
 
       <div className="panel">
         <div className="table-wrap">
-          <table className="table">
+          <table className="table ch-table">
             <thead>
               <tr>
                 <th>名称</th>
@@ -346,24 +382,9 @@ export default function ChannelsPage() {
                       <span className="badge blue">{providerLabel(r.type)}</span>
                     </div>
                   </td>
-                  <td
-                    className="mono"
-                    style={{ fontSize: "0.8rem", maxWidth: 220, wordBreak: "break-all" }}
-                  >
-                    {r.baseUrl}
-                  </td>
+                  <td className="mono ch-base-url">{r.baseUrl}</td>
                   <td>
-                    {r.models.length ? (
-                      <div className="ch-model-tags">
-                        {r.models.map((m) => (
-                          <span key={m} className="badge blue">
-                            {m}
-                          </span>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="muted">（未限制）</span>
-                    )}
+                    <ChannelModelTags models={r.models} />
                   </td>
                   <td>
                     <span className={`badge ${r.enabled ? "on" : "off"}`}>
@@ -371,7 +392,7 @@ export default function ChannelsPage() {
                     </span>
                   </td>
                   <td>
-                    <div className="row-actions">
+                    <div className="row-actions ch-row-actions">
                       <button
                         className="btn ghost sm"
                         disabled={testing === r.id}
