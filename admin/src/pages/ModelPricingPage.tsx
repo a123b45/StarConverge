@@ -55,6 +55,22 @@ const emptyForm = (): FormState => ({
   costPer1m: "0",
 });
 
+type UpstreamGroup = { name: string; ratio: number };
+
+type UpstreamMeta = {
+  channelId: string;
+  channelName: string;
+  pricingUrl: string;
+  pricingVersion: string;
+  groups: UpstreamGroup[];
+  defaultGroup: string | null;
+  upstreamModelCount: number;
+  channelModelCount: number;
+  catalogModelCount: number;
+};
+
+type SyncScope = "channel" | "catalog" | "upstream";
+
 function money(n: number) {
   return Number(n.toFixed(3)).toString();
 }
@@ -75,6 +91,17 @@ export default function ModelPricingPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
   const pageSize = 20;
+  const [syncOpen, setSyncOpen] = useState(false);
+  const [syncBusy, setSyncBusy] = useState(false);
+  const [syncMsg, setSyncMsg] = useState("");
+  const [syncMeta, setSyncMeta] = useState<UpstreamMeta | null>(null);
+  const [syncMetaError, setSyncMetaError] = useState("");
+  const [syncChannelId, setSyncChannelId] = useState("");
+  const [syncGroup, setSyncGroup] = useState("");
+  const [syncScope, setSyncScope] = useState<SyncScope>("channel");
+  const [syncUpdateExisting, setSyncUpdateExisting] = useState(true);
+  const [syncCreateMissing, setSyncCreateMissing] = useState(true);
+  const [syncSetCost, setSyncSetCost] = useState(true);
 
   async function load() {
     try {
@@ -227,6 +254,84 @@ export default function ModelPricingPage() {
     await load();
   }
 
+  async function loadUpstreamMeta(channelId: string) {
+    setSyncMetaError("");
+    setSyncMeta(null);
+    if (!channelId) return;
+    try {
+      const res = await api<{ data: UpstreamMeta }>(
+        `/pricing/upstream-meta?channelId=${encodeURIComponent(channelId)}`,
+      );
+      setSyncMeta(res.data);
+      setSyncGroup(res.data.defaultGroup || res.data.groups[0]?.name || "");
+    } catch (e) {
+      setSyncMetaError(e instanceof Error ? e.message : "无法读取上游定价");
+    }
+  }
+
+  function openSyncModal() {
+    const initial =
+      providerFilter !== "all" && providerFilter !== OTHER_PROVIDER
+        ? providerFilter
+        : channels[0]?.id || "";
+    setSyncOpen(true);
+    setSyncMsg("");
+    setSyncMetaError("");
+    setSyncChannelId(initial);
+    setSyncScope("channel");
+    setSyncUpdateExisting(true);
+    setSyncCreateMissing(true);
+    setSyncSetCost(true);
+    if (initial) void loadUpstreamMeta(initial);
+  }
+
+  async function runUpstreamSync() {
+    if (!syncChannelId) {
+      setSyncMetaError("请选择服务商");
+      return;
+    }
+    if (!syncGroup) {
+      setSyncMetaError("请选择上游计费分组");
+      return;
+    }
+    setSyncBusy(true);
+    setSyncMsg("");
+    setSyncMetaError("");
+    try {
+      const res = await api<{
+        ok: boolean;
+        targeted: number;
+        created: number;
+        updated: number;
+        skipped: number;
+        missingUpstream: number;
+        group: string;
+        pricingVersion?: string;
+      }>("/pricing/sync-upstream", {
+        method: "POST",
+        body: JSON.stringify({
+          channelId: syncChannelId,
+          group: syncGroup,
+          scope: syncScope,
+          updateExisting: syncUpdateExisting,
+          createMissing: syncCreateMissing,
+          setCostFromUpstream: syncSetCost,
+        }),
+      });
+      setSyncMsg(
+        `同步完成：目标 ${res.targeted} 个，新建 ${res.created}，更新 ${res.updated}，跳过 ${res.skipped}${
+          res.missingUpstream ? `，上游无定价 ${res.missingUpstream}` : ""
+        }`,
+      );
+      setSyncOpen(false);
+      await load();
+    } catch (e) {
+      setSyncMetaError(e instanceof Error ? e.message : "同步失败");
+    } finally {
+      setSyncBusy(false);
+    }
+  }
+
   function toggleAll(checked: boolean) {
     if (!checked) {
       setSelected(new Set());
@@ -305,13 +410,22 @@ export default function ModelPricingPage() {
               { value: "zero", label: "价格：未配置" },
             ]}
           />
+          <button
+            className="btn ghost"
+            type="button"
+            disabled={noChannels}
+            onClick={openSyncModal}
+          >
+            从上游同步定价
+          </button>
           <button className="btn" type="button" onClick={openCreate}>
             + 配置新价格
           </button>
         </div>
       </div>
 
-      {error && !open ? <div className="alert">{error}</div> : null}
+      {error && !open && !syncOpen ? <div className="alert">{error}</div> : null}
+      {syncMsg ? <div className="alert ok">{syncMsg}</div> : null}
 
       <div className="panel">
         <div className="table-wrap">
@@ -426,6 +540,139 @@ export default function ModelPricingPage() {
           </div>
         </div>
       </div>
+
+      {syncOpen ? (
+        <div className="modal-backdrop" onClick={() => !syncBusy && setSyncOpen(false)}>
+          <div
+            className="modal modal-user"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-user-head">
+              <h3>从上游同步定价</h3>
+              <p>
+                读取 NewAPI 兼容站点的 <code>/api/pricing</code>，批量写入输入 / 输出 / 缓存命中价格（USD / 百万
+                tokens）
+              </p>
+            </div>
+            {syncMetaError ? <div className="alert">{syncMetaError}</div> : null}
+            <div className="modal-user-grid">
+              <label className="stack-field">
+                <span>服务商</span>
+                <SoftSelect
+                  ariaLabel="同步服务商"
+                  value={syncChannelId}
+                  onChange={(v) => {
+                    setSyncChannelId(v);
+                    void loadUpstreamMeta(v);
+                  }}
+                  options={channels.map((ch) => ({
+                    value: ch.id,
+                    label: ch.name,
+                  }))}
+                  placeholder="选择已接入的上游"
+                />
+              </label>
+              <label className="stack-field">
+                <span>上游计费分组</span>
+                <SoftSelect
+                  ariaLabel="上游分组"
+                  value={syncGroup}
+                  onChange={setSyncGroup}
+                  options={(syncMeta?.groups ?? []).map((g) => ({
+                    value: g.name,
+                    label: `${g.name} · ${g.ratio}x`,
+                  }))}
+                  placeholder={syncMeta ? "选择分组" : "先选择服务商"}
+                />
+              </label>
+              <label className="stack-field">
+                <span>同步范围</span>
+                <SoftSelect
+                  ariaLabel="同步范围"
+                  value={syncScope}
+                  onChange={(v) => setSyncScope(v as SyncScope)}
+                  options={[
+                    {
+                      value: "channel",
+                      label: `供应商模型列表${
+                        syncMeta?.channelModelCount
+                          ? ` (${syncMeta.channelModelCount})`
+                          : ""
+                      }`,
+                    },
+                    {
+                      value: "catalog",
+                      label: `模型管理已映射${
+                        syncMeta?.catalogModelCount
+                          ? ` (${syncMeta.catalogModelCount})`
+                          : ""
+                      }`,
+                    },
+                    {
+                      value: "upstream",
+                      label: `上游全部可售模型${
+                        syncMeta?.upstreamModelCount
+                          ? ` (${syncMeta.upstreamModelCount})`
+                          : ""
+                      }`,
+                    },
+                  ]}
+                />
+              </label>
+            </div>
+            {syncMeta ? (
+              <p className="field-hint pricing-sync-meta">
+                定价源：<span className="mono">{syncMeta.pricingUrl}</span>
+                {syncMeta.pricingVersion ? ` · 版本 ${syncMeta.pricingVersion.slice(0, 8)}` : ""}
+              </p>
+            ) : null}
+            <div className="pricing-sync-options">
+              <label className="check-row">
+                <input
+                  type="checkbox"
+                  checked={syncUpdateExisting}
+                  onChange={(e) => setSyncUpdateExisting(e.target.checked)}
+                />
+                <span>更新已有定价</span>
+              </label>
+              <label className="check-row">
+                <input
+                  type="checkbox"
+                  checked={syncCreateMissing}
+                  onChange={(e) => setSyncCreateMissing(e.target.checked)}
+                />
+                <span>为未配置模型新建定价</span>
+              </label>
+              <label className="check-row">
+                <input
+                  type="checkbox"
+                  checked={syncSetCost}
+                  onChange={(e) => setSyncSetCost(e.target.checked)}
+                />
+                <span>将上游输入价写入进价</span>
+              </label>
+            </div>
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn ghost"
+                disabled={syncBusy}
+                onClick={() => setSyncOpen(false)}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                className="btn"
+                disabled={syncBusy || !syncChannelId || !syncGroup}
+                onClick={() => void runUpstreamSync()}
+              >
+                {syncBusy ? "同步中…" : "开始同步"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {open ? (
         <div className="modal-backdrop" onClick={() => setOpen(false)}>

@@ -25,6 +25,13 @@ import {
 import { signToken } from "../utils/jwt.js";
 import { getDashboardStats, getUsageAnalytics, publicChannel, publicToken } from "../services/stats.js";
 import {
+  buildUpstreamPriceMap,
+  fetchNewApiPricing,
+  listNewApiGroups,
+  pickDefaultGroup,
+  pricingUrlFromBaseUrl,
+} from "../services/upstream-pricing.js";
+import {
   explicitChannelModels,
   fetchUpstreamModels,
   isUnrestrictedModels,
@@ -997,6 +1004,233 @@ adminRoutes.delete("/pricing/:id", async (c) => {
   }
   await db.delete(modelPrices).where(eq(modelPrices.id, c.req.param("id")));
   return c.json({ ok: true });
+});
+
+function priceRowMatchesModel(
+  row: typeof modelPrices.$inferSelect,
+  channelId: string,
+  modelName: string,
+) {
+  if (row.channelId !== channelId) return false;
+  const name = modelName.trim();
+  return (
+    row.providerModel === name ||
+    row.globalModel === name ||
+    row.externalModel === name
+  );
+}
+
+async function catalogUpstreamModelsForChannel(channelId: string): Promise<string[]> {
+  const routes = await db.select().from(modelRoutes);
+  const names = new Set<string>();
+  for (const route of routes) {
+    const channelIds = parseJsonArray(route.channelIds);
+    if (!channelIds.includes(channelId)) continue;
+    if (route.rewriteModel) names.add(route.rewriteModel);
+    try {
+      const raw = JSON.parse(route.targets || "[]") as unknown;
+      if (Array.isArray(raw)) {
+        for (const item of raw) {
+          if (
+            item &&
+            typeof item === "object" &&
+            typeof (item as { upstreamModel?: unknown }).upstreamModel === "string"
+          ) {
+            names.add((item as { upstreamModel: string }).upstreamModel);
+          }
+        }
+      }
+    } catch {
+      /* ignore malformed targets */
+    }
+  }
+  return [...names].sort();
+}
+
+async function resolveSyncModelNames(
+  channel: typeof channels.$inferSelect,
+  scope: "channel" | "catalog" | "upstream",
+  upstreamNames: string[],
+): Promise<string[]> {
+  const channelModels = explicitChannelModels(channel.models);
+  const catalogModels = await catalogUpstreamModelsForChannel(channel.id);
+  const upstreamSet = new Set(upstreamNames);
+
+  if (scope === "upstream") {
+    return upstreamNames.slice().sort((a, b) => a.localeCompare(b));
+  }
+  if (scope === "catalog") {
+    return catalogModels.filter((m) => upstreamSet.has(m));
+  }
+  if (channelModels.length) {
+    return channelModels.filter((m) => upstreamSet.has(m));
+  }
+  if (catalogModels.length) {
+    return catalogModels.filter((m) => upstreamSet.has(m));
+  }
+  return upstreamNames.slice().sort((a, b) => a.localeCompare(b));
+}
+
+adminRoutes.get("/pricing/upstream-meta", async (c) => {
+  const auth = c.get("adminAuth");
+  if (!hasApiPerm(auth, "api.pricing.read")) {
+    return c.json({ error: "无权限" }, 403);
+  }
+  const channelId = c.req.query("channelId")?.trim();
+  if (!channelId) return c.json({ error: "缺少 channelId" }, 400);
+  const ch = await db.query.channels.findFirst({ where: eq(channels.id, channelId) });
+  if (!ch) return c.json({ error: "服务商不存在" }, 404);
+
+  const pricingUrl = pricingUrlFromBaseUrl(ch.baseUrl);
+  try {
+    const payload = await fetchNewApiPricing(pricingUrl, ch.timeoutMs);
+    const groups = listNewApiGroups(payload);
+    const defaultGroup = pickDefaultGroup(payload);
+    const priceMap = defaultGroup
+      ? buildUpstreamPriceMap(payload, defaultGroup)
+      : new Map();
+    const channelModels = explicitChannelModels(ch.models);
+    const catalogModels = await catalogUpstreamModelsForChannel(channelId);
+    return c.json({
+      data: {
+        channelId,
+        channelName: ch.name,
+        pricingUrl,
+        pricingVersion: payload.pricing_version ?? "",
+        groups,
+        defaultGroup,
+        upstreamModelCount: priceMap.size,
+        channelModelCount: channelModels.length,
+        catalogModelCount: catalogModels.length,
+      },
+    });
+  } catch (e) {
+    return c.json(
+      {
+        error: e instanceof Error ? e.message : "拉取上游定价失败",
+        pricingUrl,
+      },
+      502,
+    );
+  }
+});
+
+adminRoutes.post("/pricing/sync-upstream", async (c) => {
+  const auth = c.get("adminAuth");
+  if (!hasApiPerm(auth, "api.pricing.write")) {
+    return c.json({ error: "无权限" }, 403);
+  }
+  const schema = z.object({
+    channelId: z.string().min(1),
+    group: z.string().min(1),
+    scope: z.enum(["channel", "catalog", "upstream"]).default("channel"),
+    updateExisting: z.boolean().default(true),
+    createMissing: z.boolean().default(true),
+    setCostFromUpstream: z.boolean().default(true),
+  });
+  const parsed = schema.safeParse(await c.req.json());
+  if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
+  const v = parsed.data;
+
+  const ch = await db.query.channels.findFirst({ where: eq(channels.id, v.channelId) });
+  if (!ch) return c.json({ error: "服务商不存在" }, 404);
+
+  const pricingUrl = pricingUrlFromBaseUrl(ch.baseUrl);
+  let payload;
+  try {
+    payload = await fetchNewApiPricing(pricingUrl, ch.timeoutMs);
+  } catch (e) {
+    return c.json(
+      { error: e instanceof Error ? e.message : "拉取上游定价失败", pricingUrl },
+      502,
+    );
+  }
+
+  let priceMap;
+  try {
+    priceMap = buildUpstreamPriceMap(payload, v.group);
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : "解析上游定价失败" }, 400);
+  }
+
+  const modelNames = await resolveSyncModelNames(ch, v.scope, [...priceMap.keys()]);
+  const existingRows = await db
+    .select()
+    .from(modelPrices)
+    .where(eq(modelPrices.channelId, v.channelId));
+
+  let created = 0;
+  let updated = 0;
+  let skipped = 0;
+  let missingUpstream = 0;
+
+  for (const modelName of modelNames) {
+    const upstream = priceMap.get(modelName);
+    if (!upstream) {
+      missingUpstream += 1;
+      continue;
+    }
+
+    const existing = existingRows.find((row) =>
+      priceRowMatchesModel(row, v.channelId, modelName),
+    );
+    const costPer1m = v.setCostFromUpstream ? upstream.inputPer1m : existing?.costPer1mCents
+      ? usdFromPriceUnit(existing.costPer1mCents)
+      : 0;
+
+    if (existing) {
+      if (!v.updateExisting) {
+        skipped += 1;
+        continue;
+      }
+      await db
+        .update(modelPrices)
+        .set({
+          inputPer1mCents: priceUnitFromUsd(upstream.inputPer1m),
+          outputPer1mCents: priceUnitFromUsd(upstream.outputPer1m),
+          cacheHitPer1mCents: priceUnitFromUsd(upstream.cacheHitPer1m),
+          costPer1mCents: priceUnitFromUsd(costPer1m),
+          remark: `上游同步 · ${v.group} · ${payload.pricing_version ?? ""}`.slice(0, 500),
+          updatedAt: new Date(),
+        })
+        .where(eq(modelPrices.id, existing.id));
+      updated += 1;
+      continue;
+    }
+
+    if (!v.createMissing) {
+      skipped += 1;
+      continue;
+    }
+
+    await db.insert(modelPrices).values({
+      id: id("price"),
+      externalModel: modelName,
+      globalModel: modelName,
+      providerModel: modelName,
+      channelId: v.channelId,
+      inputPer1mCents: priceUnitFromUsd(upstream.inputPer1m),
+      outputPer1mCents: priceUnitFromUsd(upstream.outputPer1m),
+      cacheHitPer1mCents: priceUnitFromUsd(upstream.cacheHitPer1m),
+      costPer1mCents: priceUnitFromUsd(costPer1m),
+      enabled: true,
+      remark: `上游同步 · ${v.group} · ${payload.pricing_version ?? ""}`.slice(0, 500),
+    });
+    created += 1;
+  }
+
+  return c.json({
+    ok: true,
+    pricingUrl,
+    group: v.group,
+    pricingVersion: payload.pricing_version ?? "",
+    scope: v.scope,
+    targeted: modelNames.length,
+    created,
+    updated,
+    skipped,
+    missingUpstream,
+  });
 });
 
 // ---- Channels ----

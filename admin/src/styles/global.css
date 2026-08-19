@@ -486,6 +486,18 @@ code,
   margin: 0 auto;
 }
 
+.pricing-sync-meta {
+  margin: 0 0 12px;
+  word-break: break-all;
+}
+
+.pricing-sync-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
 .form-grid-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
