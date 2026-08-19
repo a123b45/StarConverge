@@ -185,3 +185,52 @@ export function buildUpstreamPriceMap(
   }
   return out;
 }
+
+/** Pick the cheapest enabled upstream group price for a model. */
+export function resolveBestPriceForModel(
+  payload: NewApiPricingPayload,
+  modelName: string,
+): ResolvedUpstreamPrice | null {
+  const name = modelName.trim();
+  if (!name) return null;
+  const row = payload.data?.find((m) => (m.model_name || "").trim() === name);
+  if (!row) return null;
+
+  const groupNames = row.enable_groups?.length
+    ? row.enable_groups.filter((g) => g && g !== "Free")
+    : listNewApiGroups(payload).map((g) => g.name);
+
+  let best: ResolvedUpstreamPrice | null = null;
+  for (const groupName of groupNames) {
+    const groupRatio = payload.group_ratio?.[groupName];
+    if (groupRatio == null) continue;
+    const usd = resolveNewApiModelUsd(row, groupRatio);
+    if (!usd || (usd.inputPer1m <= 0 && usd.outputPer1m <= 0)) continue;
+    const candidate: ResolvedUpstreamPrice = {
+      modelName: name,
+      inputPer1m: usd.inputPer1m,
+      outputPer1m: usd.outputPer1m,
+      cacheHitPer1m: usd.cacheHitPer1m,
+      group: groupName,
+    };
+    if (!best || candidate.inputPer1m < best.inputPer1m) {
+      best = candidate;
+    }
+  }
+  return best;
+}
+
+export function upstreamModelNameForChannel(
+  route: {
+    model: string;
+    channelIds: string[];
+    rewriteModel: string | null;
+    targets: Array<{ channelId: string; upstreamModel: string }>;
+  },
+  channelId: string,
+): string {
+  const target = route.targets.find((t) => t.channelId === channelId);
+  if (target?.upstreamModel) return target.upstreamModel;
+  if (route.rewriteModel) return route.rewriteModel;
+  return route.model;
+}

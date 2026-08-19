@@ -30,6 +30,8 @@ import {
   listNewApiGroups,
   pickDefaultGroup,
   pricingUrlFromBaseUrl,
+  resolveBestPriceForModel,
+  upstreamModelNameForChannel,
 } from "../services/upstream-pricing.js";
 import {
   explicitChannelModels,
@@ -1611,6 +1613,199 @@ adminRoutes.get("/models", async (c) => {
   const rows = await db.select().from(modelRoutes).orderBy(modelRoutes.model);
   return c.json({
     data: rows.map(serializeModelRoute),
+  });
+});
+
+adminRoutes.post("/models/sync-pricing", async (c) => {
+  const auth = c.get("adminAuth");
+  if (!hasApiPerm(auth, "api.pricing.write")) {
+    return c.json({ error: "无权限" }, 403);
+  }
+  const schema = z.object({
+    modelIds: z.array(z.string()).optional(),
+  });
+  const parsed = schema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
+  const idFilter = parsed.data.modelIds?.length
+    ? new Set(parsed.data.modelIds)
+    : null;
+
+  const routes = await db.select().from(modelRoutes);
+  const channelRows = await db.select().from(channels);
+  const channelById = new Map(channelRows.map((ch) => [ch.id, ch]));
+  const existingPrices = await db.select().from(modelPrices);
+
+  type SyncItem = {
+    routeId: string;
+    displayModel: string;
+    upstreamModel: string;
+    channelId: string;
+  };
+  const byChannel = new Map<string, SyncItem[]>();
+
+  for (const raw of routes) {
+    if (idFilter && !idFilter.has(raw.id)) continue;
+    const route = serializeModelRoute(raw);
+    const channelIds = route.channelIds.length
+      ? route.channelIds
+      : route.targets.map((t) => t.channelId);
+    const uniqueChannelIds = [...new Set(channelIds)];
+    for (const channelId of uniqueChannelIds) {
+      if (!channelById.has(channelId)) continue;
+      const upstreamModel = upstreamModelNameForChannel(route, channelId);
+      const list = byChannel.get(channelId) ?? [];
+      list.push({
+        routeId: raw.id,
+        displayModel: route.model,
+        upstreamModel,
+        channelId,
+      });
+      byChannel.set(channelId, list);
+    }
+  }
+
+  if (!byChannel.size) {
+    return c.json({ error: "模型管理中没有可同步定价的模型" }, 400);
+  }
+
+  type ChannelResult = {
+    channelId: string;
+    channelName: string;
+    ok: boolean;
+    synced: number;
+    created: number;
+    updated: number;
+    missing: number;
+    missingModels: string[];
+    error?: string;
+    message: string;
+  };
+
+  const results: ChannelResult[] = [];
+
+  for (const [channelId, items] of byChannel) {
+    const ch = channelById.get(channelId)!;
+    const pricingUrl = pricingUrlFromBaseUrl(ch.baseUrl);
+    const deduped = new Map<string, SyncItem>();
+    for (const item of items) {
+      deduped.set(`${item.displayModel}\0${item.upstreamModel}`, item);
+    }
+    const work = [...deduped.values()];
+
+    let payload;
+    try {
+      payload = await fetchNewApiPricing(pricingUrl, ch.timeoutMs);
+    } catch (e) {
+      const err = e instanceof Error ? e.message : "拉取上游定价失败";
+      results.push({
+        channelId,
+        channelName: ch.name,
+        ok: false,
+        synced: 0,
+        created: 0,
+        updated: 0,
+        missing: work.length,
+        missingModels: work.map((w) => w.displayModel),
+        error: err,
+        message: `${ch.name} 定价未同步（${err}）`,
+      });
+      continue;
+    }
+
+    let created = 0;
+    let updated = 0;
+    const missingModels: string[] = [];
+    const priceIndex = new Map<string, typeof modelPrices.$inferSelect>();
+    for (const row of existingPrices) {
+      if (row.channelId === channelId) {
+        priceIndex.set(row.externalModel, row);
+        priceIndex.set(row.globalModel, row);
+      }
+    }
+
+    for (const item of work) {
+      const upstream = resolveBestPriceForModel(payload, item.upstreamModel);
+      if (!upstream) {
+        missingModels.push(item.displayModel);
+        continue;
+      }
+      const existing = priceIndex.get(item.displayModel);
+      const remark =
+        `模型管理同步 · ${upstream.group} · ${payload.pricing_version ?? ""}`.slice(0, 500);
+      const costPer1m = upstream.inputPer1m;
+
+      if (existing) {
+        await db
+          .update(modelPrices)
+          .set({
+            providerModel: item.upstreamModel,
+            inputPer1mCents: priceUnitFromUsd(upstream.inputPer1m),
+            outputPer1mCents: priceUnitFromUsd(upstream.outputPer1m),
+            cacheHitPer1mCents: priceUnitFromUsd(upstream.cacheHitPer1m),
+            costPer1mCents: priceUnitFromUsd(costPer1m),
+            remark,
+            updatedAt: new Date(),
+          })
+          .where(eq(modelPrices.id, existing.id));
+        updated += 1;
+        continue;
+      }
+
+      const newRow = {
+        id: id("price"),
+        externalModel: item.displayModel,
+        globalModel: item.displayModel,
+        providerModel: item.upstreamModel,
+        channelId,
+        inputPer1mCents: priceUnitFromUsd(upstream.inputPer1m),
+        outputPer1mCents: priceUnitFromUsd(upstream.outputPer1m),
+        cacheHitPer1mCents: priceUnitFromUsd(upstream.cacheHitPer1m),
+        costPer1mCents: priceUnitFromUsd(costPer1m),
+        enabled: true,
+        remark,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      await db.insert(modelPrices).values(newRow);
+      existingPrices.push(newRow);
+      priceIndex.set(item.displayModel, newRow);
+      created += 1;
+    }
+
+    const synced = created + updated;
+    let message: string;
+    if (synced === 0) {
+      message =
+        missingModels.length === work.length
+          ? `${ch.name} 定价未同步（上游未找到 ${missingModels.length} 个模型）`
+          : `${ch.name} 定价未同步`;
+    } else if (missingModels.length > 0) {
+      message = `${ch.name} 定价已同步 ${synced} 个模型，${missingModels.length} 个未找到上游定价`;
+    } else {
+      message = `${ch.name} 定价已同步 ${synced} 个模型`;
+    }
+
+    results.push({
+      channelId,
+      channelName: ch.name,
+      ok: synced > 0,
+      synced,
+      created,
+      updated,
+      missing: missingModels.length,
+      missingModels,
+      message,
+    });
+  }
+
+  const messages = results.map((r) => r.message);
+  const totalSynced = results.reduce((n, r) => n + r.synced, 0);
+
+  return c.json({
+    ok: totalSynced > 0,
+    totalSynced,
+    channels: results,
+    messages,
   });
 });
 

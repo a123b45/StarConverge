@@ -23,6 +23,7 @@ export default function ModelCatalogPage() {
   const [msg, setMsg] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [priceSyncBusy, setPriceSyncBusy] = useState(false);
 
   async function load() {
     const [m, c] = await Promise.all([
@@ -131,6 +132,65 @@ export default function ModelCatalogPage() {
     }
   }
 
+  async function syncPricingFromUpstream(list: ModelRow[], label: string) {
+    if (!list.length) {
+      setMsg(`${label}：当前没有可同步定价的模型`);
+      return;
+    }
+    setPriceSyncBusy(true);
+    setError("");
+    setMsg("");
+    try {
+      const res = await api<{
+        ok: boolean;
+        totalSynced: number;
+        messages: string[];
+        channels: Array<{
+          channelName: string;
+          synced: number;
+          missing: number;
+          missingModels: string[];
+          error?: string;
+        }>;
+      }>("/models/sync-pricing", {
+        method: "POST",
+        body: JSON.stringify({ modelIds: list.map((r) => r.id) }),
+      });
+
+      const detailLines = res.channels
+        .filter((ch) => ch.missingModels.length > 0)
+        .map((ch) => {
+          const names = ch.missingModels.slice(0, 5).join("、");
+          const more =
+            ch.missingModels.length > 5
+              ? ` 等 ${ch.missingModels.length} 个`
+              : "";
+          return `${ch.channelName} 未找到定价：${names}${more}`;
+        });
+
+      const summary = res.messages.join("；");
+      const hasFailure = res.channels.some((ch) => ch.synced === 0 || ch.missing > 0);
+      const hasSuccess = res.totalSynced > 0;
+
+      if (detailLines.length) {
+        setError(detailLines.join("；"));
+      }
+      setMsg(
+        hasSuccess
+          ? `${label}：${summary}${detailLines.length ? "（部分模型未找到上游定价，见下方提示）" : ""}`
+          : `${label}：${summary || "定价未同步"}`,
+      );
+
+      if (!hasSuccess && hasFailure && !detailLines.length) {
+        setError(res.channels.map((ch) => ch.error || ch.channelName).join("；"));
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "同步定价失败");
+    } finally {
+      setPriceSyncBusy(false);
+    }
+  }
+
   async function remove(row: ModelRow) {
     const ok = await softConfirm({
       title: "删除模型",
@@ -167,7 +227,16 @@ export default function ModelCatalogPage() {
 
       {error ? <div className="alert">{error}</div> : null}
       {msg ? (
-        <div className={`alert ${msg.includes("取消") || msg.includes("失败") ? "" : "ok"}`}>
+        <div
+          className={`alert ${
+            msg.includes("取消") ||
+            msg.includes("失败") ||
+            msg.includes("未同步") ||
+            (msg.includes("未找到") && !msg.includes("已同步"))
+              ? ""
+              : "ok"
+          }`}
+        >
           {msg}
         </div>
       ) : null}
@@ -194,7 +263,16 @@ export default function ModelCatalogPage() {
           <button
             type="button"
             className="btn ghost"
-            disabled={bulkBusy || filterDraftCount === 0}
+            disabled={bulkBusy || priceSyncBusy || rows.length === 0}
+            title="按模型管理列表，从各供应商上游拉取最新定价"
+            onClick={() => void syncPricingFromUpstream(rows, "全部定价同步")}
+          >
+            {priceSyncBusy ? "同步定价中…" : "一键同步定价"}
+          </button>
+          <button
+            type="button"
+            className="btn ghost"
+            disabled={bulkBusy || priceSyncBusy || filterDraftCount === 0}
             title="将当前筛选结果中未同步的模型同步给用户"
             onClick={() => void publishMany(filtered, "筛选同步")}
           >
@@ -203,7 +281,7 @@ export default function ModelCatalogPage() {
           <button
             type="button"
             className="btn"
-            disabled={bulkBusy || allDraftCount === 0}
+            disabled={bulkBusy || priceSyncBusy || allDraftCount === 0}
             title="将全部未同步模型同步给用户"
             onClick={() => void publishMany(rows, "全部同步")}
           >
@@ -241,7 +319,7 @@ export default function ModelCatalogPage() {
                         <button
                           type="button"
                           className="btn ghost sm"
-                          disabled={busyId === r.id || bulkBusy}
+                          disabled={busyId === r.id || bulkBusy || priceSyncBusy}
                           onClick={() => void setPublished(r, false)}
                         >
                           取消用户同步
@@ -250,7 +328,7 @@ export default function ModelCatalogPage() {
                         <button
                           type="button"
                           className="btn sm"
-                          disabled={busyId === r.id || bulkBusy}
+                          disabled={busyId === r.id || bulkBusy || priceSyncBusy}
                           onClick={() => void setPublished(r, true)}
                         >
                           同步给用户
@@ -259,7 +337,7 @@ export default function ModelCatalogPage() {
                       <button
                         type="button"
                         className="btn danger sm"
-                        disabled={busyId === r.id || bulkBusy}
+                        disabled={busyId === r.id || bulkBusy || priceSyncBusy}
                         onClick={() => void remove(r)}
                       >
                         删除
