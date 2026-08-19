@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
 import ModelPicker from "../components/ModelPicker";
+import RoutePicker from "../components/RoutePicker";
 import SoftSelect from "../components/SoftSelect";
 import SoftToast from "../components/SoftToast";
 import { softConfirm } from "../components/SoftDialog";
@@ -826,30 +827,20 @@ export default function TokensPage() {
                 单选。选中后，该密钥的可用模型请求都会走此路由的上游通道；客户端仍可按可用模型名调用，
                 响应里也保持请求的模型名。不选则按请求模型名正常解析路由。
               </p>
-              <div className="km-route-picks">
-                {routes.map((rt) => {
-                  const on = form.routeIds[0] === rt.id;
-                  return (
-                    <button
-                      key={rt.id}
-                      type="button"
-                      className={`km-route-chip${on ? " on" : ""}`}
-                      onClick={() =>
-                        setForm({
-                          ...form,
-                          routeIds: on ? [] : [rt.id],
-                        })
-                      }
-                    >
-                      {rt.model}
-                      {!rt.enabled ? " (停用)" : ""}
-                    </button>
-                  );
-                })}
-                {!routes.length ? (
-                  <span className="tk-tag-empty">暂无路由，请先在路由管理中创建</span>
-                ) : null}
-              </div>
+              {routes.length ? (
+                <RoutePicker
+                  options={routes}
+                  value={form.routeIds[0] ?? ""}
+                  onChange={(routeId) =>
+                    setForm({
+                      ...form,
+                      routeIds: routeId ? [routeId] : [],
+                    })
+                  }
+                />
+              ) : (
+                <span className="tk-tag-empty">暂无路由，请先在路由管理中创建</span>
+              )}
             </div>
 
             <div className="stack-field" style={{ marginTop: 12 }}>
