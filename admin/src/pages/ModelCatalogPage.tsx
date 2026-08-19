@@ -190,29 +190,31 @@ export default function ModelCatalogPage() {
             { value: "draft", label: "未同步给用户" },
           ]}
         />
-        <button
-          type="button"
-          className="btn ghost"
-          disabled={bulkBusy || filterDraftCount === 0}
-          title="将当前筛选结果中未同步的模型同步给用户"
-          onClick={() => void publishMany(filtered, "筛选同步")}
-        >
-          {bulkBusy ? "同步中…" : `筛选同步${filterDraftCount ? ` (${filterDraftCount})` : ""}`}
-        </button>
-        <button
-          type="button"
-          className="btn"
-          disabled={bulkBusy || allDraftCount === 0}
-          title="将全部未同步模型同步给用户"
-          onClick={() => void publishMany(rows, "全部同步")}
-        >
-          {bulkBusy ? "同步中…" : `全部同步${allDraftCount ? ` (${allDraftCount})` : ""}`}
-        </button>
+        <div className="mc-toolbar-actions">
+          <button
+            type="button"
+            className="btn ghost"
+            disabled={bulkBusy || filterDraftCount === 0}
+            title="将当前筛选结果中未同步的模型同步给用户"
+            onClick={() => void publishMany(filtered, "筛选同步")}
+          >
+            {bulkBusy ? "同步中…" : `筛选同步${filterDraftCount ? ` (${filterDraftCount})` : ""}`}
+          </button>
+          <button
+            type="button"
+            className="btn"
+            disabled={bulkBusy || allDraftCount === 0}
+            title="将全部未同步模型同步给用户"
+            onClick={() => void publishMany(rows, "全部同步")}
+          >
+            {bulkBusy ? "同步中…" : `全部同步${allDraftCount ? ` (${allDraftCount})` : ""}`}
+          </button>
+        </div>
       </div>
 
       <div className="panel">
         <div className="table-wrap">
-          <table className="table">
+          <table className="table mc-table">
             <thead>
               <tr>
                 <th>模型</th>
@@ -233,34 +235,36 @@ export default function ModelCatalogPage() {
                       {r.published ? "已同步" : "未同步"}
                     </span>
                   </td>
-                  <td className="row-actions">
-                    {r.published ? (
+                  <td>
+                    <div className="row-actions mc-row-actions">
+                      {r.published ? (
+                        <button
+                          type="button"
+                          className="btn ghost sm"
+                          disabled={busyId === r.id || bulkBusy}
+                          onClick={() => void setPublished(r, false)}
+                        >
+                          取消用户同步
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="btn sm"
+                          disabled={busyId === r.id || bulkBusy}
+                          onClick={() => void setPublished(r, true)}
+                        >
+                          同步给用户
+                        </button>
+                      )}
                       <button
                         type="button"
-                        className="btn ghost sm"
+                        className="btn danger sm"
                         disabled={busyId === r.id || bulkBusy}
-                        onClick={() => void setPublished(r, false)}
+                        onClick={() => void remove(r)}
                       >
-                        取消用户同步
+                        删除
                       </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className="btn sm"
-                        disabled={busyId === r.id || bulkBusy}
-                        onClick={() => void setPublished(r, true)}
-                      >
-                        同步给用户
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      className="btn danger sm"
-                      disabled={busyId === r.id || bulkBusy}
-                      onClick={() => void remove(r)}
-                    >
-                      删除
-                    </button>
+                    </div>
                   </td>
                 </tr>
               ))}

@@ -670,9 +670,50 @@ html[data-theme="dark"] .count-chip {
   flex: 0 0 auto;
   min-width: 160px;
 }
-.mc-toolbar .btn {
+.mc-toolbar-actions {
+  margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.mc-toolbar-actions .btn {
   flex: 0 0 auto;
   white-space: nowrap;
+}
+
+.mc-table {
+  table-layout: fixed;
+}
+.mc-table th:nth-child(1),
+.mc-table td:nth-child(1) {
+  width: 24%;
+}
+.mc-table th:nth-child(2),
+.mc-table td:nth-child(2) {
+  width: 14%;
+}
+.mc-table th:nth-child(3),
+.mc-table td:nth-child(3) {
+  width: 28%;
+}
+.mc-table th:nth-child(4),
+.mc-table td:nth-child(4) {
+  width: 12%;
+  text-align: center;
+}
+.mc-table th:nth-child(5),
+.mc-table td:nth-child(5) {
+  width: 22%;
+  text-align: right;
+}
+.mc-table td.mono {
+  word-break: break-word;
+  white-space: normal;
+}
+.mc-row-actions {
+  justify-content: flex-end;
+  flex-wrap: nowrap;
 }
 
 .search {
