@@ -464,8 +464,27 @@ code,
   display: inline-block;
 }
 
-.pricing-toolbar {
+.pricing-topbar {
+  align-items: flex-start;
+}
+
+.pricing-topbar-actions {
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+}
+
+.pricing-filters {
   flex-wrap: wrap;
+}
+
+.pricing-filters .search {
+  flex: 1 1 220px;
+  max-width: 360px;
+}
+
+.pricing-filters .soft-select-sm {
+  flex: 0 0 auto;
+  min-width: 148px;
 }
 
 .pricing-footer {

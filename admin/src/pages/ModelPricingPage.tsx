@@ -353,63 +353,12 @@ export default function ModelPricingPage() {
 
   return (
     <>
-      <div className="topbar">
+      <div className="topbar pricing-topbar">
         <div className="page-head">
           <h2>方案与定价中心</h2>
           <p>设置和服务提供商的价格，所有价格都和服务商的账号绑定</p>
         </div>
-        <div className="row-actions pricing-toolbar">
-          <input
-            className="search"
-            placeholder="搜索模型或服务商..."
-            value={q}
-            onChange={(e) => {
-              setQ(e.target.value);
-              setPage(1);
-            }}
-          />
-          <SoftSelect
-            className="soft-select-filter soft-select-sm"
-            ariaLabel="服务商"
-            value={providerFilter}
-            onChange={(v) => {
-              setProviderFilter(v);
-              setPage(1);
-            }}
-            options={[
-              { value: "all", label: "服务商：全部" },
-              { value: OTHER_PROVIDER, label: "服务商：其他服务商" },
-              ...channels.map((ch) => ({ value: ch.id, label: ch.name })),
-            ]}
-          />
-          <SoftSelect
-            className="soft-select-filter soft-select-sm"
-            ariaLabel="状态"
-            value={statusFilter}
-            onChange={(v) => {
-              setStatusFilter(v as "all" | "on" | "off");
-              setPage(1);
-            }}
-            options={[
-              { value: "all", label: "状态：全部" },
-              { value: "on", label: "状态：启用" },
-              { value: "off", label: "状态：禁用" },
-            ]}
-          />
-          <SoftSelect
-            className="soft-select-filter soft-select-sm"
-            ariaLabel="价格"
-            value={priceFilter}
-            onChange={(v) => {
-              setPriceFilter(v as "all" | "set" | "zero");
-              setPage(1);
-            }}
-            options={[
-              { value: "all", label: "价格：全部" },
-              { value: "set", label: "价格：已配置" },
-              { value: "zero", label: "价格：未配置" },
-            ]}
-          />
+        <div className="row-actions pricing-topbar-actions">
           <button
             className="btn ghost"
             type="button"
@@ -422,6 +371,60 @@ export default function ModelPricingPage() {
             + 配置新价格
           </button>
         </div>
+      </div>
+
+      <div className="toolbar pricing-filters">
+        <input
+          className="search"
+          placeholder="搜索模型或服务商..."
+          value={q}
+          onChange={(e) => {
+            setQ(e.target.value);
+            setPage(1);
+          }}
+        />
+        <SoftSelect
+          className="soft-select-filter soft-select-sm"
+          ariaLabel="服务商"
+          value={providerFilter}
+          onChange={(v) => {
+            setProviderFilter(v);
+            setPage(1);
+          }}
+          options={[
+            { value: "all", label: "服务商：全部" },
+            { value: OTHER_PROVIDER, label: "服务商：其他服务商" },
+            ...channels.map((ch) => ({ value: ch.id, label: ch.name })),
+          ]}
+        />
+        <SoftSelect
+          className="soft-select-filter soft-select-sm"
+          ariaLabel="状态"
+          value={statusFilter}
+          onChange={(v) => {
+            setStatusFilter(v as "all" | "on" | "off");
+            setPage(1);
+          }}
+          options={[
+            { value: "all", label: "状态：全部" },
+            { value: "on", label: "状态：启用" },
+            { value: "off", label: "状态：禁用" },
+          ]}
+        />
+        <SoftSelect
+          className="soft-select-filter soft-select-sm"
+          ariaLabel="价格"
+          value={priceFilter}
+          onChange={(v) => {
+            setPriceFilter(v as "all" | "set" | "zero");
+            setPage(1);
+          }}
+          options={[
+            { value: "all", label: "价格：全部" },
+            { value: "set", label: "价格：已配置" },
+            { value: "zero", label: "价格：未配置" },
+          ]}
+        />
       </div>
 
       {error && !open && !syncOpen ? <div className="alert">{error}</div> : null}
