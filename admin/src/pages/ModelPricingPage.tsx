@@ -358,19 +358,6 @@ export default function ModelPricingPage() {
           <h2>方案与定价中心</h2>
           <p>设置和服务提供商的价格，所有价格都和服务商的账号绑定</p>
         </div>
-        <div className="row-actions pricing-topbar-actions">
-          <button
-            className="btn ghost"
-            type="button"
-            disabled={noChannels}
-            onClick={openSyncModal}
-          >
-            从上游同步定价
-          </button>
-          <button className="btn" type="button" onClick={openCreate}>
-            + 配置新价格
-          </button>
-        </div>
       </div>
 
       <div className="toolbar pricing-filters">
@@ -425,6 +412,19 @@ export default function ModelPricingPage() {
             { value: "zero", label: "价格：未配置" },
           ]}
         />
+        <div className="pricing-filters-actions">
+          <button
+            className="btn ghost"
+            type="button"
+            disabled={noChannels}
+            onClick={openSyncModal}
+          >
+            从上游同步定价
+          </button>
+          <button className="btn" type="button" onClick={openCreate}>
+            + 配置新价格
+          </button>
+        </div>
       </div>
 
       {error && !open && !syncOpen ? <div className="alert">{error}</div> : null}

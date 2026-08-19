@@ -465,16 +465,12 @@ code,
 }
 
 .pricing-topbar {
-  align-items: flex-start;
-}
-
-.pricing-topbar-actions {
-  flex-shrink: 0;
-  flex-wrap: nowrap;
+  margin-bottom: 14px;
 }
 
 .pricing-filters {
   flex-wrap: wrap;
+  align-items: center;
 }
 
 .pricing-filters .search {
@@ -485,6 +481,18 @@ code,
 .pricing-filters .soft-select-sm {
   flex: 0 0 auto;
   min-width: 148px;
+}
+
+.pricing-filters-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: nowrap;
+}
+
+.pricing-filters-actions .btn {
+  white-space: nowrap;
 }
 
 .pricing-footer {
