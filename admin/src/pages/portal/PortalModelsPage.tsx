@@ -81,9 +81,6 @@ export default function PortalModelsPage() {
             </p>
           </div>
         </div>
-      </div>
-
-      <div className="portal-models-layout">
         <div className="portal-toolbar">
           <input
             className="portal-search"
@@ -95,6 +92,9 @@ export default function PortalModelsPage() {
             获取 API Key
           </Link>
         </div>
+      </div>
+
+      <div className="portal-models-layout">
         {error ? <div className="alert">{error}</div> : null}
 
         <div className="portal-models-body">

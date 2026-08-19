@@ -4338,14 +4338,17 @@ html[data-theme="dark"] .portal-user-dropdown button:hover {
 .portal-models-page .portal-page-head {
   max-width: 1100px;
   margin: 0 auto;
-  padding: 0 0 18px;
+  padding: 0 24px 18px;
 }
 .portal-models-page .portal-page-head.portal-page {
-  padding-bottom: 0;
+  padding: 0 24px 18px;
+}
+.portal-models-page .portal-page-head .portal-toolbar {
+  margin-bottom: 0;
 }
 .portal-hero-title {
   align-items: flex-start;
-  margin-bottom: 0;
+  margin-bottom: 14px;
 }
 .portal-models-layout {
   width: 100%;
