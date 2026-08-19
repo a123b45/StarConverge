@@ -4601,6 +4601,29 @@ html[data-theme="dark"] .portal-bar-tip::after {
   font-weight: 500;
   font-size: 12px;
 }
+.portal-table-wrap {
+  overflow-x: auto;
+}
+.portal-trace-table th:nth-child(1),
+.portal-trace-table td:nth-child(1) {
+  white-space: nowrap;
+}
+.portal-trace-table th:nth-child(3),
+.portal-trace-table td:nth-child(3) {
+  min-width: 88px;
+  max-width: 140px;
+}
+.portal-trace-key {
+  font-weight: 550;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.portal-trace-time {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
 .portal-key {
   font-family: "JetBrains Mono", monospace;
   font-size: 12px;

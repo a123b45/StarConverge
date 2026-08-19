@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { formatTokens, portalApi } from "../../lib/api";
 import SoftSelect from "../../components/SoftSelect";
 import {
@@ -50,6 +50,7 @@ type Daily = {
 type Req = {
   id: string;
   model: string | null;
+  keyName?: string;
   path?: string;
   promptTokens: number;
   completionTokens: number;
@@ -57,10 +58,6 @@ type Req = {
   durationMs: number | null;
   ok: boolean;
   createdAt: string | Date;
-  error?: string | null;
-  requestPreview?: string | null;
-  responsePreview?: string | null;
-  messageCount?: number;
 };
 
 function money(n: number, digits = 3) {
@@ -99,7 +96,6 @@ export default function PortalUsagePage() {
   const [model, setModel] = useState("");
   const [modelOptions, setModelOptions] = useState<string[]>([]);
   const [error, setError] = useState("");
-  const [openId, setOpenId] = useState<string | null>(null);
 
   const maxCalls = useMemo(
     () => Math.max(1, ...daily.map((d) => d.calls), 1),
@@ -166,7 +162,7 @@ export default function PortalUsagePage() {
       <div className="portal-hero">
         <div>
           <h1>用量与链路</h1>
-          <p>调用趋势、模型明细与单次请求内容追踪</p>
+          <p>调用趋势、模型明细与请求链路记录</p>
         </div>
         <div className="portal-hero-actions">
           <SoftSelect
@@ -361,32 +357,35 @@ export default function PortalUsagePage() {
           </div>
         </>
       ) : (
-        <div className="portal-panel">
+        <div className="portal-panel portal-trace-panel">
           <div className="portal-panel-head">
             <h3>最近请求</h3>
             <span className="muted">共 {total} 条记录</span>
           </div>
-          <table className="portal-table">
-            <thead>
-              <tr>
-                <th>时间</th>
-                <th>模型</th>
-                <th>TOKENS</th>
-                <th>输入</th>
-                <th>输出</th>
-                <th>延迟</th>
-                <th>状态</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {requests.map((r) => (
-                <Fragment key={r.id}>
-                  <tr>
-                    <td>{new Date(r.createdAt).toLocaleString()}</td>
+          <div className="portal-table-wrap">
+            <table className="portal-table portal-trace-table">
+              <thead>
+                <tr>
+                  <th>时间</th>
+                  <th>模型</th>
+                  <th>调用 Key</th>
+                  <th>TOKENS</th>
+                  <th>输入</th>
+                  <th>输出</th>
+                  <th>延迟</th>
+                  <th>状态</th>
+                </tr>
+              </thead>
+              <tbody>
+                {requests.map((r) => (
+                  <tr key={r.id}>
+                    <td className="portal-trace-time">
+                      {new Date(r.createdAt).toLocaleString()}
+                    </td>
                     <td>
                       <code>{r.model}</code>
                     </td>
+                    <td className="portal-trace-key">{r.keyName || "—"}</td>
                     <td>
                       <strong>{r.totalTokens.toLocaleString()}</strong>
                     </td>
@@ -402,52 +401,18 @@ export default function PortalUsagePage() {
                         {r.ok ? "成功" : "失败"}
                       </span>
                     </td>
-                    <td>
-                      <button
-                        type="button"
-                        className="portal-btn ghost sm"
-                        onClick={() => setOpenId(openId === r.id ? null : r.id)}
-                      >
-                        {openId === r.id ? "收起" : "内容"}
-                      </button>
+                  </tr>
+                ))}
+                {!requests.length ? (
+                  <tr>
+                    <td colSpan={8} className="muted">
+                      暂无请求记录
                     </td>
                   </tr>
-                  {openId === r.id ? (
-                    <tr className="portal-trace-row">
-                      <td colSpan={8}>
-                        <div className="portal-trace">
-                          <div>
-                            <div className="label">请求内容</div>
-                            <pre>{r.requestPreview || "（无预览）"}</pre>
-                          </div>
-                          <div>
-                            <div className="label">响应内容</div>
-                            <pre>
-                              {r.responsePreview || r.error || "（无预览）"}
-                            </pre>
-                          </div>
-                          <div className="portal-trace-meta">
-                            <span>消息数 {r.messageCount ?? 0}</span>
-                            <span>{r.path || "—"}</span>
-                            {r.error ? (
-                              <span className="danger-text">{r.error}</span>
-                            ) : null}
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  ) : null}
-                </Fragment>
-              ))}
-              {!requests.length ? (
-                <tr>
-                  <td colSpan={8} className="muted">
-                    暂无请求记录
-                  </td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
           <div className="portal-pager">
             <button
               className="portal-btn ghost sm"

@@ -555,17 +555,22 @@ portalRoutes.get("/usage/requests", async (c) => {
     .where(where);
   const total = Number(countRow[0]?.count ?? 0);
   const rows = await db
-    .select()
+    .select({
+      log: requestLogs,
+      tokenName: tokens.name,
+    })
     .from(requestLogs)
+    .leftJoin(tokens, eq(requestLogs.tokenId, tokens.id))
     .where(where)
     .orderBy(desc(requestLogs.createdAt))
     .limit(pageSize)
     .offset((page - 1) * pageSize);
 
   return c.json({
-    data: rows.map((r) => ({
+    data: rows.map(({ log: r, tokenName }) => ({
       id: r.id,
       model: r.model,
+      keyName: tokenName || "—",
       path: r.path,
       promptTokens: r.promptTokens ?? 0,
       completionTokens: r.completionTokens ?? 0,
@@ -575,8 +580,6 @@ portalRoutes.get("/usage/requests", async (c) => {
       ok: (r.statusCode ?? 0) >= 200 && (r.statusCode ?? 0) < 400,
       createdAt: r.createdAt,
       error: r.error,
-      requestPreview: r.requestPreview,
-      responsePreview: r.responsePreview,
       messageCount: r.messageCount ?? 0,
       channelId: r.channelId,
     })),
