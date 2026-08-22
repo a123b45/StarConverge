@@ -33,6 +33,7 @@ type ByModel = {
   promptTokens: number;
   completionTokens: number;
   totalTokens: number;
+  cost?: number;
   share?: number;
   p50Ms: number;
   p95Ms: number;
@@ -323,6 +324,7 @@ export default function PortalUsagePage() {
                   <th>调用次数</th>
                   <th>Token 消耗</th>
                   <th>输入 / 输出</th>
+                  <th>消耗金额</th>
                   <th>P50</th>
                   <th>P95</th>
                 </tr>
@@ -341,13 +343,14 @@ export default function PortalUsagePage() {
                       {m.promptTokens.toLocaleString()} /{" "}
                       {m.completionTokens.toLocaleString()}
                     </td>
+                    <td>{money(m.cost ?? 0)}</td>
                     <td>{(m.p50Ms / 1000).toFixed(1)}s</td>
                     <td>{(m.p95Ms / 1000).toFixed(1)}s</td>
                   </tr>
                 ))}
                 {!byModel.length ? (
                   <tr>
-                    <td colSpan={6} className="muted">
+                    <td colSpan={7} className="muted">
                       暂无用量数据
                     </td>
                   </tr>

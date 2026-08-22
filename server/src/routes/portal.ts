@@ -392,6 +392,7 @@ portalRoutes.get("/usage", async (c) => {
       promptTokens: number;
       completionTokens: number;
       totalTokens: number;
+      costMilli: number;
       durations: number[];
     }
   >();
@@ -433,12 +434,17 @@ portalRoutes.get("/usage", async (c) => {
       promptTokens: 0,
       completionTokens: 0,
       totalTokens: 0,
+      costMilli: 0,
       durations: [] as number[],
     };
     entry.calls += 1;
     entry.promptTokens += pt;
     entry.completionTokens += ct;
     entry.totalTokens += tt;
+    if (rate) {
+      entry.costMilli +=
+        (pt / 1_000_000) * rate.inMilli + (ct / 1_000_000) * rate.outMilli;
+    }
     if (log.durationMs != null) entry.durations.push(log.durationMs);
     byModelMap.set(m, entry);
 
@@ -478,6 +484,7 @@ portalRoutes.get("/usage", async (c) => {
     promptTokens: e.promptTokens,
     completionTokens: e.completionTokens,
     totalTokens: e.totalTokens,
+    cost: Math.round(e.costMilli) / 1000,
     share: logs.length ? Math.round((e.calls / logs.length) * 1000) / 10 : 0,
     p50Ms: pct(e.durations, 50),
     p95Ms: pct(e.durations, 95),
