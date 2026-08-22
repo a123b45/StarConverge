@@ -44,6 +44,7 @@ import {
   serializeIpRules,
   type IpRule,
 } from "../utils/ip-allow.js";
+import { buildExcelXml } from "../utils/excel-xml.js";
 
 const ipRuleSchema = z.object({
   name: z.string().optional(),
@@ -2023,47 +2024,88 @@ adminRoutes.delete("/proxy-routes/:id", async (c) => {
   return c.json({ ok: true });
 });
 
+function logsWhere(query: {
+  model?: string | undefined;
+  tokenId?: string | undefined;
+  sinceHours?: number;
+}) {
+  const conditions = [];
+  if (query.model) {
+    conditions.push(
+      or(
+        eq(requestLogs.model, query.model),
+        eq(requestLogs.upstreamModel, query.model),
+      ),
+    );
+  }
+  if (query.tokenId) conditions.push(eq(requestLogs.tokenId, query.tokenId));
+  if (query.sinceHours && query.sinceHours > 0) {
+    conditions.push(
+      gte(requestLogs.createdAt, new Date(Date.now() - query.sinceHours * 3600_000)),
+    );
+  }
+  return conditions.length ? and(...conditions) : undefined;
+}
+
+function formatLogTime(d: Date | string | number | null | undefined) {
+  if (!d) return "";
+  const dt = d instanceof Date ? d : new Date(d);
+  if (Number.isNaN(dt.getTime())) return "";
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())} ${p(dt.getHours())}:${p(dt.getMinutes())}:${p(dt.getSeconds())}`;
+}
+
+function combineLogContent(
+  requestPreview?: string | null,
+  responsePreview?: string | null,
+) {
+  const req = (requestPreview ?? "").trim();
+  const resp = (responsePreview ?? "").trim();
+  if (req && resp) return `请求：\n${req}\n\n响应：\n${resp}`;
+  if (req) return req;
+  if (resp) return resp;
+  return "";
+}
+
+const logSelectFields = {
+  id: requestLogs.id,
+  tokenId: requestLogs.tokenId,
+  channelId: requestLogs.channelId,
+  channelName: channels.name,
+  username: users.username,
+  displayName: users.displayName,
+  tokenName: tokens.name,
+  model: requestLogs.model,
+  upstreamModel: requestLogs.upstreamModel,
+  path: requestLogs.path,
+  method: requestLogs.method,
+  statusCode: requestLogs.statusCode,
+  promptTokens: requestLogs.promptTokens,
+  completionTokens: requestLogs.completionTokens,
+  totalTokens: requestLogs.totalTokens,
+  durationMs: requestLogs.durationMs,
+  ip: requestLogs.ip,
+  error: requestLogs.error,
+  requestPreview: requestLogs.requestPreview,
+  responsePreview: requestLogs.responsePreview,
+  createdAt: requestLogs.createdAt,
+};
+
 // ---- Logs ----
 adminRoutes.get("/logs", async (c) => {
   const limit = Math.min(Number(c.req.query("limit") ?? 50), 200);
   const offset = Number(c.req.query("offset") ?? 0);
-  const model = c.req.query("model");
-  const tokenId = c.req.query("tokenId");
-  const sinceHours = Number(c.req.query("sinceHours") ?? 0);
-
-  const conditions = [];
-  if (model) {
-    conditions.push(
-      or(eq(requestLogs.model, model), eq(requestLogs.upstreamModel, model)),
-    );
-  }
-  if (tokenId) conditions.push(eq(requestLogs.tokenId, tokenId));
-  if (sinceHours > 0) {
-    conditions.push(gte(requestLogs.createdAt, new Date(Date.now() - sinceHours * 3600_000)));
-  }
-
-  const where = conditions.length ? and(...conditions) : undefined;
+  const where = logsWhere({
+    model: c.req.query("model"),
+    tokenId: c.req.query("tokenId"),
+    sinceHours: Number(c.req.query("sinceHours") ?? 0),
+  });
   const rows = await db
-    .select({
-      id: requestLogs.id,
-      tokenId: requestLogs.tokenId,
-      channelId: requestLogs.channelId,
-      channelName: channels.name,
-      model: requestLogs.model,
-      upstreamModel: requestLogs.upstreamModel,
-      path: requestLogs.path,
-      method: requestLogs.method,
-      statusCode: requestLogs.statusCode,
-      promptTokens: requestLogs.promptTokens,
-      completionTokens: requestLogs.completionTokens,
-      totalTokens: requestLogs.totalTokens,
-      durationMs: requestLogs.durationMs,
-      ip: requestLogs.ip,
-      error: requestLogs.error,
-      createdAt: requestLogs.createdAt,
-    })
+    .select(logSelectFields)
     .from(requestLogs)
     .leftJoin(channels, eq(requestLogs.channelId, channels.id))
+    .leftJoin(tokens, eq(requestLogs.tokenId, tokens.id))
+    .leftJoin(users, eq(tokens.userId, users.id))
     .where(where)
     .orderBy(desc(requestLogs.createdAt))
     .limit(limit)
@@ -2075,4 +2117,37 @@ adminRoutes.get("/logs", async (c) => {
     .where(where);
 
   return c.json({ data: rows, total: Number(count) });
+});
+
+adminRoutes.get("/logs/export", async (c) => {
+  const where = logsWhere({
+    model: c.req.query("model"),
+    tokenId: c.req.query("tokenId"),
+    sinceHours: Number(c.req.query("sinceHours") ?? 0),
+  });
+  const rows = await db
+    .select(logSelectFields)
+    .from(requestLogs)
+    .leftJoin(channels, eq(requestLogs.channelId, channels.id))
+    .leftJoin(tokens, eq(requestLogs.tokenId, tokens.id))
+    .leftJoin(users, eq(tokens.userId, users.id))
+    .where(where)
+    .orderBy(desc(requestLogs.createdAt))
+    .limit(5000);
+
+  const xml = buildExcelXml(
+    ["用户名", "内容", "调用模型", "时间"],
+    rows.map((r) => [
+      r.username || r.displayName || r.tokenName || "—",
+      combineLogContent(r.requestPreview, r.responsePreview),
+      r.model || "—",
+      formatLogTime(r.createdAt),
+    ]),
+    "调用明细",
+  );
+  const stamp = formatLogTime(new Date()).replace(/[-:\s]/g, "").slice(0, 12);
+  return c.body(xml, 200, {
+    "Content-Type": "application/vnd.ms-excel; charset=utf-8",
+    "Content-Disposition": `attachment; filename="starconverge-logs-${stamp}.xls"`,
+  });
 });

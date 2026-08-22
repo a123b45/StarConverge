@@ -74,6 +74,40 @@ export function portalApi<T = unknown>(path: string, options: RequestInit = {}) 
   return request<T>("/api/portal", path, options);
 }
 
+export async function apiDownload(path: string, fallbackName: string) {
+  const headers = new Headers();
+  const token = getToken();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  const res = await fetch(`/api/admin${path}`, { headers });
+  if (res.status === 401) {
+    setSession(null);
+    window.location.href = "/login";
+    throw new Error("Unauthorized");
+  }
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as {
+      error?: string | { message?: string };
+    };
+    throw new Error(
+      typeof data.error === "string"
+        ? data.error
+        : data.error?.message || res.statusText || "下载失败",
+    );
+  }
+  const blob = await res.blob();
+  const dispo = res.headers.get("Content-Disposition") || "";
+  const match = /filename\*?=(?:UTF-8'')?["']?([^";]+)/i.exec(dispo);
+  const name = match ? decodeURIComponent(match[1]) : fallbackName;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 export function formatTokens(n: number): string {
   if (n < 0) return "∞";
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}M`;

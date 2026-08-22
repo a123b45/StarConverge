@@ -81,6 +81,25 @@ export async function resolveChannelModelIds(
   }
 }
 
+function flattenMessageContent(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => {
+        if (typeof part === "string") return part;
+        if (part && typeof part === "object") {
+          const o = part as Record<string, unknown>;
+          if (typeof o.text === "string") return o.text;
+          if (typeof o.content === "string") return o.content;
+        }
+        return JSON.stringify(part ?? "");
+      })
+      .join("");
+  }
+  if (content == null) return "";
+  return JSON.stringify(content);
+}
+
 export function extractRequestPreview(bodyText: string, max = 4000): string {
   if (!bodyText) return "";
   try {
@@ -91,16 +110,13 @@ export function extractRequestPreview(bodyText: string, max = 4000): string {
     };
     if (Array.isArray(parsed.messages) && parsed.messages.length) {
       const lines = parsed.messages.map((m) => {
-        const content =
-          typeof m.content === "string"
-            ? m.content
-            : JSON.stringify(m.content ?? "");
+        const content = flattenMessageContent(m.content);
         return `${m.role ?? "unknown"}: ${content.slice(0, 800)}`;
       });
       return lines.join("\n").slice(0, max);
     }
-    if (parsed.prompt != null) return String(parsed.prompt).slice(0, max);
-    if (parsed.input != null) return String(parsed.input).slice(0, max);
+    if (parsed.prompt != null) return flattenMessageContent(parsed.prompt).slice(0, max);
+    if (parsed.input != null) return flattenMessageContent(parsed.input).slice(0, max);
   } catch {
     /* fall through */
   }
@@ -116,12 +132,16 @@ export function extractResponsePreview(respText: string, max = 4000): string {
         text?: string;
         delta?: { content?: unknown };
       }>;
+      content?: unknown;
     };
     const choice = parsed.choices?.[0];
     if (choice?.message?.content != null) {
-      return String(choice.message.content).slice(0, max);
+      return flattenMessageContent(choice.message.content).slice(0, max);
     }
     if (choice?.text) return choice.text.slice(0, max);
+    if (parsed.content != null) {
+      return flattenMessageContent(parsed.content).slice(0, max);
+    }
   } catch {
     /* fall through */
   }

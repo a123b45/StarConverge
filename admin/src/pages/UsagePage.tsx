@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, formatTokens } from "../lib/api";
+import { api, apiDownload, formatTokens } from "../lib/api";
 import SoftSelect from "../components/SoftSelect";
 
 type UsageSeg = {
@@ -42,6 +42,9 @@ type Log = {
   createdAt: string;
   requestPreview?: string | null;
   responsePreview?: string | null;
+  username?: string | null;
+  displayName?: string | null;
+  tokenName?: string | null;
 };
 
 type GroupBy = "model" | "token";
@@ -115,6 +118,7 @@ export default function UsagePage() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -143,6 +147,23 @@ export default function UsagePage() {
       setError(e instanceof Error ? e.message : "加载失败");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function exportLogs() {
+    setExporting(true);
+    setError("");
+    try {
+      const sinceHours = days * 24;
+      const params = new URLSearchParams({
+        sinceHours: String(sinceHours),
+        ...(modelFilter.trim() ? { model: modelFilter.trim() } : {}),
+      });
+      await apiDownload(`/logs/export?${params}`, "starconverge-logs.xls");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "导出失败");
+    } finally {
+      setExporting(false);
     }
   }
 
@@ -469,6 +490,13 @@ export default function UsagePage() {
           <button className="btn ghost sm" onClick={() => void load()}>
             筛选
           </button>
+          <button
+            className="btn ghost sm"
+            onClick={() => void exportLogs()}
+            disabled={exporting}
+          >
+            {exporting ? "导出中…" : "导出"}
+          </button>
         </div>
         <div className="table-wrap">
           <table className="table">
@@ -543,7 +571,7 @@ export default function UsagePage() {
                                   overflow: "auto",
                                 }}
                               >
-                                {r.requestPreview || "（无预览，新请求才会记录）"}
+                                {r.requestPreview || "（无预览）"}
                               </pre>
                             </div>
                             <div>
