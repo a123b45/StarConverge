@@ -3,6 +3,7 @@ import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db/index.js";
 import {
+  cardKeys,
   channels,
   modelPrices,
   modelRoutes,
@@ -19,7 +20,7 @@ import {
   toJsonArray,
 } from "../utils/crypto.js";
 import { publicToken } from "../services/stats.js";
-import { redeemCardKey } from "../services/card-keys.js";
+import { redeemCardKey, usdFromCents } from "../services/card-keys.js";
 
 export const portalRoutes = new Hono<SessionVars>();
 
@@ -317,6 +318,23 @@ portalRoutes.post("/recharge/card", async (c) => {
       status as 400,
     );
   }
+});
+
+portalRoutes.get("/bills", async (c) => {
+  const auth = c.get("auth");
+  const rows = await db
+    .select()
+    .from(cardKeys)
+    .where(eq(cardKeys.redeemedBy, auth.userId!))
+    .orderBy(desc(cardKeys.redeemedAt), desc(cardKeys.createdAt));
+  return c.json({
+    data: rows.map((r) => ({
+      id: r.id,
+      code: r.code,
+      amount: usdFromCents(r.amountCents),
+      redeemedAt: r.redeemedAt,
+    })),
+  });
 });
 
 portalRoutes.get("/usage", async (c) => {
