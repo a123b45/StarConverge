@@ -1909,6 +1909,21 @@ html[data-theme="dark"] .dash-mline-tip {
   margin-top: 18px;
 }
 
+.card-key-created {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-soft);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow: auto;
+  max-height: 240px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
 .soft-dialog-backdrop {
   z-index: 80;
 }
@@ -2650,6 +2665,21 @@ html[data-theme="dark"] .dash-mline-tip {
 }
 .portal-toolbar .portal-btn {
   flex: 0 0 auto;
+}
+.recharge-redeem-bar .portal-search {
+  max-width: none;
+  flex: 1 1 280px;
+}
+.recharge-contact-text {
+  margin: 0;
+  padding: 4px 16px 18px;
+  color: var(--p-muted);
+  font-size: 14px;
+  line-height: 1.65;
+}
+.recharge-contact-text strong {
+  color: var(--text);
+  font-weight: 650;
 }
 .ak-table th,
 .ak-table td {

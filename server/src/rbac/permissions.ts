@@ -45,6 +45,7 @@ export const MENU_GROUPS: PermGroup[] = [
     items: [
       { key: "menu.customers", label: "客户管理" },
       { key: "menu.users", label: "用户管理" },
+      { key: "menu.cardKeys", label: "卡密管理" },
       { key: "menu.roles", label: "角色管理" },
       { key: "menu.settings", label: "API 文档" },
     ],
@@ -122,6 +123,14 @@ export const API_GROUPS: PermGroup[] = [
     ],
   },
   {
+    id: "cardKeys",
+    label: "卡密",
+    items: [
+      { key: "api.cardKeys.read", label: "查看" },
+      { key: "api.cardKeys.write", label: "创建/删除" },
+    ],
+  },
+  {
     id: "roles",
     label: "角色",
     items: [
@@ -162,6 +171,7 @@ export const MENU_PATH_MAP: Record<string, string> = {
   "menu.pricing": "/admin/pricing",
   "menu.customers": "/admin/customers",
   "menu.users": "/admin/users",
+  "menu.cardKeys": "/admin/card-keys",
   "menu.roles": "/admin/roles",
   "menu.settings": "/admin/settings",
   "menu.portal.models": "/app/models",

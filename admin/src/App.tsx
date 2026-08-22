@@ -22,6 +22,7 @@ import ModelCatalogPage from "./pages/ModelCatalogPage";
 import LogsPage from "./pages/LogsPage";
 import SettingsPage from "./pages/SettingsPage";
 import UsersPage from "./pages/UsersPage";
+import CardKeysPage from "./pages/CardKeysPage";
 import CustomersPage from "./pages/CustomersPage";
 import RolesPage from "./pages/RolesPage";
 import ModelPricingPage from "./pages/ModelPricingPage";
@@ -51,6 +52,7 @@ import {
   IconLock,
   IconTag,
   IconUsers,
+  IconCard,
   NavIconBills,
   NavIconChat,
   NavIconDocs,
@@ -87,6 +89,7 @@ const ADMIN_TITLES: Record<string, string> = {
   "/admin/pricing": "模型定价",
   "/admin/customers": "客户管理",
   "/admin/users": "用户管理",
+  "/admin/card-keys": "卡密管理",
   "/admin/roles": "角色管理",
   "/admin/settings": "API 文档",
 };
@@ -214,6 +217,12 @@ function AdminShell() {
                 用户管理
               </NavLink>
             ) : null}
+            {can("menu.cardKeys") ? (
+              <NavLink to="/admin/card-keys">
+                <IconCard />
+                卡密管理
+              </NavLink>
+            ) : null}
             {can("menu.roles") ? (
               <NavLink to="/admin/roles">
                 <IconShield />
@@ -303,6 +312,25 @@ function PortalShell() {
         setMe(null);
         setMenuPerms([]);
       });
+  }, []);
+
+  useEffect(() => {
+    function onBalance(e: Event) {
+      const detail = (e as CustomEvent<{ balance?: number; totalRecharged?: number }>)
+        .detail;
+      if (!detail) return;
+      setMe((prev) =>
+        prev
+          ? {
+              ...prev,
+              balance: detail.balance ?? prev.balance,
+              totalRecharged: detail.totalRecharged ?? prev.totalRecharged,
+            }
+          : prev,
+      );
+    }
+    window.addEventListener("sc:balance-updated", onBalance);
+    return () => window.removeEventListener("sc:balance-updated", onBalance);
   }, []);
 
   const can = (key: string) => !menuPerms || menuPerms.includes(key);
@@ -489,6 +517,7 @@ export default function App() {
         <Route path="usage" element={<UsagePage />} />
         <Route path="customers" element={<CustomersPage />} />
         <Route path="users" element={<UsersPage />} />
+        <Route path="card-keys" element={<CardKeysPage />} />
         <Route path="roles" element={<RolesPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>

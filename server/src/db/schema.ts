@@ -249,6 +249,31 @@ export const modelPrices = sqliteTable(
   ],
 );
 
+/** Prepaid redeem codes that add USD balance. */
+export const cardKeys = sqliteTable(
+  "card_keys",
+  {
+    id: text("id").primaryKey(),
+    code: text("code").notNull().unique(),
+    amountCents: integer("amount_cents").notNull(),
+    /** Unused card expires at; null = never */
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }),
+    /** When set, only this user may redeem */
+    userId: text("user_id"),
+    redeemedAt: integer("redeemed_at", { mode: "timestamp_ms" }),
+    redeemedBy: text("redeemed_by"),
+    createdBy: text("created_by"),
+    remark: text("remark").default(""),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(unixepoch() * 1000)`),
+  },
+  (t) => [
+    index("card_keys_code_idx").on(t.code),
+    index("card_keys_user_idx").on(t.userId),
+  ],
+);
+
 export type User = typeof users.$inferSelect;
 export type Role = typeof roles.$inferSelect;
 export type Channel = typeof channels.$inferSelect;
@@ -257,3 +282,4 @@ export type ModelRoute = typeof modelRoutes.$inferSelect;
 export type RequestLog = typeof requestLogs.$inferSelect;
 export type ProxyRoute = typeof proxyRoutes.$inferSelect;
 export type ModelPrice = typeof modelPrices.$inferSelect;
+export type CardKey = typeof cardKeys.$inferSelect;

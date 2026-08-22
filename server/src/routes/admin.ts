@@ -1,8 +1,9 @@
 import { Hono } from "hono";
-import { and, desc, eq, gte, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db/index.js";
 import {
+  cardKeys,
   channels,
   modelPrices,
   modelRoutes,
@@ -45,6 +46,7 @@ import {
   type IpRule,
 } from "../utils/ip-allow.js";
 import { buildExcelXml } from "../utils/excel-xml.js";
+import { cardStatus, createCardKeys } from "../services/card-keys.js";
 
 const ipRuleSchema = z.object({
   name: z.string().optional(),
@@ -812,6 +814,118 @@ adminRoutes.get("/customers/:id/tokens", async (c) => {
       lastUsedAt: t.lastUsedAt,
     })),
   });
+});
+
+// ---- Card keys ----
+adminRoutes.get("/card-keys", async (c) => {
+  const auth = c.get("adminAuth");
+  if (!hasApiPerm(auth, "api.cardKeys.read")) {
+    return c.json({ error: "无权限" }, 403);
+  }
+  const rows = await db.select().from(cardKeys).orderBy(desc(cardKeys.createdAt));
+  const userIds = [
+    ...new Set(
+      rows.flatMap((r) => [r.userId, r.redeemedBy].filter((x): x is string => !!x)),
+    ),
+  ];
+  const nameMap = new Map<string, string>();
+  if (userIds.length) {
+    const named = await db
+      .select({ id: users.id, username: users.username })
+      .from(users)
+      .where(inArray(users.id, userIds));
+    for (const u of named) nameMap.set(u.id, u.username);
+  }
+  const now = Date.now();
+  return c.json({
+    data: rows.map((r) => ({
+      id: r.id,
+      code: r.code,
+      amount: usdFromCents(r.amountCents),
+      expiresAt: r.expiresAt,
+      userId: r.userId,
+      boundUsername: r.userId ? nameMap.get(r.userId) ?? r.userId : null,
+      redeemedAt: r.redeemedAt,
+      redeemedBy: r.redeemedBy,
+      redeemedUsername: r.redeemedBy
+        ? nameMap.get(r.redeemedBy) ?? r.redeemedBy
+        : null,
+      status: cardStatus(r, now),
+      remark: r.remark ?? "",
+      createdAt: r.createdAt,
+    })),
+  });
+});
+
+adminRoutes.post("/card-keys", async (c) => {
+  const auth = c.get("adminAuth");
+  if (!hasApiPerm(auth, "api.cardKeys.write")) {
+    return c.json({ error: "无权限" }, 403);
+  }
+  const schema = z.object({
+    amount: z.number().positive().max(1_000_000),
+    validDays: z.number().int().min(0).max(3650).default(30),
+    userId: z.string().nullable().optional(),
+    count: z.number().int().min(1).max(20).default(1),
+    remark: z.string().max(200).optional(),
+  });
+  const parsed = schema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
+  const v = parsed.data;
+  if (v.userId) {
+    const target = await db.query.users.findFirst({
+      where: eq(users.id, v.userId),
+    });
+    if (!target) return c.json({ error: "限定用户不存在" }, 400);
+  }
+  try {
+    const created = await createCardKeys({
+      amountUsd: v.amount,
+      validDays: v.validDays,
+      userId: v.userId || null,
+      createdBy: auth.userId ?? null,
+      remark: v.remark,
+      count: v.count,
+    });
+    return c.json(
+      {
+        data: created.map((r) => ({
+          id: r.id,
+          code: r.code,
+          amount: usdFromCents(r.amountCents),
+          expiresAt: r.expiresAt,
+          userId: r.userId,
+          status: "unused",
+          createdAt: r.createdAt,
+        })),
+      },
+      201,
+    );
+  } catch (e) {
+    return c.json(
+      { error: e instanceof Error ? e.message : "创建失败" },
+      400,
+    );
+  }
+});
+
+adminRoutes.delete("/card-keys/:id", async (c) => {
+  const auth = c.get("adminAuth");
+  if (!hasApiPerm(auth, "api.cardKeys.write")) {
+    return c.json({ error: "无权限" }, 403);
+  }
+  const row = await db
+    .select()
+    .from(cardKeys)
+    .where(eq(cardKeys.id, c.req.param("id")))
+    .limit(1)
+    .then((r) => r[0]);
+  if (!row) return c.json({ error: "Not found" }, 404);
+  if (row.redeemedAt) {
+    return c.json({ error: "已使用的卡密不能删除" }, 400);
+  }
+  await db.delete(cardKeys).where(eq(cardKeys.id, row.id));
+  return c.json({ ok: true });
 });
 
 // ---- Model pricing ----

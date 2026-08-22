@@ -19,6 +19,7 @@ import {
   toJsonArray,
 } from "../utils/crypto.js";
 import { publicToken } from "../services/stats.js";
+import { redeemCardKey } from "../services/card-keys.js";
 
 export const portalRoutes = new Hono<SessionVars>();
 
@@ -299,6 +300,23 @@ portalRoutes.delete("/keys/:id", async (c) => {
   if (!row) return c.json({ error: "Not found" }, 404);
   await db.delete(tokens).where(eq(tokens.id, row.id));
   return c.json({ ok: true });
+});
+
+portalRoutes.post("/recharge/card", async (c) => {
+  const auth = c.get("auth");
+  const schema = z.object({ code: z.string().min(8).max(64) });
+  const parsed = schema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: "请输入卡密" }, 400);
+  try {
+    const result = await redeemCardKey(parsed.data.code, auth.userId!);
+    return c.json({ data: result });
+  } catch (e) {
+    const status = (e as Error & { status?: number }).status ?? 400;
+    return c.json(
+      { error: e instanceof Error ? e.message : "兑换失败" },
+      status as 400,
+    );
+  }
 });
 
 portalRoutes.get("/usage", async (c) => {

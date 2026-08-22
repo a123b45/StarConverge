@@ -21,6 +21,19 @@ export function generateApiKey(): { key: string; prefix: string; hash: string } 
   };
 }
 
+const cardAlphabet = customAlphabet("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", 5);
+
+export function generateCardCode(): string {
+  return `SC-${cardAlphabet()}-${cardAlphabet()}-${cardAlphabet()}-${cardAlphabet()}`;
+}
+
+export function normalizeCardCode(raw: string): string {
+  const compact = raw.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const body = compact.startsWith("SC") ? compact.slice(2) : compact;
+  if (body.length !== 20) return compact;
+  return `SC-${body.slice(0, 5)}-${body.slice(5, 10)}-${body.slice(10, 15)}-${body.slice(15, 20)}`;
+}
+
 export function hashKey(key: string): string {
   return createHash("sha256").update(key).digest("hex");
 }

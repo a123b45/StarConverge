@@ -296,6 +296,20 @@ export function migrate() {
   sqlite.exec(
     `CREATE INDEX IF NOT EXISTS password_resets_token_idx ON password_resets(token_hash)`,
   );
+  sqlite.exec(`CREATE TABLE IF NOT EXISTS card_keys (
+    id TEXT PRIMARY KEY,
+    code TEXT NOT NULL UNIQUE,
+    amount_cents INTEGER NOT NULL,
+    expires_at INTEGER,
+    user_id TEXT,
+    redeemed_at INTEGER,
+    redeemed_by TEXT,
+    created_by TEXT,
+    remark TEXT DEFAULT '',
+    created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
+  )`);
+  sqlite.exec(`CREATE INDEX IF NOT EXISTS card_keys_code_idx ON card_keys(code)`);
+  sqlite.exec(`CREATE INDEX IF NOT EXISTS card_keys_user_idx ON card_keys(user_id)`);
   sqlite.exec(`CREATE TABLE IF NOT EXISTS roles (
     id TEXT PRIMARY KEY,
     key TEXT NOT NULL UNIQUE,
@@ -428,6 +442,7 @@ function requireRoles() {
     "menu.routes",
     "menu.customers",
     "menu.users",
+    "menu.cardKeys",
     "menu.roles",
     "menu.settings",
   ];
@@ -446,6 +461,8 @@ function requireRoles() {
     "api.customers.write",
     "api.users.read",
     "api.users.write",
+    "api.cardKeys.read",
+    "api.cardKeys.write",
     "api.roles.read",
     "api.roles.write",
     "api.logs.read",
