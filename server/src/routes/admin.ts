@@ -2055,18 +2055,6 @@ function formatLogTime(d: Date | string | number | null | undefined) {
   return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())} ${p(dt.getHours())}:${p(dt.getMinutes())}:${p(dt.getSeconds())}`;
 }
 
-function combineLogContent(
-  requestPreview?: string | null,
-  responsePreview?: string | null,
-) {
-  const req = (requestPreview ?? "").trim();
-  const resp = (responsePreview ?? "").trim();
-  if (req && resp) return `请求：\n${req}\n\n响应：\n${resp}`;
-  if (req) return req;
-  if (resp) return resp;
-  return "";
-}
-
 const logSelectFields = {
   id: requestLogs.id,
   tokenId: requestLogs.tokenId,
@@ -2136,10 +2124,11 @@ adminRoutes.get("/logs/export", async (c) => {
     .limit(5000);
 
   const xml = buildExcelXml(
-    ["用户名", "内容", "调用模型", "时间"],
+    ["用户名", "输入内容", "输出内容", "调用模型", "时间"],
     rows.map((r) => [
       r.username || r.displayName || r.tokenName || "—",
-      combineLogContent(r.requestPreview, r.responsePreview),
+      (r.requestPreview ?? "").trim(),
+      (r.responsePreview ?? "").trim(),
       r.model || "—",
       formatLogTime(r.createdAt),
     ]),
