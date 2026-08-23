@@ -42,6 +42,19 @@ export default function PortalDocsPage() {
   }
 }`;
 
+  const pythonExample = `from openai import OpenAI
+
+client = OpenAI(
+    base_url="${openaiBase}",
+    api_key="sk-sc-...",
+)
+
+resp = client.chat.completions.create(
+    model="${sampleModel}",
+    messages=[{"role": "user", "content": "Hello"}],
+)
+print(resp.choices[0].message.content)`;
+
   async function copy(text: string, key: string) {
     try {
       await navigator.clipboard.writeText(text);
@@ -57,7 +70,36 @@ export default function PortalDocsPage() {
       <div className="portal-hero">
         <div>
           <h1>接入指南</h1>
-          <p>任意 OpenAI / Anthropic 兼容 Agent 填入以下三项即可连接。</p>
+          <p>
+            对外只提供 OpenAI 兼容协议。Claude、GPT、Qwen 等模型都走同一套接口，不需要按厂商切换
+            Anthropic 格式。
+          </p>
+        </div>
+      </div>
+
+      <div className="portal-panel portal-docs-callout">
+        <h3>协议怎么选</h3>
+        <p>
+          客户端如果让你选 OpenAI 还是 Anthropic：<strong>一律选 OpenAI / OpenAI Compatible</strong>。
+          模型叫 Claude 也不要选 Anthropic 官方协议（那会走 <code>/v1/messages</code>，本站不会转换）。
+        </p>
+        <div className="portal-docs-kv">
+          <div>
+            <span>协议 / Provider</span>
+            <strong>OpenAI Compatible</strong>
+          </div>
+          <div>
+            <span>Base URL</span>
+            <strong>{openaiBase}</strong>
+          </div>
+          <div>
+            <span>API Key</span>
+            <strong>控制台创建的 sk-sc- 密钥</strong>
+          </div>
+          <div>
+            <span>模型名</span>
+            <strong>填模型列表里的 ID，不要改成官方 Anthropic 名</strong>
+          </div>
         </div>
       </div>
 
@@ -67,17 +109,18 @@ export default function PortalDocsPage() {
           <div>
             <h3>Base URL</h3>
             <div className="copy-row">
-              <code>{origin}</code>
+              <code>{openaiBase}</code>
               <button
                 className="portal-btn ghost sm"
                 type="button"
-                onClick={() => void copy(origin, "base")}
+                onClick={() => void copy(openaiBase, "base")}
               >
                 {copied === "base" ? "已复制" : "复制"}
               </button>
             </div>
             <p className="muted">
-              Anthropic 协议填 {origin}；OpenAI 兼容协议填 {openaiBase}
+              OpenAI SDK、Cursor、Cline、NextChat 等都填这个地址。不要填成 {origin}{" "}
+              后再选 Anthropic。
             </p>
           </div>
         </div>
@@ -153,6 +196,20 @@ export default function PortalDocsPage() {
           </button>
         </div>
         <pre className="portal-code">{curlExample}</pre>
+      </div>
+
+      <div className="portal-panel">
+        <div className="portal-panel-head">
+          <h3>Python（OpenAI SDK）</h3>
+          <button
+            className="portal-btn ghost sm"
+            type="button"
+            onClick={() => void copy(pythonExample, "py")}
+          >
+            {copied === "py" ? "已复制" : "复制 Python"}
+          </button>
+        </div>
+        <pre className="portal-code">{pythonExample}</pre>
       </div>
 
       <div className="portal-panel">

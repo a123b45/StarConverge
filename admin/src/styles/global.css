@@ -5179,6 +5179,43 @@ html[data-theme="dark"] .portal-bar-tip::after {
   border-radius: 14px;
   background: color-mix(in srgb, var(--bg) 88%, var(--bg-elevated));
 }
+.portal-docs-callout {
+  margin-bottom: 16px;
+}
+.portal-docs-callout > p {
+  margin: 0 0 12px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+.portal-docs-callout code {
+  font-size: 12px;
+}
+.portal-docs-kv {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.portal-docs-kv > div {
+  background: var(--bg-soft);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.portal-docs-kv span {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.portal-docs-kv strong {
+  font-size: 13px;
+  font-weight: 650;
+  word-break: break-all;
+}
+@media (max-width: 720px) {
+  .portal-docs-kv {
+    grid-template-columns: 1fr;
+  }
+}
 .portal-steps {
   display: flex;
   flex-direction: column;
