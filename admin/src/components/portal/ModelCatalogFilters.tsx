@@ -9,7 +9,7 @@ import {
   matchesModality,
 } from "../../lib/model-taxonomy";
 
-type ModelRef = { model: string };
+type ModelRef = { model: string; rewriteModel?: string | null };
 
 type Props = {
   models: ModelRef[];
@@ -66,8 +66,10 @@ export default function ModelCatalogFilters({
     const scoped = models.filter((m) => matchesFamily(m.model, family));
     return {
       all: scoped.length,
-      text: scoped.filter((m) => matchesModality(m.model, "text")).length,
-      multimodal: scoped.filter((m) => matchesModality(m.model, "multimodal")).length,
+      text: scoped.filter((m) => matchesModality(m.model, "text", [m.rewriteModel])).length,
+      multimodal: scoped.filter((m) =>
+        matchesModality(m.model, "multimodal", [m.rewriteModel]),
+      ).length,
     };
   }, [models, family]);
 

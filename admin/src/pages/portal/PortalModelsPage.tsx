@@ -13,6 +13,7 @@ import {
 type ModelItem = {
   id: string;
   model: string;
+  rewriteModel?: string | null;
   providerLabel: string;
   providers: { name: string; type: string }[];
   inputPer1m: number;
@@ -59,7 +60,7 @@ export default function PortalModelsPage() {
     const s = q.trim().toLowerCase();
     return models.filter((m) => {
       if (!matchesFamily(m.model, family)) return false;
-      if (!matchesModality(m.model, modality)) return false;
+      if (!matchesModality(m.model, modality, [m.rewriteModel])) return false;
       if (!s) return true;
       return (
         m.model.toLowerCase().includes(s) ||
