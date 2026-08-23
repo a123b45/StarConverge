@@ -1,4 +1,5 @@
 import { FormEvent, ReactNode, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   IconBell,
   IconLang,
@@ -8,6 +9,7 @@ import {
 import {
   applyChromePrefs,
   chromeCopy,
+  formatUserNotification,
   getLang,
   getTheme,
   LANG_OPTIONS,
@@ -30,7 +32,19 @@ type Props = {
   onLogout: () => void;
   /** Portal users can edit profile via API */
   editable?: boolean;
+  /** Show portal model/price notifications */
+  notificationsEnabled?: boolean;
   onUserUpdated?: (user: UserInfo) => void;
+};
+
+type PortalNotice = {
+  id: string;
+  type: "models" | "pricing";
+  models: string[];
+  body: string;
+  createdAt: number;
+  updatedAt: number;
+  unread: boolean;
 };
 
 export default function TopTools({
@@ -38,8 +52,10 @@ export default function TopTools({
   user,
   onLogout,
   editable = false,
+  notificationsEnabled = false,
   onUserUpdated,
 }: Props) {
+  const navigate = useNavigate();
   const [theme, setTheme] = useState<ThemeMode>(() =>
     typeof window !== "undefined" ? getTheme() : "light",
   );
@@ -55,6 +71,8 @@ export default function TopTools({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
+  const [notices, setNotices] = useState<PortalNotice[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const t = chromeCopy[lang];
 
@@ -65,6 +83,44 @@ export default function TopTools({
   useEffect(() => {
     setDisplayName(user.displayName || "");
   }, [user.displayName]);
+
+  useEffect(() => {
+    if (!notificationsEnabled) return;
+    let cancelled = false;
+    async function loadNotices() {
+      try {
+        const res = await portalApi<{
+          unreadCount: number;
+          data: PortalNotice[];
+        }>("/notifications");
+        if (cancelled) return;
+        setNotices(res.data ?? []);
+        setUnreadCount(res.unreadCount ?? 0);
+      } catch {
+        if (!cancelled) {
+          setNotices([]);
+          setUnreadCount(0);
+        }
+      }
+    }
+    void loadNotices();
+    const timer = window.setInterval(() => void loadNotices(), 45_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [notificationsEnabled]);
+
+  async function markNoticesRead() {
+    if (!notificationsEnabled || unreadCount === 0) return;
+    try {
+      await portalApi("/notifications/read", { method: "POST" });
+      setUnreadCount(0);
+      setNotices((prev) => prev.map((n) => ({ ...n, unread: false })));
+    } catch {
+      /* keep badge until next poll */
+    }
+  }
 
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
@@ -169,21 +225,50 @@ export default function TopTools({
             title={t.notify}
             onClick={(e) => {
               e.stopPropagation();
-              setNotifyOpen((v) => !v);
+              const next = !notifyOpen;
+              setNotifyOpen(next);
               setUserOpen(false);
               setLangOpen(false);
+              if (next) void markNoticesRead();
             }}
           >
             <IconBell />
-            <span className="portal-tool-badge dot" />
+            {notificationsEnabled && unreadCount > 0 ? (
+              <span className="portal-tool-badge dot" />
+            ) : null}
           </button>
           {notifyOpen ? (
-            <div className="portal-user-dropdown chrome-dropdown">
+            <div className="portal-user-dropdown chrome-dropdown chrome-notify-menu">
               <div className="portal-user-meta">
                 <strong>{t.notify}</strong>
-                <span>{t.noNotify}</span>
+                <span>
+                  {notificationsEnabled && notices.length ? t.notify : t.noNotify}
+                </span>
               </div>
-              <div className="chrome-notify-item">{t.notifySample}</div>
+              {notificationsEnabled && notices.length ? (
+                <div className="chrome-notify-list">
+                  {notices.map((n) => (
+                    <button
+                      key={n.id}
+                      type="button"
+                      className={`chrome-notify-item${n.unread ? " is-unread" : ""}`}
+                      onClick={() => {
+                        setNotifyOpen(false);
+                        navigate("/app/models");
+                      }}
+                    >
+                      <em>
+                        {n.type === "pricing" ? t.notifyTypePricing : t.notifyTypeModels}
+                      </em>
+                      <span>
+                        {formatUserNotification(lang, n.type, n.models, n.body)}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="chrome-notify-empty">{t.noNotify}</div>
+              )}
             </div>
           ) : null}
         </div>

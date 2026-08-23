@@ -9,6 +9,7 @@ import {
   modelRoutes,
   requestLogs,
   tokens,
+  userNotifications,
   users,
 } from "../db/schema.js";
 import { requireUser, type SessionVars } from "../middleware/auth.js";
@@ -86,6 +87,52 @@ portalRoutes.patch("/me", async (c) => {
     displayName: user!.displayName,
     role: "user" as const,
   });
+});
+
+function notificationStamp(value: Date | number | null | undefined): number {
+  if (value == null) return 0;
+  if (value instanceof Date) return value.getTime();
+  return Number(value) || 0;
+}
+
+portalRoutes.get("/notifications", async (c) => {
+  const auth = c.get("auth");
+  const user = await db.query.users.findFirst({
+    where: eq(users.id, auth.userId!),
+  });
+  if (!user) return c.json({ error: "Not found" }, 404);
+
+  const rows = await db
+    .select()
+    .from(userNotifications)
+    .orderBy(desc(userNotifications.updatedAt))
+    .limit(30);
+  const readAt = notificationStamp(user.notifyReadAt);
+  const data = rows.map((row) => {
+    const updatedAt = notificationStamp(row.updatedAt);
+    return {
+      id: row.id,
+      type: row.type,
+      models: parseJsonArray(row.models),
+      body: row.body,
+      createdAt: notificationStamp(row.createdAt),
+      updatedAt,
+      unread: updatedAt > readAt,
+    };
+  });
+  return c.json({
+    unreadCount: data.filter((n) => n.unread).length,
+    data,
+  });
+});
+
+portalRoutes.post("/notifications/read", async (c) => {
+  const auth = c.get("auth");
+  await db
+    .update(users)
+    .set({ notifyReadAt: new Date(), updatedAt: new Date() })
+    .where(eq(users.id, auth.userId!));
+  return c.json({ ok: true });
 });
 
 portalRoutes.get("/models", async (c) => {

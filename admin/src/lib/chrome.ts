@@ -57,7 +57,10 @@ type Copy = {
   save: string;
   cancel: string;
   noNotify: string;
-  notifySample: string;
+  notifyModels: string;
+  notifyPricing: string;
+  notifyTypeModels: string;
+  notifyTypePricing: string;
 };
 
 const zh: Copy = {
@@ -73,7 +76,10 @@ const zh: Copy = {
   save: "保存",
   cancel: "取消",
   noNotify: "暂无新通知",
-  notifySample: "欢迎使用 StarConverge",
+  notifyModels: "新同步到模型列表，快去看看吧！",
+  notifyPricing: "价格有变动，快去看看吧！",
+  notifyTypeModels: "模型",
+  notifyTypePricing: "价格",
 };
 
 const en: Copy = {
@@ -89,7 +95,10 @@ const en: Copy = {
   save: "Save",
   cancel: "Cancel",
   noNotify: "No new notifications",
-  notifySample: "Welcome to StarConverge",
+  notifyModels: "just synced to the model list. Take a look!",
+  notifyPricing: "had a price update. Take a look!",
+  notifyTypeModels: "Models",
+  notifyTypePricing: "Pricing",
 };
 
 const ja: Copy = {
@@ -105,7 +114,10 @@ const ja: Copy = {
   save: "保存",
   cancel: "キャンセル",
   noNotify: "新しい通知はありません",
-  notifySample: "StarConverge へようこそ",
+  notifyModels: "がモデル一覧に同期されました。確認してみましょう！",
+  notifyPricing: "の価格が更新されました。確認してみましょう！",
+  notifyTypeModels: "モデル",
+  notifyTypePricing: "価格",
 };
 
 const ko: Copy = {
@@ -121,7 +133,36 @@ const ko: Copy = {
   save: "저장",
   cancel: "취소",
   noNotify: "새 알림 없음",
-  notifySample: "StarConverge에 오신 것을 환영합니다",
+  notifyModels: "이 모델 목록에 동기화되었습니다. 확인해 보세요!",
+  notifyPricing: "의 가격이 변경되었습니다. 확인해 보세요!",
+  notifyTypeModels: "모델",
+  notifyTypePricing: "가격",
 };
 
 export const chromeCopy: Record<LangMode, Copy> = { zh, en, ja, ko };
+
+export function formatUserNotification(
+  lang: LangMode,
+  type: "models" | "pricing",
+  models: string[],
+  fallback = "",
+): string {
+  const names = models.map((m) => m.trim()).filter(Boolean);
+  const n = names.length;
+  const preview = names.slice(0, 2).join(lang === "en" ? ", " : "、");
+  const t = chromeCopy[lang];
+  if (!n) return fallback;
+  if (lang === "zh") {
+    if (type === "pricing") {
+      return n <= 1
+        ? `${preview} 的价格有变动，快去看看吧！`
+        : `${preview} 等 ${n} 个模型价格有变动，快去看看吧！`;
+    }
+    return n <= 1
+      ? `${preview} 新同步到模型列表，快去看看吧！`
+      : `${preview} 等 ${n} 个模型新同步到模型列表，快去看看吧！`;
+  }
+  if (n <= 1) return `${preview} ${type === "pricing" ? t.notifyPricing : t.notifyModels}`;
+  const more = lang === "en" ? ` and ${n} models ` : ` 等 ${n} 个模型 `;
+  return `${preview}${more}${type === "pricing" ? t.notifyPricing : t.notifyModels}`;
+}

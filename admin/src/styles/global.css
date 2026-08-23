@@ -4132,13 +4132,54 @@ html[data-theme="dark"] .admin-top-left .portal-tool-btn:hover {
   right: 0;
   min-width: 200px;
 }
+.chrome-notify-menu {
+  min-width: 320px;
+  max-width: min(420px, 92vw);
+}
+.chrome-notify-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 360px;
+  overflow: auto;
+  margin-top: 8px;
+  padding-right: 2px;
+}
 .chrome-notify-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+  border: none;
+  text-align: left;
   padding: 10px 12px;
   font-size: 13px;
-  color: var(--muted);
+  line-height: 1.45;
+  color: var(--text);
   border-radius: 8px;
   background: var(--bg-soft);
-  margin: 4px 0 0;
+  cursor: pointer;
+}
+.chrome-notify-item em {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 700;
+  color: #6d5efc;
+}
+.chrome-notify-item:hover {
+  background: #ebe4ff;
+}
+.chrome-notify-item.is-unread {
+  box-shadow: inset 2px 0 0 #ef4444;
+}
+.chrome-notify-empty {
+  padding: 10px 4px 2px;
+  font-size: 13px;
+  color: var(--muted);
+}
+html[data-theme="dark"] .chrome-notify-item:hover {
+  background: #2a2740;
 }
 .chrome-toast {
   position: fixed;

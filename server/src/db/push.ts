@@ -236,6 +236,9 @@ export function migrate() {
       `ALTER TABLE users ADD COLUMN allowed_models TEXT NOT NULL DEFAULT '[]'`,
     );
   }
+  if (!userCols.some((c) => c.name === "notify_read_at")) {
+    sqlite.exec(`ALTER TABLE users ADD COLUMN notify_read_at INTEGER`);
+  }
   sqlite.exec(`CREATE INDEX IF NOT EXISTS users_email_idx ON users(email)`);
   sqlite.exec(`CREATE INDEX IF NOT EXISTS users_role_id_idx ON users(role_id)`);
 
@@ -308,6 +311,17 @@ export function migrate() {
     remark TEXT DEFAULT '',
     created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
   )`);
+  sqlite.exec(`CREATE TABLE IF NOT EXISTS user_notifications (
+    id TEXT PRIMARY KEY,
+    type TEXT NOT NULL,
+    models TEXT NOT NULL DEFAULT '[]',
+    body TEXT NOT NULL DEFAULT '',
+    created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000),
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
+  )`);
+  sqlite.exec(
+    `CREATE INDEX IF NOT EXISTS user_notifications_updated_idx ON user_notifications(updated_at)`,
+  );
   sqlite.exec(`CREATE INDEX IF NOT EXISTS card_keys_code_idx ON card_keys(code)`);
   sqlite.exec(`CREATE INDEX IF NOT EXISTS card_keys_user_idx ON card_keys(user_id)`);
   sqlite.exec(`CREATE TABLE IF NOT EXISTS roles (

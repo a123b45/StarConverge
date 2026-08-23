@@ -25,6 +25,8 @@ export const users = sqliteTable(
     lastRechargedAt: integer("last_recharged_at", { mode: "timestamp_ms" }),
     /** JSON string array of allowed model names; empty = all priced models */
     allowedModels: text("allowed_models").notNull().default("[]"),
+    /** Portal notifications newer than this timestamp are unread */
+    notifyReadAt: integer("notify_read_at", { mode: "timestamp_ms" }),
     createdAt: integer("created_at", { mode: "timestamp_ms" })
       .notNull()
       .default(sql`(unixepoch() * 1000)`),
@@ -274,6 +276,25 @@ export const cardKeys = sqliteTable(
   ],
 );
 
+/** Broadcast events shown in the user portal notification bell. */
+export const userNotifications = sqliteTable(
+  "user_notifications",
+  {
+    id: text("id").primaryKey(),
+    /** models | pricing */
+    type: text("type").notNull(),
+    models: text("models").notNull().default("[]"),
+    body: text("body").notNull().default(""),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(unixepoch() * 1000)`),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(unixepoch() * 1000)`),
+  },
+  (t) => [index("user_notifications_updated_idx").on(t.updatedAt)],
+);
+
 export type User = typeof users.$inferSelect;
 export type Role = typeof roles.$inferSelect;
 export type Channel = typeof channels.$inferSelect;
@@ -283,3 +304,4 @@ export type RequestLog = typeof requestLogs.$inferSelect;
 export type ProxyRoute = typeof proxyRoutes.$inferSelect;
 export type ModelPrice = typeof modelPrices.$inferSelect;
 export type CardKey = typeof cardKeys.$inferSelect;
+export type UserNotification = typeof userNotifications.$inferSelect;

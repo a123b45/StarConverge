@@ -13,6 +13,10 @@ import {
   tokens,
   users,
 } from "../db/schema.js";
+import {
+  notifyModelsPublished,
+  notifyPricesChanged,
+} from "../services/notifications.js";
 import { hasApiPerm, requireAdmin, type AdminVars } from "../middleware/auth.js";
 import { config } from "../config.js";
 import {
@@ -1040,6 +1044,7 @@ adminRoutes.post("/pricing", async (c) => {
     remark: v.remark || "",
   };
   await db.insert(modelPrices).values(row);
+  await notifyPricesChanged([row.externalModel, row.globalModel, row.providerModel]);
   const ch = row.channelId
     ? await db.query.channels.findFirst({ where: eq(channels.id, row.channelId) })
     : null;
@@ -1102,7 +1107,22 @@ adminRoutes.put("/pricing/:id", async (c) => {
   if (v.costPer1m != null) patch.costPer1mCents = priceUnitFromUsd(v.costPer1m);
   if (v.enabled != null) patch.enabled = v.enabled;
   if (v.remark !== undefined) patch.remark = v.remark || "";
+  const amountsChanged =
+    (patch.inputPer1mCents != null &&
+      patch.inputPer1mCents !== existing.inputPer1mCents) ||
+    (patch.outputPer1mCents != null &&
+      patch.outputPer1mCents !== existing.outputPer1mCents) ||
+    (patch.cacheHitPer1mCents != null &&
+      patch.cacheHitPer1mCents !== existing.cacheHitPer1mCents);
   await db.update(modelPrices).set(patch).where(eq(modelPrices.id, idParam));
+  if (amountsChanged) {
+    const nextName = patch.externalModel ?? existing.externalModel;
+    await notifyPricesChanged([
+      nextName,
+      patch.globalModel ?? existing.globalModel,
+      patch.providerModel ?? existing.providerModel ?? "",
+    ]);
+  }
   const row = await db.query.modelPrices.findFirst({
     where: eq(modelPrices.id, idParam),
   });
@@ -1280,6 +1300,7 @@ adminRoutes.post("/pricing/sync-upstream", async (c) => {
   let updated = 0;
   let skipped = 0;
   let missingUpstream = 0;
+  const changedNames: string[] = [];
 
   for (const modelName of modelNames) {
     const upstream = priceMap.get(modelName);
@@ -1300,18 +1321,26 @@ adminRoutes.post("/pricing/sync-upstream", async (c) => {
         skipped += 1;
         continue;
       }
+      const nextInput = priceUnitFromUsd(upstream.inputPer1m);
+      const nextOutput = priceUnitFromUsd(upstream.outputPer1m);
+      const nextCache = priceUnitFromUsd(upstream.cacheHitPer1m);
+      const priceMoved =
+        nextInput !== existing.inputPer1mCents ||
+        nextOutput !== existing.outputPer1mCents ||
+        nextCache !== existing.cacheHitPer1mCents;
       await db
         .update(modelPrices)
         .set({
-          inputPer1mCents: priceUnitFromUsd(upstream.inputPer1m),
-          outputPer1mCents: priceUnitFromUsd(upstream.outputPer1m),
-          cacheHitPer1mCents: priceUnitFromUsd(upstream.cacheHitPer1m),
+          inputPer1mCents: nextInput,
+          outputPer1mCents: nextOutput,
+          cacheHitPer1mCents: nextCache,
           costPer1mCents: priceUnitFromUsd(costPer1m),
           remark: `上游同步 · ${v.group} · ${payload.pricing_version ?? ""}`.slice(0, 500),
           updatedAt: new Date(),
         })
         .where(eq(modelPrices.id, existing.id));
       updated += 1;
+      if (priceMoved) changedNames.push(modelName);
       continue;
     }
 
@@ -1334,7 +1363,10 @@ adminRoutes.post("/pricing/sync-upstream", async (c) => {
       remark: `上游同步 · ${v.group} · ${payload.pricing_version ?? ""}`.slice(0, 500),
     });
     created += 1;
+    changedNames.push(modelName);
   }
+
+  if (changedNames.length) await notifyPricesChanged(changedNames);
 
   return c.json({
     ok: true,
@@ -1797,6 +1829,7 @@ adminRoutes.post("/models/sync-pricing", async (c) => {
   };
 
   const results: ChannelResult[] = [];
+  const changedPriceNames: string[] = [];
 
   for (const [channelId, items] of byChannel) {
     const ch = channelById.get(channelId)!;
@@ -1850,19 +1883,27 @@ adminRoutes.post("/models/sync-pricing", async (c) => {
       const costPer1m = upstream.inputPer1m;
 
       if (existing) {
+        const nextInput = priceUnitFromUsd(upstream.inputPer1m);
+        const nextOutput = priceUnitFromUsd(upstream.outputPer1m);
+        const nextCache = priceUnitFromUsd(upstream.cacheHitPer1m);
+        const priceMoved =
+          nextInput !== existing.inputPer1mCents ||
+          nextOutput !== existing.outputPer1mCents ||
+          nextCache !== existing.cacheHitPer1mCents;
         await db
           .update(modelPrices)
           .set({
             providerModel: item.upstreamModel,
-            inputPer1mCents: priceUnitFromUsd(upstream.inputPer1m),
-            outputPer1mCents: priceUnitFromUsd(upstream.outputPer1m),
-            cacheHitPer1mCents: priceUnitFromUsd(upstream.cacheHitPer1m),
+            inputPer1mCents: nextInput,
+            outputPer1mCents: nextOutput,
+            cacheHitPer1mCents: nextCache,
             costPer1mCents: priceUnitFromUsd(costPer1m),
             remark,
             updatedAt: new Date(),
           })
           .where(eq(modelPrices.id, existing.id));
         updated += 1;
+        if (priceMoved) changedPriceNames.push(item.displayModel);
         continue;
       }
 
@@ -1885,6 +1926,7 @@ adminRoutes.post("/models/sync-pricing", async (c) => {
       existingPrices.push(newRow);
       priceIndex.set(item.displayModel, newRow);
       created += 1;
+      changedPriceNames.push(item.displayModel);
     }
 
     const synced = created + updated;
@@ -1915,6 +1957,7 @@ adminRoutes.post("/models/sync-pricing", async (c) => {
 
   const messages = results.map((r) => r.message);
   const totalSynced = results.reduce((n, r) => n + r.synced, 0);
+  if (changedPriceNames.length) await notifyPricesChanged(changedPriceNames);
 
   return c.json({
     ok: totalSynced > 0,
@@ -1975,6 +2018,7 @@ adminRoutes.post("/models", async (c) => {
     published: v.published,
   };
   await db.insert(modelRoutes).values(row);
+  if (v.published) await notifyModelsPublished([v.model]);
   return c.json(
     {
       data: serializeModelRoute({
@@ -2058,6 +2102,9 @@ adminRoutes.put("/models/:id", async (c) => {
   await db.update(modelRoutes).set(patch).where(eq(modelRoutes.id, idParam));
   const row = await db.query.modelRoutes.findFirst({ where: eq(modelRoutes.id, idParam) });
   if (!row) return c.json({ error: "Not found" }, 404);
+  if (!existing.published && row.published) {
+    await notifyModelsPublished([row.model]);
+  }
   return c.json({ data: serializeModelRoute(row) });
 });
 

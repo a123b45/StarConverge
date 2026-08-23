@@ -449,6 +449,7 @@ function PortalShell() {
               displayName: me?.displayName || me?.username || "用户",
             }}
             editable
+            notificationsEnabled
             onUserUpdated={(u) =>
               setMe((prev) =>
                 prev
