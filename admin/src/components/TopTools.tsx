@@ -17,6 +17,7 @@ import {
   type ThemeMode,
 } from "../lib/chrome";
 import { portalApi } from "../lib/api";
+import ModalBackdrop from "./ModalBackdrop";
 
 type UserInfo = {
   username: string;
@@ -230,10 +231,7 @@ export default function TopTools({
       {toast ? <div className="chrome-toast">{toast}</div> : null}
 
       {accountOpen ? (
-        <div
-          className="modal-backdrop"
-          onClick={() => setAccountOpen(false)}
-        >
+        <ModalBackdrop onClose={() => setAccountOpen(false)}>
           <form
             className="modal chrome-account-modal"
             onClick={(e) => e.stopPropagation()}
@@ -287,7 +285,7 @@ export default function TopTools({
               ) : null}
             </div>
           </form>
-        </div>
+        </ModalBackdrop>
       ) : null}
     </>
   );

@@ -3,6 +3,7 @@ import { portalApi } from "../../lib/api";
 import { copyText } from "../../lib/copy";
 import SoftToast from "../../components/SoftToast";
 import { softConfirm } from "../../components/SoftDialog";
+import ModalBackdrop from "../../components/ModalBackdrop";
 import {
   IconCopy,
   IconEye,
@@ -290,7 +291,7 @@ export default function PortalKeysPage() {
       </div>
 
       {open ? (
-        <div className="modal-backdrop" onClick={() => !createdKey && setOpen(false)}>
+        <ModalBackdrop onClose={() => { if (!createdKey) setOpen(false); }}>
           <form
             className="modal modal-sm"
             onClick={(e) => e.stopPropagation()}
@@ -350,7 +351,7 @@ export default function PortalKeysPage() {
               )}
             </div>
           </form>
-        </div>
+        </ModalBackdrop>
       ) : null}
     </div>
   );

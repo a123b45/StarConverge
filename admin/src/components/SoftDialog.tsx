@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import ModalBackdrop from "./ModalBackdrop";
 
 export type SoftConfirmOpts = {
   title?: string;
@@ -157,10 +158,10 @@ export function SoftDialogHost() {
   const danger = state.kind === "confirm" && !!state.opts.danger;
 
   return createPortal(
-    <div
-      className="modal-backdrop soft-dialog-backdrop"
+    <ModalBackdrop
+      className="soft-dialog-backdrop"
       role="presentation"
-      onClick={() => {
+      onClose={() => {
         if (state.kind === "confirm") closeConfirm(false);
         else if (state.kind === "alert") closeAlert();
         else closePrompt(null);
@@ -242,7 +243,7 @@ export function SoftDialogHost() {
           )}
         </div>
       </div>
-    </div>,
+    </ModalBackdrop>,
     document.body,
   );
 }

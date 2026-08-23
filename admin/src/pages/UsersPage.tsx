@@ -3,6 +3,7 @@ import { api } from "../lib/api";
 import { IconEye, IconEyeOff } from "../components/icons";
 import SoftSelect from "../components/SoftSelect";
 import { softAlert, softConfirm, softPrompt } from "../components/SoftDialog";
+import ModalBackdrop from "../components/ModalBackdrop";
 
 type RoleOpt = { id: string; name: string; key: string };
 
@@ -265,7 +266,7 @@ export default function UsersPage() {
       </div>
 
       {open ? (
-        <div className="modal-backdrop" onClick={() => setOpen(false)}>
+        <ModalBackdrop onClose={() => setOpen(false)}>
           <form
             className="modal modal-user"
             onClick={(e) => e.stopPropagation()}
@@ -357,7 +358,7 @@ export default function UsersPage() {
               </button>
             </div>
           </form>
-        </div>
+        </ModalBackdrop>
       ) : null}
     </>
   );

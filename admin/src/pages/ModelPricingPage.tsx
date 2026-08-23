@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 import SoftSelect from "../components/SoftSelect";
 import { IconPencil, IconTrash } from "../components/icons";
 import { softConfirm } from "../components/SoftDialog";
+import ModalBackdrop from "../components/ModalBackdrop";
 
 const OTHER_PROVIDER = "__other__";
 
@@ -545,7 +546,7 @@ export default function ModelPricingPage() {
       </div>
 
       {syncOpen ? (
-        <div className="modal-backdrop" onClick={() => !syncBusy && setSyncOpen(false)}>
+        <ModalBackdrop onClose={() => { if (!syncBusy) setSyncOpen(false); }}>
           <div
             className="modal modal-user"
             onClick={(e) => e.stopPropagation()}
@@ -674,11 +675,11 @@ export default function ModelPricingPage() {
               </button>
             </div>
           </div>
-        </div>
+        </ModalBackdrop>
       ) : null}
 
       {open ? (
-        <div className="modal-backdrop" onClick={() => setOpen(false)}>
+        <ModalBackdrop onClose={() => setOpen(false)}>
           <form
             className="modal modal-user"
             onClick={(e) => e.stopPropagation()}
@@ -797,7 +798,7 @@ export default function ModelPricingPage() {
               </button>
             </div>
           </form>
-        </div>
+        </ModalBackdrop>
       ) : null}
     </>
   );

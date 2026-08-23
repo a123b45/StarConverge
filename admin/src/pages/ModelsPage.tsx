@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
 import SoftSelect from "../components/SoftSelect";
 import { softConfirm } from "../components/SoftDialog";
+import ModalBackdrop from "../components/ModalBackdrop";
 import { IconPencil, IconTrash } from "../components/icons";
 
 type RouteStrategy = "full" | "random" | "ratio" | "smart";
@@ -405,9 +406,8 @@ export default function ModelsPage() {
       </div>
 
       {open ? (
-        <div
-          className="modal-backdrop"
-          onClick={() => {
+        <ModalBackdrop
+          onClose={() => {
             setOpen(false);
             setEditingId(null);
           }}
@@ -588,7 +588,7 @@ export default function ModelsPage() {
               </button>
             </div>
           </form>
-        </div>
+        </ModalBackdrop>
       ) : null}
     </>
   );

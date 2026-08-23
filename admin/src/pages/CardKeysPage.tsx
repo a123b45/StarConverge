@@ -5,6 +5,7 @@ import SoftSelect from "../components/SoftSelect";
 import SoftToast from "../components/SoftToast";
 import { IconCopy, IconTrash } from "../components/icons";
 import { softAlert, softConfirm } from "../components/SoftDialog";
+import ModalBackdrop from "../components/ModalBackdrop";
 
 type CardRow = {
   id: string;
@@ -266,7 +267,7 @@ export default function CardKeysPage() {
       </div>
 
       {open ? (
-        <div className="modal-backdrop" onClick={() => setOpen(false)}>
+        <ModalBackdrop onClose={() => setOpen(false)}>
           <form
             className="modal modal-user"
             onClick={(e) => e.stopPropagation()}
@@ -329,11 +330,11 @@ export default function CardKeysPage() {
               </button>
             </div>
           </form>
-        </div>
+        </ModalBackdrop>
       ) : null}
 
       {createdCodes.length ? (
-        <div className="modal-backdrop" onClick={() => setCreatedCodes([])}>
+        <ModalBackdrop onClose={() => setCreatedCodes([])}>
           <div className="modal modal-user" onClick={(e) => e.stopPropagation()}>
             <div className="modal-user-head">
               <h3>卡密已生成</h3>
@@ -349,7 +350,7 @@ export default function CardKeysPage() {
               </button>
             </div>
           </div>
-        </div>
+        </ModalBackdrop>
       ) : null}
     </>
   );

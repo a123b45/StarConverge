@@ -3,6 +3,7 @@ import { api } from "../lib/api";
 import { softConfirm } from "../components/SoftDialog";
 import { PROVIDERS, providerById, providerLabel } from "../lib/providers";
 import SoftSelect from "../components/SoftSelect";
+import ModalBackdrop from "../components/ModalBackdrop";
 
 type Channel = {
   id: string;
@@ -433,7 +434,7 @@ export default function ChannelsPage() {
       </div>
 
       {open ? (
-        <div className="modal-backdrop" onClick={() => setOpen(false)}>
+        <ModalBackdrop onClose={() => setOpen(false)}>
           <form
             className="modal modal-lg"
             onClick={(e) => e.stopPropagation()}
@@ -639,7 +640,7 @@ export default function ChannelsPage() {
               )}
             </div>
           </form>
-        </div>
+        </ModalBackdrop>
       ) : null}
     </>
   );

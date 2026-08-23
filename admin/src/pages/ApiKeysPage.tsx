@@ -3,6 +3,7 @@ import { api } from "../lib/api";
 import { copyText } from "../lib/copy";
 import SoftToast from "../components/SoftToast";
 import { softConfirm } from "../components/SoftDialog";
+import ModalBackdrop from "../components/ModalBackdrop";
 import { IconCopy, IconEye, IconEyeOff, IconPencil, IconTrash } from "../components/icons";
 
 type Token = {
@@ -244,7 +245,7 @@ export default function ApiKeysPage() {
       </div>
 
       {open ? (
-        <div className="modal-backdrop" onClick={() => !createdKey && setOpen(false)}>
+        <ModalBackdrop onClose={() => { if (!createdKey) setOpen(false); }}>
           <form
             className="modal modal-sm"
             onClick={(e) => e.stopPropagation()}
@@ -298,7 +299,7 @@ export default function ApiKeysPage() {
               )}
             </div>
           </form>
-        </div>
+        </ModalBackdrop>
       ) : null}
     </>
   );

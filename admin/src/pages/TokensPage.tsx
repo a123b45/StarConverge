@@ -5,6 +5,7 @@ import RoutePicker from "../components/RoutePicker";
 import SoftSelect from "../components/SoftSelect";
 import SoftToast from "../components/SoftToast";
 import { softConfirm } from "../components/SoftDialog";
+import ModalBackdrop from "../components/ModalBackdrop";
 import { IconPencil, IconTrash } from "../components/icons";
 import {
   type IpRule,
@@ -696,7 +697,7 @@ export default function TokensPage() {
       </div>
 
       {open && editing ? (
-        <div className="modal-backdrop" onClick={() => setOpen(false)}>
+        <ModalBackdrop onClose={() => setOpen(false)}>
           <form
             className="modal modal-token"
             onClick={(e) => e.stopPropagation()}
@@ -867,11 +868,11 @@ export default function TokensPage() {
               <button className="btn">保存</button>
             </div>
           </form>
-        </div>
+        </ModalBackdrop>
       ) : null}
 
       {importOpen ? (
-        <div className="modal-backdrop" onClick={() => setImportOpen(false)}>
+        <ModalBackdrop onClose={() => setImportOpen(false)}>
           <div className="modal modal-token" onClick={(e) => e.stopPropagation()}>
             <div className="modal-user-head">
               <h3>导入 IP 规则 JSON</h3>
@@ -896,7 +897,7 @@ export default function TokensPage() {
               </button>
             </div>
           </div>
-        </div>
+        </ModalBackdrop>
       ) : null}
     </>
   );

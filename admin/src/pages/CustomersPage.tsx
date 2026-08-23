@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 import SoftSelect from "../components/SoftSelect";
 import { IconKey, IconPencil, IconUsers, IconWallet } from "../components/icons";
 import { softAlert, softPrompt } from "../components/SoftDialog";
+import ModalBackdrop from "../components/ModalBackdrop";
 
 type CustomerRow = {
   id: string;
@@ -417,7 +418,7 @@ export default function CustomersPage() {
       </div>
 
       {open ? (
-        <div className="modal-backdrop" onClick={() => setOpen(false)}>
+        <ModalBackdrop onClose={() => setOpen(false)}>
           <form
             className="modal modal-user"
             onClick={(e) => e.stopPropagation()}
@@ -484,11 +485,11 @@ export default function CustomersPage() {
               </button>
             </div>
           </form>
-        </div>
+        </ModalBackdrop>
       ) : null}
 
       {edit ? (
-        <div className="modal-backdrop" onClick={() => setEdit(null)}>
+        <ModalBackdrop onClose={() => setEdit(null)}>
           <form
             className="modal modal-user modal-customer-edit"
             onClick={(e) => e.stopPropagation()}
@@ -607,11 +608,11 @@ export default function CustomersPage() {
               </button>
             </div>
           </form>
-        </div>
+        </ModalBackdrop>
       ) : null}
 
       {keysFor ? (
-        <div className="modal-backdrop" onClick={() => setKeysFor(null)}>
+        <ModalBackdrop onClose={() => setKeysFor(null)}>
           <div className="modal modal-user" onClick={(e) => e.stopPropagation()}>
             <div className="modal-user-head">
               <h3>API 密钥 · {keysFor.username}</h3>
@@ -656,7 +657,7 @@ export default function CustomersPage() {
               </button>
             </div>
           </div>
-        </div>
+        </ModalBackdrop>
       ) : null}
     </>
   );
