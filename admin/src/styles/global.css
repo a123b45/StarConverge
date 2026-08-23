@@ -709,6 +709,9 @@ html[data-theme="dark"] .count-chip {
   flex: 0 0 auto;
   min-width: 160px;
 }
+.mc-toolbar .mc-channel-filter {
+  min-width: 200px;
+}
 .mc-toolbar-actions {
   margin-left: auto;
   display: flex;
