@@ -3,9 +3,11 @@ import { portalApi } from "../../lib/api";
 
 type BillRow = {
   id: string;
-  code: string;
+  kind: "card" | "epay";
+  label: string;
   amount: number;
-  redeemedAt: string | Date | null;
+  at: string | Date | null;
+  status: string;
 };
 
 function money(n: number) {
@@ -17,6 +19,13 @@ function fmtDate(d: string | Date | null | undefined) {
   const dt = new Date(d);
   if (Number.isNaN(dt.getTime())) return "—";
   return dt.toLocaleString();
+}
+
+function statusLabel(row: BillRow) {
+  if (row.kind === "card") return "已兑换";
+  if (row.status === "paid") return "已支付";
+  if (row.status === "pending") return "待支付";
+  return row.status;
 }
 
 export default function PortalBillsPage() {
@@ -36,7 +45,7 @@ export default function PortalBillsPage() {
       <div className="portal-hero">
         <div>
           <h1>账单</h1>
-          <p>查看本账户已兑换的卡密记录</p>
+          <p>查看本账户的卡密兑换与在线充值记录</p>
         </div>
       </div>
 
@@ -44,30 +53,32 @@ export default function PortalBillsPage() {
 
       <div className="portal-panel">
         <div className="portal-panel-head">
-          <h3>卡密兑换记录</h3>
+          <h3>充值记录</h3>
           <span className="muted">共 {rows.length} 条</span>
         </div>
         <div className="portal-table-wrap">
           <table className="portal-table">
             <thead>
               <tr>
-                <th>卡密</th>
+                <th>方式</th>
                 <th>金额</th>
-                <th>使用时间</th>
+                <th>状态</th>
+                <th>时间</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((r) => (
                 <tr key={r.id}>
-                  <td className="mono">{r.code}</td>
+                  <td className="mono">{r.label}</td>
                   <td>{money(r.amount)}</td>
-                  <td>{fmtDate(r.redeemedAt)}</td>
+                  <td>{statusLabel(r)}</td>
+                  <td>{fmtDate(r.at)}</td>
                 </tr>
               ))}
               {!rows.length ? (
                 <tr>
-                  <td colSpan={3} className="muted">
-                    暂无兑换记录
+                  <td colSpan={4} className="muted">
+                    暂无充值记录
                   </td>
                 </tr>
               ) : null}

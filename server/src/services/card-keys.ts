@@ -11,6 +11,35 @@ export function centsFromUsd(usd: number) {
   return Math.round(usd * 100);
 }
 
+export async function creditUserBalance(userId: string, amountCents: number) {
+  if (amountCents <= 0) throw new Error("充值金额必须大于 0");
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  if (!user || !user.enabled) {
+    const err = new Error("账户不可用");
+    (err as Error & { status: number }).status = 403;
+    throw err;
+  }
+  const now = new Date();
+  await db
+    .update(users)
+    .set({
+      balanceCents: (user.balanceCents ?? 0) + amountCents,
+      totalRechargedCents: (user.totalRechargedCents ?? 0) + amountCents,
+      lastRechargedAt: now,
+      updatedAt: now,
+    })
+    .where(eq(users.id, userId));
+  return {
+    amount: usdFromCents(amountCents),
+    balance: usdFromCents((user.balanceCents ?? 0) + amountCents),
+    totalRecharged: usdFromCents((user.totalRechargedCents ?? 0) + amountCents),
+  };
+}
+
 export function cardStatus(
   row: { redeemedAt: Date | null; expiresAt: Date | null },
   now = Date.now(),
@@ -92,32 +121,15 @@ export async function redeemCardKey(codeRaw: string, userId: string) {
     fail("该卡密已限定其他用户，无法兑换");
   }
   const [user] = await db
-    .select()
+    .select({ id: users.id, enabled: users.enabled })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
   if (!user || !user.enabled) fail("账户不可用", 403);
-
   const now = new Date();
   await db
     .update(cardKeys)
     .set({ redeemedAt: now, redeemedBy: userId })
     .where(eq(cardKeys.id, card.id));
-  await db
-    .update(users)
-    .set({
-      balanceCents: (user.balanceCents ?? 0) + card.amountCents,
-      totalRechargedCents: (user.totalRechargedCents ?? 0) + card.amountCents,
-      lastRechargedAt: now,
-      updatedAt: now,
-    })
-    .where(eq(users.id, userId));
-
-  return {
-    amount: usdFromCents(card.amountCents),
-    balance: usdFromCents((user.balanceCents ?? 0) + card.amountCents),
-    totalRecharged: usdFromCents(
-      (user.totalRechargedCents ?? 0) + card.amountCents,
-    ),
-  };
+  return creditUserBalance(userId, card.amountCents);
 }

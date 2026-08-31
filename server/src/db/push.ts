@@ -322,6 +322,25 @@ export function migrate() {
   sqlite.exec(
     `CREATE INDEX IF NOT EXISTS user_notifications_updated_idx ON user_notifications(updated_at)`,
   );
+  sqlite.exec(`CREATE TABLE IF NOT EXISTS recharge_orders (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    out_trade_no TEXT NOT NULL UNIQUE,
+    trade_no TEXT DEFAULT '',
+    pay_type TEXT NOT NULL,
+    amount_cents INTEGER NOT NULL,
+    money_cny TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    paid_at INTEGER,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000),
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
+  )`);
+  sqlite.exec(
+    `CREATE INDEX IF NOT EXISTS recharge_orders_user_idx ON recharge_orders(user_id)`,
+  );
+  sqlite.exec(
+    `CREATE INDEX IF NOT EXISTS recharge_orders_status_idx ON recharge_orders(status)`,
+  );
   sqlite.exec(`CREATE INDEX IF NOT EXISTS card_keys_code_idx ON card_keys(code)`);
   sqlite.exec(`CREATE INDEX IF NOT EXISTS card_keys_user_idx ON card_keys(user_id)`);
   sqlite.exec(`CREATE TABLE IF NOT EXISTS roles (

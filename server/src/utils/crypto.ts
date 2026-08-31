@@ -65,6 +65,10 @@ export function extractBearer(header: string | undefined): string | null {
   return m?.[1]?.trim() ?? null;
 }
 
+export function md5(text: string): string {
+  return createHash("md5").update(text, "utf8").digest("hex");
+}
+
 export function nowMs(): number {
   return Date.now();
 }

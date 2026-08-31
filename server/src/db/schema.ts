@@ -303,5 +303,33 @@ export type ModelRoute = typeof modelRoutes.$inferSelect;
 export type RequestLog = typeof requestLogs.$inferSelect;
 export type ProxyRoute = typeof proxyRoutes.$inferSelect;
 export type ModelPrice = typeof modelPrices.$inferSelect;
+export const rechargeOrders = sqliteTable(
+  "recharge_orders",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").notNull(),
+    outTradeNo: text("out_trade_no").notNull().unique(),
+    tradeNo: text("trade_no").default(""),
+    /** alipay | wxpay | qqpay */
+    payType: text("pay_type").notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    moneyCny: text("money_cny").notNull(),
+    /** pending | paid | closed */
+    status: text("status").notNull().default("pending"),
+    paidAt: integer("paid_at", { mode: "timestamp_ms" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(unixepoch() * 1000)`),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(unixepoch() * 1000)`),
+  },
+  (t) => [
+    index("recharge_orders_user_idx").on(t.userId),
+    index("recharge_orders_status_idx").on(t.status),
+  ],
+);
+
 export type CardKey = typeof cardKeys.$inferSelect;
 export type UserNotification = typeof userNotifications.$inferSelect;
+export type RechargeOrder = typeof rechargeOrders.$inferSelect;

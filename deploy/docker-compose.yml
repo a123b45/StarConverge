@@ -13,6 +13,12 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-123456}
       ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET:-change-me-in-production}
       CORS_ORIGIN: ${CORS_ORIGIN:-*}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
+      EPAY_API_URL: ${EPAY_API_URL:-}
+      EPAY_PID: ${EPAY_PID:-}
+      EPAY_KEY: ${EPAY_KEY:-}
+      EPAY_CNY_PER_USD: ${EPAY_CNY_PER_USD:-7.2}
+      EPAY_TYPES: ${EPAY_TYPES:-alipay,wxpay}
     volumes:
       - sc-data:/data
     restart: unless-stopped

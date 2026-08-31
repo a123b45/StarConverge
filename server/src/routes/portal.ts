@@ -8,6 +8,7 @@ import {
   modelPrices,
   modelRoutes,
   requestLogs,
+  rechargeOrders,
   tokens,
   userNotifications,
   users,
@@ -22,6 +23,12 @@ import {
 } from "../utils/crypto.js";
 import { publicToken } from "../services/stats.js";
 import { redeemCardKey, usdFromCents } from "../services/card-keys.js";
+import {
+  createEpayOrder,
+  epayPublicConfig,
+  publicOrder,
+} from "../services/epay.js";
+import { getRequestClientIp } from "../utils/client-ip.js";
 
 export const portalRoutes = new Hono<SessionVars>();
 
@@ -350,6 +357,45 @@ portalRoutes.delete("/keys/:id", async (c) => {
   return c.json({ ok: true });
 });
 
+portalRoutes.get("/recharge/epay/config", (c) => {
+  return c.json({ data: epayPublicConfig() });
+});
+
+portalRoutes.post("/recharge/epay", async (c) => {
+  const auth = c.get("auth");
+  const schema = z.object({
+    amountUsd: z.number().positive().max(1000),
+    type: z.enum(["alipay", "wxpay", "qqpay"]),
+  });
+  const parsed = schema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: "请选择充值金额和支付方式" }, 400);
+  try {
+    const data = await createEpayOrder({
+      userId: auth.userId!,
+      amountUsd: parsed.data.amountUsd,
+      payType: parsed.data.type,
+      clientIp: getRequestClientIp(c) || "127.0.0.1",
+    });
+    return c.json({ data });
+  } catch (e) {
+    return c.json(
+      { error: e instanceof Error ? e.message : "下单失败" },
+      400,
+    );
+  }
+});
+
+portalRoutes.get("/recharge/epay/order/:outTradeNo", async (c) => {
+  const auth = c.get("auth");
+  const [row] = await db
+    .select()
+    .from(rechargeOrders)
+    .where(eq(rechargeOrders.outTradeNo, c.req.param("outTradeNo")))
+    .limit(1);
+  if (!row || row.userId !== auth.userId) return c.json({ error: "Not found" }, 404);
+  return c.json({ data: publicOrder(row) });
+});
+
 portalRoutes.post("/recharge/card", async (c) => {
   const auth = c.get("auth");
   const schema = z.object({ code: z.string().min(8).max(64) });
@@ -369,19 +415,44 @@ portalRoutes.post("/recharge/card", async (c) => {
 
 portalRoutes.get("/bills", async (c) => {
   const auth = c.get("auth");
-  const rows = await db
+  const cards = await db
     .select()
     .from(cardKeys)
     .where(eq(cardKeys.redeemedBy, auth.userId!))
     .orderBy(desc(cardKeys.redeemedAt), desc(cardKeys.createdAt));
-  return c.json({
-    data: rows.map((r) => ({
+  const online = await db
+    .select()
+    .from(rechargeOrders)
+    .where(eq(rechargeOrders.userId, auth.userId!))
+    .orderBy(desc(rechargeOrders.createdAt));
+  const data = [
+    ...cards.map((r) => ({
       id: r.id,
-      code: r.code,
+      kind: "card" as const,
+      label: r.code,
       amount: usdFromCents(r.amountCents),
-      redeemedAt: r.redeemedAt,
+      at: r.redeemedAt,
+      status: "paid",
     })),
+    ...online.map((r) => ({
+      id: r.id,
+      kind: "epay" as const,
+      label:
+        r.payType === "wxpay"
+          ? "微信支付"
+          : r.payType === "alipay"
+            ? "支付宝"
+            : "QQ 钱包",
+      amount: usdFromCents(r.amountCents),
+      at: r.paidAt ?? r.createdAt,
+      status: r.status,
+    })),
+  ].sort((a, b) => {
+    const ta = a.at ? new Date(a.at).getTime() : 0;
+    const tb = b.at ? new Date(b.at).getTime() : 0;
+    return tb - ta;
   });
+  return c.json({ data });
 });
 
 portalRoutes.get("/usage", async (c) => {

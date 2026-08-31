@@ -21,7 +21,18 @@ export const config = {
   logLevel: process.env.LOG_LEVEL ?? "info",
   publicBaseUrl:
     process.env.PUBLIC_BASE_URL ??
-    `http://127.0.0.1:${Number(process.env.PORT ?? 8787)}`,
+    (process.env.PUBLIC_HOST
+      ? `https://${String(process.env.PUBLIC_HOST).replace(/^https?:\/\//, "").replace(/\/+$/, "")}`
+      : `http://127.0.0.1:${Number(process.env.PORT ?? 8787)}`),
   resendApiKey: process.env.RESEND_API_KEY ?? "",
   mailFrom: process.env.MAIL_FROM ?? "StarConverge <noreply@starconverge.local>",
+  epayApiUrl: (process.env.EPAY_API_URL ?? "").trim(),
+  epayPid: (process.env.EPAY_PID ?? "").trim(),
+  epayKey: (process.env.EPAY_KEY ?? "").trim(),
+  /** CNY charged per 1 USD credited */
+  epayCnyPerUsd: Number(process.env.EPAY_CNY_PER_USD ?? 7.2),
+  epayTypes: (process.env.EPAY_TYPES ?? "alipay,wxpay")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean),
 };

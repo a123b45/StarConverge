@@ -13,6 +13,7 @@ import { authRoutes } from "./routes/auth.js";
 import { portalRoutes } from "./routes/portal.js";
 import { v1Routes } from "./routes/v1.js";
 import { proxyApp } from "./routes/proxy.js";
+import { payRoutes } from "./routes/pay.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -48,6 +49,7 @@ app.get("/health", (c) =>
 app.route("/api/auth", authRoutes);
 app.route("/api/admin", adminRoutes);
 app.route("/api/portal", portalRoutes);
+app.route("/api/pay", payRoutes);
 app.route("/v1", v1Routes);
 app.route("/proxy", proxyApp);
 
