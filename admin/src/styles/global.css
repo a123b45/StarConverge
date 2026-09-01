@@ -5866,6 +5866,20 @@ html[data-theme="dark"] .copy-row .portal-btn.ghost:hover {
   cursor: not-allowed;
   box-shadow: none;
 }
+.ds-send-stop {
+  opacity: 1;
+  cursor: pointer;
+}
+.ds-send-stop:hover {
+  background: linear-gradient(180deg, #7c3aed, #6d28d9);
+}
+.ds-msg-text a {
+  color: var(--p-accent);
+  font-weight: 700;
+}
+.ds-msg-text.muted {
+  color: #6b7280;
+}
 
 @media (max-width: 1200px) {
   .portal-stats {
@@ -5995,6 +6009,9 @@ html[data-theme="dark"] .ds-session-main,
 html[data-theme="dark"] .ds-msg-text,
 html[data-theme="dark"] .ds-title {
   color: var(--text) !important;
+}
+html[data-theme="dark"] .ds-msg-text.muted {
+  color: var(--muted) !important;
 }
 html[data-theme="dark"] .portal-table th,
 html[data-theme="dark"] .portal-table td,

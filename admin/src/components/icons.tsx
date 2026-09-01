@@ -345,6 +345,14 @@ export function IconMore({ size = 16 }: SizeProps) {
   );
 }
 
+export function IconStop({ size = 12 }: SizeProps) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden>
+      <rect x="7" y="7" width="10" height="10" rx="2.2" fill="currentColor" />
+    </svg>
+  );
+}
+
 export function IconTag({ size = 16 }: SizeProps) {
   return (
     <Svg size={size}>

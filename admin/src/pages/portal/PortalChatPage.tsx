@@ -2,11 +2,17 @@ import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from "
 import { Link } from "react-router-dom";
 import { createPortal } from "react-dom";
 import { portalApi } from "../../lib/api";
-import { IconMore, IconSidebar } from "../../components/icons";
+import { IconMore, IconSidebar, IconStop } from "../../components/icons";
 import SoftSelect from "../../components/SoftSelect";
 import { softConfirm, softPrompt } from "../../components/SoftDialog";
 
-type Msg = { role: "user" | "assistant"; content: string; at: number; model?: string };
+type Msg = {
+  role: "user" | "assistant";
+  content: string;
+  at: number;
+  model?: string;
+  variant?: "balance" | "aborted" | "error";
+};
 type Session = {
   id: string;
   title: string;
@@ -48,32 +54,26 @@ export default function PortalChatPage() {
   const [keys, setKeys] = useState<{ id: string; name: string }[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [balance, setBalance] = useState<number | null>(null);
   const [sideCollapsed, setSideCollapsed] = useState(false);
   const [menuId, setMenuId] = useState<string | null>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const active = useMemo(
     () => sessions.find((s) => s.id === activeId) ?? null,
     [sessions, activeId],
   );
 
-  function applyBalance(next?: number | null, totalRecharged?: number) {
-    if (typeof next === "number") setBalance(next);
-    window.dispatchEvent(
-      new CustomEvent("sc:balance-updated", {
-        detail: { balance: next, totalRecharged },
-      }),
-    );
-  }
-
   async function refreshBalance() {
     try {
       const me = await portalApi<{ balance?: number; totalRecharged?: number }>("/me");
-      applyBalance(me.balance ?? 0, me.totalRecharged);
+      window.dispatchEvent(
+        new CustomEvent("sc:balance-updated", {
+          detail: { balance: me.balance ?? 0, totalRecharged: me.totalRecharged },
+        }),
+      );
     } catch {
       /* keep last known */
     }
@@ -93,13 +93,6 @@ export default function PortalChatPage() {
         if (full.key) setApiKey(full.key);
       }
     });
-    void refreshBalance();
-    function onBalance(e: Event) {
-      const detail = (e as CustomEvent<{ balance?: number }>).detail;
-      if (typeof detail?.balance === "number") setBalance(detail.balance);
-    }
-    window.addEventListener("sc:balance-updated", onBalance);
-    return () => window.removeEventListener("sc:balance-updated", onBalance);
   }, []);
 
   useEffect(() => {
@@ -145,7 +138,6 @@ export default function PortalChatPage() {
     };
     persist([s, ...sessions]);
     setActiveId(s.id);
-    setError("");
     setMenuId(null);
   }
 
@@ -226,13 +218,48 @@ export default function PortalChatPage() {
     }
   }
 
+  function upsertSession(next: Session) {
+    setSessions((prev) => {
+      const exists = prev.some((s) => s.id === next.id);
+      const list = exists
+        ? prev.map((s) => (s.id === next.id ? next : s))
+        : [next, ...prev];
+      const sorted = sortSessions(list);
+      saveSessions(sorted);
+      return sorted;
+    });
+  }
+
+  function stopGenerating() {
+    abortRef.current?.abort();
+  }
+
+  function assistantFromError(status: number, raw: string): Msg {
+    const text = raw.trim();
+    const balanceFail =
+      status === 402 ||
+      /余额不足|insufficient_balance|insufficient_quota/i.test(text);
+    if (balanceFail) {
+      return {
+        role: "assistant",
+        content: "余额不足，请先充值",
+        at: Date.now(),
+        model,
+        variant: "balance",
+      };
+    }
+    return {
+      role: "assistant",
+      content: text || "发送失败",
+      at: Date.now(),
+      model,
+      variant: "error",
+    };
+  }
+
   async function send(e?: FormEvent) {
     e?.preventDefault();
-    if (!input.trim() || !apiKey || !model) return;
-    if (balance != null && balance <= 0) {
-      setError("余额不足，请先充值后再对话");
-      return;
-    }
+    if (busy || !input.trim() || !apiKey || !model) return;
     let current = active;
     if (!current) {
       current = {
@@ -245,8 +272,9 @@ export default function PortalChatPage() {
       setActiveId(current.id);
     }
 
+    const controller = new AbortController();
+    abortRef.current = controller;
     setBusy(true);
-    setError("");
     const userMsg: Msg = { role: "user", content: input.trim(), at: Date.now() };
     const withUser: Session = {
       ...current,
@@ -254,16 +282,7 @@ export default function PortalChatPage() {
       messages: [...current.messages, userMsg],
       updatedAt: Date.now(),
     };
-    setSessions((prev) => {
-      const exists = prev.some((s) => s.id === withUser.id);
-      const next = sortSessions(
-        exists
-          ? prev.map((s) => (s.id === withUser.id ? withUser : s))
-          : [withUser, ...prev],
-      );
-      saveSessions(next);
-      return next;
-    });
+    upsertSession(withUser);
     setInput("");
 
     try {
@@ -273,42 +292,73 @@ export default function PortalChatPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiKey}`,
         },
+        signal: controller.signal,
         body: JSON.stringify({
           model,
-          messages: withUser.messages.map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
+          messages: withUser.messages
+            .filter((m) => !m.variant)
+            .map((m) => ({
+              role: m.role,
+              content: m.content,
+            })),
         }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data?.error?.message || data?.error || res.statusText);
+        const raw =
+          (typeof data?.error?.message === "string" && data.error.message) ||
+          (typeof data?.error === "string" && data.error) ||
+          res.statusText;
+        upsertSession({
+          ...withUser,
+          messages: [...withUser.messages, assistantFromError(res.status, String(raw))],
+          updatedAt: Date.now(),
+        });
+        return;
       }
       const content =
         data?.choices?.[0]?.message?.content ??
         data?.choices?.[0]?.text ??
         JSON.stringify(data);
-      const assistant: Msg = {
-        role: "assistant",
-        content: String(content),
-        at: Date.now(),
-        model,
-      };
-      const final: Session = {
+      upsertSession({
         ...withUser,
-        messages: [...withUser.messages, assistant],
+        messages: [
+          ...withUser.messages,
+          {
+            role: "assistant",
+            content: String(content),
+            at: Date.now(),
+            model,
+          },
+        ],
         updatedAt: Date.now(),
-      };
-      setSessions((prev) => {
-        const next = sortSessions(prev.map((s) => (s.id === final.id ? final : s)));
-        saveSessions(next);
-        return next;
       });
       void refreshBalance();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "发送失败");
+      const aborted =
+        (err instanceof DOMException && err.name === "AbortError") ||
+        (err instanceof Error && err.name === "AbortError");
+      upsertSession({
+        ...withUser,
+        messages: [
+          ...withUser.messages,
+          aborted
+            ? {
+                role: "assistant",
+                content: "已停止生成",
+                at: Date.now(),
+                model,
+                variant: "aborted" as const,
+              }
+            : assistantFromError(
+                0,
+                err instanceof Error ? err.message : "发送失败",
+              ),
+        ],
+        updatedAt: Date.now(),
+      });
     } finally {
+      abortRef.current = null;
       setBusy(false);
     }
   }
@@ -418,13 +468,7 @@ export default function PortalChatPage() {
               <div className="ds-welcome-mark">in</div>
               <h2>开始一次对话测试</h2>
               <p>选择模型与 API 密钥后，在下方输入消息即可调用网关。</p>
-              {balance != null && balance <= 0 ? (
-                <p className="ds-hint">
-                  当前余额为 $0.00，对话会按模型单价扣费。请先
-                  <Link to="/app/recharge"> 充值 </Link>
-                  后再发送。
-                </p>
-              ) : !apiKey ? (
+              {!apiKey ? (
                 <p className="ds-hint">
                   还没有密钥？先去 <Link to="/app/keys">API 密钥</Link> 创建。
                 </p>
@@ -436,7 +480,18 @@ export default function PortalChatPage() {
                 <div key={i} className={`ds-msg ${m.role}`}>
                     <div className="ds-avatar">{m.role === "user" ? "你" : "in"}</div>
                   <div className="ds-msg-body">
-                    <div className="ds-msg-text">{m.content}</div>
+                    <div
+                      className={`ds-msg-text${m.variant === "aborted" ? " muted" : ""}`}
+                    >
+                      {m.variant === "balance" ? (
+                        <>
+                          余额不足，请先
+                          <Link to="/app/recharge">充值</Link>
+                        </>
+                      ) : (
+                        m.content
+                      )}
+                    </div>
                     <div className="ds-msg-meta">
                       {new Date(m.at).toLocaleTimeString()}
                       {m.model ? ` · ${m.model}` : ""}
@@ -458,50 +513,43 @@ export default function PortalChatPage() {
         </div>
 
         <div className="ds-composer-wrap">
-          {error ? (
-            <div className="ds-error">
-              {error}
-              {error.includes("余额") ? (
-                <>
-                  {" "}
-                  <Link to="/app/recharge">去充值</Link>
-                </>
-              ) : null}
-            </div>
-          ) : null}
           <form className="ds-composer" onSubmit={(e) => void send(e)}>
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={onKeyDown}
               placeholder={
-                balance != null && balance <= 0
-                  ? "余额不足，请先充值…"
-                  : !apiKey
-                    ? "请先创建 API 密钥…"
-                    : model
-                      ? `给 ${model} 发送消息`
-                      : "请先选择模型…"
+                !apiKey
+                  ? "请先创建 API 密钥…"
+                  : model
+                    ? `给 ${model} 发送消息`
+                    : "请先选择模型…"
               }
               rows={1}
-              disabled={busy || !apiKey || !model || (balance != null && balance <= 0)}
+              disabled={!apiKey || !model}
             />
             <div className="ds-composer-bar">
               <span className="ds-composer-tip">Enter 发送 · Shift+Enter 换行</span>
-              <button
-                type="submit"
-                className="ds-send"
-                disabled={
-                  busy ||
-                  !apiKey ||
-                  !model ||
-                  !input.trim() ||
-                  (balance != null && balance <= 0)
-                }
-                aria-label="发送"
-              >
-                ↑
-              </button>
+              {busy ? (
+                <button
+                  type="button"
+                  className="ds-send ds-send-stop"
+                  onClick={stopGenerating}
+                  aria-label="停止生成"
+                  title="停止生成"
+                >
+                  <IconStop size={12} />
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  className="ds-send"
+                  disabled={!apiKey || !model || !input.trim()}
+                  aria-label="发送"
+                >
+                  ↑
+                </button>
+              )}
             </div>
           </form>
         </div>
