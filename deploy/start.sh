@@ -17,6 +17,29 @@ ok()    { echo -e "${GREEN}[OK]${NC} $*"; }
 warn()  { echo -e "${YELLOW}[WARN]${NC} $*"; }
 err()   { echo -e "${RED}[ERR]${NC} $*" >&2; }
 
+# 按行导出 KEY=VALUE，避免 MAIL_FROM=Name <a@b.com> 被 bash 当成重定向
+load_env_file() {
+  local file="$1"
+  [[ -f "$file" ]] || return 0
+  local line key val
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line%$'\r'}"
+    [[ -z "${line//[[:space:]]/}" ]] && continue
+    [[ "$line" =~ ^[[:space:]]*# ]] && continue
+    if [[ "$line" =~ ^([A-Za-z_][A-Za-z0-9_]*)=(.*)$ ]]; then
+      key="${BASH_REMATCH[1]}"
+      val="${BASH_REMATCH[2]}"
+      if [[ "$val" =~ ^\"(.*)\"$ ]]; then
+        val="${BASH_REMATCH[1]}"
+      elif [[ "$val" =~ ^\'(.*)\'$ ]]; then
+        val="${BASH_REMATCH[1]}"
+      fi
+      printf -v "$key" '%s' "$val"
+      export "$key"
+    fi
+  done < "$file"
+}
+
 MODE="local"      # local（默认源码）| docker | auto
 REBUILD=0
 PORT="${PORT:-8787}"
@@ -140,8 +163,7 @@ start_docker() {
   ensure_env
 
   set -a
-  # shellcheck disable=SC1091
-  [[ -f "$DEPLOY_DIR/.env" ]] && source "$DEPLOY_DIR/.env"
+  load_env_file "$DEPLOY_DIR/.env"
   set +a
 
   IMAGE="${IMAGE:-crpi-h49so3m1b8wov228.cn-hangzhou.personal.cr.aliyuncs.com/yxl_image_registry/starconverge:v1.0.0}"
@@ -329,9 +351,8 @@ start_local() {
   stop_local_if_running
 
   info "启动 API 服务 (0.0.0.0:${PORT})..."
-  # shellcheck disable=SC1091
   set -a
-  source "$ROOT/server/.env"
+  load_env_file "$ROOT/server/.env"
   set +a
   export PORT="${PORT}"
   export HOST="${HOST:-0.0.0.0}"
