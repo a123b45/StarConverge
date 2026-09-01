@@ -15,8 +15,17 @@ import { extractBearer } from "../utils/crypto.js";
 import {
   createResetToken,
   hashToken,
+  mailConfigured,
   sendPasswordResetEmail,
+  sendRegisterCodeEmail,
 } from "../services/mail.js";
+import { createCaptcha, consumeCaptcha } from "../services/captcha.js";
+import {
+  consumeEmailCode,
+  issueEmailCode,
+  remainingSendCooldown,
+} from "../services/email-codes.js";
+import { getRequestClientIp } from "../utils/client-ip.js";
 import {
   getPortalUserRole,
   getRoleById,
@@ -90,6 +99,62 @@ authRoutes.post("/login", async (c) => {
   });
 });
 
+authRoutes.get("/captcha", (c) => {
+  return c.json({ data: createCaptcha() });
+});
+
+const sendHits = new Map<string, number[]>();
+function tooManySends(ip: string) {
+  const now = Date.now();
+  const hits = (sendHits.get(ip) ?? []).filter((t) => now - t < 60 * 60_000);
+  if (hits.length >= 8) {
+    sendHits.set(ip, hits);
+    return true;
+  }
+  hits.push(now);
+  sendHits.set(ip, hits);
+  return false;
+}
+
+authRoutes.post("/register/send-code", async (c) => {
+  const schema = z.object({
+    email: emailSchema,
+    captchaId: z.string().min(8).max(64),
+    captcha: z.string().min(4).max(8),
+  });
+  const parsed = schema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) {
+    return c.json({ error: "请填写邮箱并完成图片验证" }, 400);
+  }
+  if (!mailConfigured()) {
+    return c.json({ error: "邮件服务未配置，请联系管理员" }, 503);
+  }
+  const ip = getRequestClientIp(c) || "unknown";
+  if (tooManySends(ip)) {
+    return c.json({ error: "发送过于频繁，请稍后再试" }, 429);
+  }
+  if (!consumeCaptcha(parsed.data.captchaId, parsed.data.captcha)) {
+    return c.json({ error: "图片验证码错误或已过期" }, 400);
+  }
+  const email = parsed.data.email.toLowerCase();
+  const wait = remainingSendCooldown(email);
+  if (wait > 0) {
+    return c.json({ error: `请 ${wait} 秒后再发送` }, 429);
+  }
+  const existing = await db.query.users.findFirst({
+    where: eq(users.email, email),
+  });
+  if (existing) {
+    return c.json({ error: "该邮箱已注册" }, 409);
+  }
+  const code = issueEmailCode(email);
+  const mail = await sendRegisterCodeEmail(email, code);
+  if (!mail.sent) {
+    return c.json({ error: mail.error || "验证码发送失败，请稍后重试" }, 502);
+  }
+  return c.json({ ok: true, message: "验证码已发送，请查收邮箱" });
+});
+
 authRoutes.post("/register", async (c) => {
   const schema = z.object({
     username: z
@@ -100,13 +165,18 @@ authRoutes.post("/register", async (c) => {
     password: z.string().min(6).max(128),
     displayName: z.string().max(64).optional(),
     email: emailSchema,
+    code: z.string().regex(/^\d{6}$/, "验证码为 6 位数字"),
   });
   const parsed = schema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) {
-    return c.json({ error: "请填写有效的用户名、邮箱和密码" }, 400);
+    return c.json({ error: "请填写有效的用户名、邮箱、密码和邮箱验证码" }, 400);
   }
-  const { username, password, displayName, email } = parsed.data;
+  const { username, password, displayName, email, code } = parsed.data;
   const emailNorm = email.toLowerCase();
+
+  if (!consumeEmailCode(emailNorm, code)) {
+    return c.json({ error: "邮箱验证码错误或已过期" }, 400);
+  }
 
   if (safeEqual(username, config.adminUsername)) {
     return c.json({ error: "用户名不可用" }, 409);
@@ -175,11 +245,16 @@ authRoutes.post("/forgot-password", async (c) => {
 
   const resetUrl = `${config.publicBaseUrl.replace(/\/+$/, "")}/reset-password?token=${raw}`;
   const mail = await sendPasswordResetEmail(email, resetUrl);
+  if (mailConfigured()) {
+    if (!mail.sent) {
+      return c.json({ error: "邮件发送失败，请稍后重试" }, 502);
+    }
+    return c.json(generic);
+  }
 
   return c.json({
     ...generic,
-    // Self-hosted fallback when outbound mail is not configured
-    ...(mail.sent ? {} : { resetUrl }),
+    resetUrl,
   });
 });
 

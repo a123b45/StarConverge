@@ -25,7 +25,14 @@ export const config = {
       ? `https://${String(process.env.PUBLIC_HOST).replace(/^https?:\/\//, "").replace(/\/+$/, "")}`
       : `http://127.0.0.1:${Number(process.env.PORT ?? 8787)}`),
   resendApiKey: process.env.RESEND_API_KEY ?? "",
-  mailFrom: process.env.MAIL_FROM ?? "StarConverge <noreply@starconverge.local>",
+  mailFrom:
+    process.env.MAIL_FROM ??
+    "inkstudio <yanxueliang188@126.com>",
+  smtpHost: (process.env.SMTP_HOST ?? "").trim(),
+  smtpPort: Number(process.env.SMTP_PORT ?? 465),
+  smtpSecure: (process.env.SMTP_SECURE ?? "1") !== "0",
+  smtpUser: (process.env.SMTP_USER ?? "").trim(),
+  smtpPass: (process.env.SMTP_PASS ?? "").trim(),
   epayApiUrl: (process.env.EPAY_API_URL ?? "").trim(),
   epayPid: (process.env.EPAY_PID ?? "").trim(),
   epayKey: (process.env.EPAY_KEY ?? "").trim(),

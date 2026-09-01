@@ -43,7 +43,13 @@ async function request<T = unknown>(
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
   const res = await fetch(`${base}${path}`, { ...options, headers });
-  if (res.status === 401 && !path.includes("/login") && !path.includes("/register")) {
+  if (
+    res.status === 401 &&
+    !path.includes("/login") &&
+    !path.includes("/register") &&
+    !path.includes("/captcha") &&
+    !path.includes("/forgot-password")
+  ) {
     setSession(null);
     window.location.href = "/login";
     throw new Error("Unauthorized");

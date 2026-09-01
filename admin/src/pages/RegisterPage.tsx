@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { authApi, getRole, getToken, setSession } from "../lib/api";
 import {
@@ -15,11 +15,55 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPwd, setShowPwd] = useState(false);
+  const [captchaId, setCaptchaId] = useState("");
+  const [captchaImg, setCaptchaImg] = useState("");
+  const [captcha, setCaptcha] = useState("");
+  const [code, setCode] = useState("");
   const [error, setError] = useState("");
+  const [hint, setHint] = useState("");
   const [loading, setLoading] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
 
-  if (getToken()) {
-    return <Navigate to={getRole() === "user" ? "/app/models" : "/admin"} replace />;
+  const loadCaptcha = useCallback(async () => {
+    try {
+      const res = await authApi<{ data: { captchaId: string; image: string } }>("/captcha");
+      setCaptchaId(res.data.captchaId);
+      setCaptchaImg(res.data.image);
+      setCaptcha("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "验证码加载失败");
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadCaptcha();
+  }, [loadCaptcha]);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = window.setTimeout(() => setCooldown((n) => n - 1), 1000);
+    return () => window.clearTimeout(t);
+  }, [cooldown]);
+
+  async function sendCode() {
+    setSending(true);
+    setError("");
+    setHint("");
+    try {
+      const res = await authApi<{ message?: string }>("/register/send-code", {
+        method: "POST",
+        body: JSON.stringify({ email, captchaId, captcha }),
+      });
+      setHint(res.message || "验证码已发送，请查收邮箱");
+      setCooldown(60);
+      await loadCaptcha();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "发送失败");
+      await loadCaptcha();
+    } finally {
+      setSending(false);
+    }
   }
 
   async function onSubmit(e: FormEvent) {
@@ -33,7 +77,7 @@ export default function RegisterPage() {
         redirect: string;
       }>("/register", {
         method: "POST",
-        body: JSON.stringify({ username, password, email }),
+        body: JSON.stringify({ username, password, email, code }),
       });
       setSession(res.token, res.role);
       navigate(res.redirect || "/app/models");
@@ -42,6 +86,10 @@ export default function RegisterPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (getToken()) {
+    return <Navigate to={getRole() === "user" ? "/app/models" : "/admin"} replace />;
   }
 
   return (
@@ -58,7 +106,7 @@ export default function RegisterPage() {
             <span>开始调用。</span>
           </h1>
           <p className="auth-hero-lead">
-            注册后即可创建 API 密钥、查看用量，并在门户中测试对话与查阅接入文档。
+            注册需验证邮箱。请先完成图片验证，再向邮箱发送验证码。
           </p>
           <ul className="auth-features">
             <li>
@@ -95,10 +143,11 @@ export default function RegisterPage() {
               <em>注册 INKSTUDIO</em>
             </div>
             <h2>注册用户</h2>
-            <p>填写信息以创建门户账号</p>
+            <p>验证邮箱后即可创建门户账号</p>
           </div>
 
           {error ? <div className="alert">{error}</div> : null}
+          {hint ? <div className="alert ok">{hint}</div> : null}
 
           <label className="auth-field">
             <span>用户名</span>
@@ -124,9 +173,65 @@ export default function RegisterPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
-                placeholder="用于找回密码"
+                placeholder="用于接收验证码和找回密码"
                 required
               />
+            </div>
+          </label>
+
+          <label className="auth-field">
+            <span>图片验证码</span>
+            <div className="auth-captcha-row">
+              <button
+                type="button"
+                className="auth-captcha-img"
+                onClick={() => void loadCaptcha()}
+                title="点击刷新"
+              >
+                {captchaImg ? (
+                  <img src={captchaImg} alt="验证码" />
+                ) : (
+                  <span>加载中</span>
+                )}
+              </button>
+              <div className="auth-input">
+                <input
+                  value={captcha}
+                  onChange={(e) => setCaptcha(e.target.value.toUpperCase())}
+                  autoComplete="off"
+                  placeholder="点击图片可刷新"
+                  required
+                  minLength={4}
+                  maxLength={8}
+                  spellCheck={false}
+                />
+              </div>
+            </div>
+          </label>
+
+          <label className="auth-field">
+            <span>邮箱验证码</span>
+            <div className="auth-code-row">
+              <div className="auth-input">
+                <input
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  placeholder="6 位数字"
+                  required
+                  minLength={6}
+                  maxLength={6}
+                />
+              </div>
+              <button
+                type="button"
+                className="auth-send-code"
+                disabled={sending || cooldown > 0 || !email || !captcha}
+                onClick={() => void sendCode()}
+              >
+                {sending ? "发送中…" : cooldown > 0 ? `${cooldown}s` : "发送验证码"}
+              </button>
             </div>
           </label>
 
