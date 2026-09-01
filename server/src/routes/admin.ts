@@ -38,6 +38,7 @@ import {
   resolveBestPriceForModel,
   upstreamModelNameForChannel,
 } from "../services/upstream-pricing.js";
+import { syncChannelPricing } from "../services/pricing-sync.js";
 import {
   explicitChannelModels,
   fetchUpstreamModels,
@@ -1220,7 +1221,10 @@ adminRoutes.get("/pricing/upstream-meta", async (c) => {
 
   const pricingUrl = pricingUrlFromBaseUrl(ch.baseUrl);
   try {
-    const payload = await fetchNewApiPricing(pricingUrl, ch.timeoutMs);
+    const payload = await fetchNewApiPricing(pricingUrl, ch.timeoutMs, {
+      apiKey: ch.apiKey,
+      baseUrl: ch.baseUrl,
+    });
     const groups = listNewApiGroups(payload);
     const defaultGroup = pickDefaultGroup(payload);
     const priceMap = defaultGroup
@@ -1272,114 +1276,28 @@ adminRoutes.post("/pricing/sync-upstream", async (c) => {
   const ch = await db.query.channels.findFirst({ where: eq(channels.id, v.channelId) });
   if (!ch) return c.json({ error: "服务商不存在" }, 404);
 
-  const pricingUrl = pricingUrlFromBaseUrl(ch.baseUrl);
-  let payload;
   try {
-    payload = await fetchNewApiPricing(pricingUrl, ch.timeoutMs);
+    const result = await syncChannelPricing({
+      channel: ch,
+      group: v.group,
+      scope: v.scope,
+      updateExisting: v.updateExisting,
+      createMissing: v.createMissing,
+      setCostFromUpstream: v.setCostFromUpstream,
+    });
+    return c.json({
+      ok: true,
+      ...result,
+    });
   } catch (e) {
     return c.json(
-      { error: e instanceof Error ? e.message : "拉取上游定价失败", pricingUrl },
+      {
+        error: e instanceof Error ? e.message : "拉取上游定价失败",
+        pricingUrl: pricingUrlFromBaseUrl(ch.baseUrl),
+      },
       502,
     );
   }
-
-  let priceMap;
-  try {
-    priceMap = buildUpstreamPriceMap(payload, v.group);
-  } catch (e) {
-    return c.json({ error: e instanceof Error ? e.message : "解析上游定价失败" }, 400);
-  }
-
-  const modelNames = await resolveSyncModelNames(ch, v.scope, [...priceMap.keys()]);
-  const existingRows = await db
-    .select()
-    .from(modelPrices)
-    .where(eq(modelPrices.channelId, v.channelId));
-
-  let created = 0;
-  let updated = 0;
-  let skipped = 0;
-  let missingUpstream = 0;
-  const changedNames: string[] = [];
-
-  for (const modelName of modelNames) {
-    const upstream = priceMap.get(modelName);
-    if (!upstream) {
-      missingUpstream += 1;
-      continue;
-    }
-
-    const existing = existingRows.find((row) =>
-      priceRowMatchesModel(row, v.channelId, modelName),
-    );
-    const costPer1m = v.setCostFromUpstream ? upstream.inputPer1m : existing?.costPer1mCents
-      ? usdFromPriceUnit(existing.costPer1mCents)
-      : 0;
-
-    if (existing) {
-      if (!v.updateExisting) {
-        skipped += 1;
-        continue;
-      }
-      const nextInput = priceUnitFromUsd(upstream.inputPer1m);
-      const nextOutput = priceUnitFromUsd(upstream.outputPer1m);
-      const nextCache = priceUnitFromUsd(upstream.cacheHitPer1m);
-      const priceMoved =
-        nextInput !== existing.inputPer1mCents ||
-        nextOutput !== existing.outputPer1mCents ||
-        nextCache !== existing.cacheHitPer1mCents;
-      await db
-        .update(modelPrices)
-        .set({
-          inputPer1mCents: nextInput,
-          outputPer1mCents: nextOutput,
-          cacheHitPer1mCents: nextCache,
-          costPer1mCents: priceUnitFromUsd(costPer1m),
-          remark: `上游同步 · ${v.group} · ${payload.pricing_version ?? ""}`.slice(0, 500),
-          updatedAt: new Date(),
-        })
-        .where(eq(modelPrices.id, existing.id));
-      updated += 1;
-      if (priceMoved) changedNames.push(modelName);
-      continue;
-    }
-
-    if (!v.createMissing) {
-      skipped += 1;
-      continue;
-    }
-
-    await db.insert(modelPrices).values({
-      id: id("price"),
-      externalModel: modelName,
-      globalModel: modelName,
-      providerModel: modelName,
-      channelId: v.channelId,
-      inputPer1mCents: priceUnitFromUsd(upstream.inputPer1m),
-      outputPer1mCents: priceUnitFromUsd(upstream.outputPer1m),
-      cacheHitPer1mCents: priceUnitFromUsd(upstream.cacheHitPer1m),
-      costPer1mCents: priceUnitFromUsd(costPer1m),
-      enabled: true,
-      remark: `上游同步 · ${v.group} · ${payload.pricing_version ?? ""}`.slice(0, 500),
-    });
-    created += 1;
-    changedNames.push(modelName);
-  }
-
-  if (changedNames.length) await notifyPricesChanged(changedNames);
-
-  return c.json({
-    ok: true,
-    pricingUrl,
-    group: v.group,
-    pricingVersion: payload.pricing_version ?? "",
-    scope: v.scope,
-    targeted: modelNames.length,
-    created,
-    updated,
-    skipped,
-    missingUpstream,
-  });
 });
 
 // ---- Channels ----
@@ -1842,7 +1760,10 @@ adminRoutes.post("/models/sync-pricing", async (c) => {
 
     let payload;
     try {
-      payload = await fetchNewApiPricing(pricingUrl, ch.timeoutMs);
+      payload = await fetchNewApiPricing(pricingUrl, ch.timeoutMs, {
+        apiKey: ch.apiKey,
+        baseUrl: ch.baseUrl,
+      });
     } catch (e) {
       const err = e instanceof Error ? e.message : "拉取上游定价失败";
       results.push({

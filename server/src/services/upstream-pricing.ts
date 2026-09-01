@@ -31,6 +31,38 @@ export type ResolvedUpstreamPrice = {
 /** NewAPI: $1 quota == 500_000 points; 1M input tokens at ratio 1 == $2. */
 const USD_PER_RATIO_MILLION = 2;
 
+const FIRST_PARTY_HOSTS: Array<{ test: (host: string) => boolean; vendor: string }> = [
+  { test: (h) => h === "api.deepseek.com" || h.endsWith(".deepseek.com"), vendor: "DeepSeek" },
+  { test: (h) => h === "api.openai.com" || h.endsWith(".openai.azure.com"), vendor: "OpenAI" },
+  { test: (h) => h === "api.anthropic.com" || h.endsWith(".anthropic.com"), vendor: "Anthropic" },
+  { test: (h) => h.includes("googleapis.com") || h.includes("generativelanguage"), vendor: "Google" },
+  { test: (h) => h === "api.x.ai" || h.endsWith(".x.ai"), vendor: "xAI / Grok" },
+  { test: (h) => h.includes("moonshot.cn") || h.includes("moonshot.ai"), vendor: "Moonshot" },
+  { test: (h) => h.includes("bigmodel.cn"), vendor: "智谱" },
+  { test: (h) => h.includes("dashscope.aliyuncs.com"), vendor: "阿里云" },
+  { test: (h) => h.includes("minimax.chat") || h.includes("minimaxi.com"), vendor: "MiniMax" },
+];
+
+export function firstPartyVendorFromBaseUrl(baseUrl: string): string | null {
+  const raw = baseUrl.trim();
+  if (!raw) return null;
+  try {
+    const host = new URL(raw.includes("://") ? raw : `https://${raw}`).hostname.toLowerCase();
+    const hit = FIRST_PARTY_HOSTS.find((row) => row.test(host));
+    return hit?.vendor ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export function assertNewApiPricingHost(baseUrl: string) {
+  const vendor = firstPartyVendorFromBaseUrl(baseUrl);
+  if (!vendor) return;
+  throw new Error(
+    `${vendor} 是厂商官方 API，没有 NewAPI 的 /api/pricing，无法从这里同步价格。请改选 TAO-API 等中转站（DeepSeek 模型价在中转站价目里），或在定价中心按官网手工填写。`,
+  );
+}
+
 export function pricingUrlFromBaseUrl(baseUrl: string): string {
   const trimmed = baseUrl.trim().replace(/\/+$/, "");
   let origin = trimmed;
@@ -46,18 +78,29 @@ export function pricingUrlFromBaseUrl(baseUrl: string): string {
 export async function fetchNewApiPricing(
   pricingUrl: string,
   timeoutMs = 20_000,
+  opts?: { apiKey?: string; baseUrl?: string },
 ): Promise<NewApiPricingPayload> {
+  if (opts?.baseUrl) assertNewApiPricingHost(opts.baseUrl);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
+    const headers: Record<string, string> = { Accept: "application/json" };
+    const key = opts?.apiKey?.trim();
+    if (key) headers.Authorization = `Bearer ${key}`;
     const res = await fetch(pricingUrl, {
       method: "GET",
-      headers: { Accept: "application/json" },
+      headers,
       signal: controller.signal,
     });
     const text = await res.text();
     if (!res.ok) {
-      throw new Error(`上游定价接口 ${res.status}: ${text.slice(0, 160)}`);
+      const hint =
+        res.status === 401 || res.status === 403
+          ? "（需要密钥或此站不是 NewAPI 价目接口；厂商官方如 DeepSeek 请改用中转站同步）"
+          : "";
+      throw new Error(
+        `上游定价接口 ${res.status}: ${text.slice(0, 160)}${hint}`,
+      );
     }
     const json = JSON.parse(text) as NewApiPricingPayload;
     if (!Array.isArray(json.data)) {
@@ -155,6 +198,12 @@ export function pickDefaultGroup(
   const svip = groups.find((g) => g.name.toLowerCase() === "svip");
   if (svip) return svip.name;
   return groups[0]!.name;
+}
+
+/** Lowest group_ratio (cheapest NewAPI billing group). */
+export function pickCheapestGroup(payload: NewApiPricingPayload): string | null {
+  const groups = listNewApiGroups(payload);
+  return groups[0]?.name ?? null;
 }
 
 export function buildUpstreamPriceMap(

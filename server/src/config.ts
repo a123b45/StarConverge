@@ -42,4 +42,10 @@ export const config = {
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean),
+  /** Daily NewAPI /api/pricing sync for all compatible channels */
+  pricingAutoSync: (process.env.PRICING_AUTO_SYNC ?? "1") !== "0",
+  pricingAutoSyncHours: Math.max(
+    1,
+    Number(process.env.PRICING_AUTO_SYNC_HOURS ?? 24),
+  ),
 };

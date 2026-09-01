@@ -554,8 +554,11 @@ export default function ModelPricingPage() {
             <div className="modal-user-head">
               <h3>从上游同步定价</h3>
               <p>
-                读取 NewAPI 兼容站点的 <code>/api/pricing</code>，批量写入输入 / 输出 / 缓存命中价格（USD / 百万
-                tokens）
+                读取 <strong>NewAPI 兼容中转站</strong> 的 <code>/api/pricing</code>
+                ，批量写入输入 / 输出 / 缓存命中价格（USD / 百万 tokens）。DeepSeek / OpenAI /
+                Anthropic 等<strong>厂商官方接口没有这份价目</strong>，请改选 TAO-API
+                这类渠道。服务端默认每 24 小时自动同步一次已接入的中转站（
+                <code>PRICING_AUTO_SYNC</code>）。
               </p>
             </div>
             {syncMetaError ? <div className="alert">{syncMetaError}</div> : null}
