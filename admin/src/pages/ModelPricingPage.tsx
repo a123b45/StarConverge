@@ -556,7 +556,7 @@ export default function ModelPricingPage() {
                 void loadAutoSettings();
               }}
             >
-              <IconGear size={15} />
+              <IconGear size={16} />
             </button>
           </div>
           <button className="btn" type="button" onClick={openCreate}>
