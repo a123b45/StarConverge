@@ -46,8 +46,8 @@ export default function LoginPage() {
       <aside className="auth-hero">
         <div className="auth-hero-inner">
           <div className="auth-brand-row">
-            <span className="auth-logo">SC</span>
-            <strong>StarConverge</strong>
+            <span className="auth-logo">in</span>
+            <strong>inkstudio</strong>
           </div>
           <h1>
             统一接入。
@@ -87,11 +87,11 @@ export default function LoginPage() {
         <form className="auth-panel" onSubmit={onSubmit}>
           <div className="auth-panel-head">
             <div className="auth-panel-brand">
-              <span className="auth-logo sm">SC</span>
-              <strong>StarConverge</strong>
-              <em>登录 STARCONVERGE</em>
+              <span className="auth-logo sm">in</span>
+              <strong>inkstudio</strong>
+              <em>登录 INKSTUDIO</em>
             </div>
-            <h2>登录 StarConverge</h2>
+            <h2>登录 inkstudio</h2>
             <p>请输入账户信息以访问中转平台</p>
           </div>
 

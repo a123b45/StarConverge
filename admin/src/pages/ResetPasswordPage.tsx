@@ -47,8 +47,8 @@ export default function ResetPasswordPage() {
       <aside className="auth-hero">
         <div className="auth-hero-inner">
           <div className="auth-brand-row">
-            <span className="auth-logo">SC</span>
-            <strong>StarConverge</strong>
+            <span className="auth-logo">in</span>
+            <strong>inkstudio</strong>
           </div>
           <h1>
             设置新密码。
@@ -63,9 +63,9 @@ export default function ResetPasswordPage() {
         <form className="auth-panel" onSubmit={onSubmit}>
           <div className="auth-panel-head">
             <div className="auth-panel-brand">
-              <span className="auth-logo sm">SC</span>
-              <strong>StarConverge</strong>
-              <em>设置新密码 STARCONVERGE</em>
+              <span className="auth-logo sm">in</span>
+              <strong>inkstudio</strong>
+              <em>设置新密码 INKSTUDIO</em>
             </div>
             <h2>设置新密码</h2>
             <p>请输入至少 6 位的新密码</p>

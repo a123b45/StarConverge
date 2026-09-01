@@ -49,8 +49,8 @@ export default function RegisterPage() {
       <aside className="auth-hero">
         <div className="auth-hero-inner">
           <div className="auth-brand-row">
-            <span className="auth-logo">SC</span>
-            <strong>StarConverge</strong>
+            <span className="auth-logo">in</span>
+            <strong>inkstudio</strong>
           </div>
           <h1>
             创建账号。
@@ -90,9 +90,9 @@ export default function RegisterPage() {
         <form className="auth-panel" onSubmit={onSubmit}>
           <div className="auth-panel-head">
             <div className="auth-panel-brand">
-              <span className="auth-logo sm">SC</span>
-              <strong>StarConverge</strong>
-              <em>注册 STARCONVERGE</em>
+              <span className="auth-logo sm">in</span>
+              <strong>inkstudio</strong>
+              <em>注册 INKSTUDIO</em>
             </div>
             <h2>注册用户</h2>
             <p>填写信息以创建门户账号</p>

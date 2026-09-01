@@ -139,7 +139,8 @@ code,
   background: #6d5efc;
   color: #fff;
   font-weight: 800;
-  font-size: 14px;
+  font-size: 11px;
+  letter-spacing: -0.04em;
   margin: 0;
   box-shadow: none;
 }
@@ -3940,7 +3941,8 @@ html[data-theme="dark"] .modal-token .stack-field > span {
   display: grid;
   place-items: center;
   font-weight: 800;
-  font-size: 14px;
+  font-size: 11px;
+  letter-spacing: -0.04em;
   box-shadow: none;
   font-family: "Plus Jakarta Sans", system-ui, sans-serif;
 }

@@ -130,8 +130,8 @@ function AdminShell() {
     <div className={`app-shell${siderCollapsed ? " sider-collapsed" : ""}`}>
       <aside className="sidebar">
         <div className="brand">
-          <span className="brand-mark">S</span>
-          <strong className="brand-name">StarConverge</strong>
+          <span className="brand-mark">in</span>
+          <strong className="brand-name">inkstudio</strong>
         </div>
         <nav className="nav">
           <div className="nav-group">
@@ -355,8 +355,8 @@ function PortalShell() {
     <div className={`portal-shell${siderCollapsed ? " sider-collapsed" : ""}`}>
       <aside className="portal-sider">
         <div className="portal-sider-brand">
-          <span className="portal-logo">S</span>
-          <strong>StarConverge</strong>
+          <span className="portal-logo">in</span>
+          <strong>inkstudio</strong>
         </div>
         <nav className="portal-sider-nav">
           <div className="portal-sider-group">

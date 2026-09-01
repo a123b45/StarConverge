@@ -45,8 +45,8 @@ export default function ForgotPasswordPage() {
       <aside className="auth-hero">
         <div className="auth-hero-inner">
           <div className="auth-brand-row">
-            <span className="auth-logo">SC</span>
-            <strong>StarConverge</strong>
+            <span className="auth-logo">in</span>
+            <strong>inkstudio</strong>
           </div>
           <h1>
             安全找回。
@@ -63,11 +63,11 @@ export default function ForgotPasswordPage() {
         <form className="auth-panel" onSubmit={onSubmit}>
           <div className="auth-panel-head">
             <div className="auth-panel-brand">
-              <span className="auth-logo sm">SC</span>
-              <strong>StarConverge</strong>
-              <em>密码重置 STARCONVERGE</em>
+              <span className="auth-logo sm">in</span>
+              <strong>inkstudio</strong>
+              <em>密码重置 INKSTUDIO</em>
             </div>
-            <h2>找回 StarConverge 密码</h2>
+            <h2>找回 inkstudio 密码</h2>
             <p>输入注册邮箱，我们会向您发送重置密码链接</p>
           </div>
 

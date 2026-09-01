@@ -384,7 +384,7 @@ export default function PortalChatPage() {
         <div className="ds-messages">
           {!active?.messages.length ? (
             <div className="ds-welcome">
-              <div className="ds-welcome-mark">SC</div>
+              <div className="ds-welcome-mark">in</div>
               <h2>开始一次对话测试</h2>
               <p>选择模型与 API 密钥后，在下方输入消息即可调用网关。</p>
               {!apiKey ? (
@@ -397,7 +397,7 @@ export default function PortalChatPage() {
             <div className="ds-thread">
               {active.messages.map((m, i) => (
                 <div key={i} className={`ds-msg ${m.role}`}>
-                  <div className="ds-avatar">{m.role === "user" ? "你" : "SC"}</div>
+                    <div className="ds-avatar">{m.role === "user" ? "你" : "in"}</div>
                   <div className="ds-msg-body">
                     <div className="ds-msg-text">{m.content}</div>
                     <div className="ds-msg-meta">
@@ -409,7 +409,7 @@ export default function PortalChatPage() {
               ))}
               {busy ? (
                 <div className="ds-msg assistant">
-                  <div className="ds-avatar">SC</div>
+                  <div className="ds-avatar">in</div>
                   <div className="ds-msg-body">
                     <div className="ds-typing">正在生成…</div>
                   </div>
