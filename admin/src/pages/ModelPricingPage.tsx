@@ -2,7 +2,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import SoftSelect from "../components/SoftSelect";
-import { IconPencil, IconTrash } from "../components/icons";
+import { IconGear, IconPencil, IconTrash } from "../components/icons";
 import { softConfirm } from "../components/SoftDialog";
 import ModalBackdrop from "../components/ModalBackdrop";
 
@@ -74,6 +74,44 @@ type UpstreamMeta = {
 
 type SyncScope = "channel" | "catalog" | "upstream";
 
+const CHANNEL_ALL = "all";
+const GROUP_ALL = "all";
+
+type AutoSyncSettings = {
+  enabled: boolean;
+  intervalHours: number;
+  channelId: string;
+  group: string;
+  deepseekGroup: string;
+  scope: SyncScope;
+  updateExisting: boolean;
+  createMissing: boolean;
+  setCostFromUpstream: boolean;
+  lastRunAt: number | null;
+  lastRunSummary: string;
+  envDisabled?: boolean;
+  nextRunAt?: number | null;
+};
+
+const defaultAutoForm = (): AutoSyncSettings => ({
+  enabled: true,
+  intervalHours: 4,
+  channelId: CHANNEL_ALL,
+  group: GROUP_ALL,
+  deepseekGroup: "空闲时段",
+  scope: "catalog",
+  updateExisting: true,
+  createMissing: true,
+  setCostFromUpstream: true,
+  lastRunAt: null,
+  lastRunSummary: "",
+});
+
+function fmtSyncTime(ms: number | null | undefined) {
+  if (!ms) return "—";
+  return new Date(ms).toLocaleString("zh-CN", { hour12: false });
+}
+
 function money(n: number) {
   return Number(n.toFixed(3)).toString();
 }
@@ -105,6 +143,11 @@ export default function ModelPricingPage() {
   const [syncUpdateExisting, setSyncUpdateExisting] = useState(true);
   const [syncCreateMissing, setSyncCreateMissing] = useState(true);
   const [syncSetCost, setSyncSetCost] = useState(true);
+  const [autoOpen, setAutoOpen] = useState(false);
+  const [autoBusy, setAutoBusy] = useState(false);
+  const [autoSaveBusy, setAutoSaveBusy] = useState(false);
+  const [autoForm, setAutoForm] = useState<AutoSyncSettings>(defaultAutoForm);
+  const [autoMetaError, setAutoMetaError] = useState("");
 
   async function load() {
     try {
@@ -122,8 +165,21 @@ export default function ModelPricingPage() {
     }
   }
 
+  async function loadAutoSettings() {
+    try {
+      const res = await api<{ data: AutoSyncSettings }>("/pricing/auto-sync");
+      setAutoForm({ ...defaultAutoForm(), ...res.data });
+      setAutoMetaError("");
+      return res.data;
+    } catch (e) {
+      setAutoMetaError(e instanceof Error ? e.message : "无法读取自动同步设置");
+      return null;
+    }
+  }
+
   useEffect(() => {
     void load();
+    void loadAutoSettings();
   }, []);
 
   const selfBuiltModels = useMemo(() => {
@@ -288,6 +344,61 @@ export default function ModelPricingPage() {
     if (initial) void loadUpstreamMeta(initial);
   }
 
+  async function runSyncAll() {
+    if (channels.length === 0) return;
+    setAutoBusy(true);
+    setSyncMsg("");
+    setError("");
+    try {
+      const res = await api<{
+        ok: boolean;
+        running?: boolean;
+        summary: string;
+        results: Array<{ channelName: string; ok: boolean; error?: string }>;
+      }>("/pricing/sync-all", { method: "POST" });
+      setSyncMsg(res.summary || "同步完成");
+      await Promise.all([load(), loadAutoSettings()]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "同步失败");
+    } finally {
+      setAutoBusy(false);
+    }
+  }
+
+  async function saveAutoSettings() {
+    setAutoSaveBusy(true);
+    setAutoMetaError("");
+    try {
+      const res = await api<{ data: AutoSyncSettings }>("/pricing/auto-sync", {
+        method: "PUT",
+        body: JSON.stringify({
+          enabled: autoForm.enabled,
+          intervalHours: Number(autoForm.intervalHours),
+          channelId: autoForm.channelId,
+          group: autoForm.group,
+          deepseekGroup: autoForm.deepseekGroup,
+          scope: autoForm.scope,
+          updateExisting: autoForm.updateExisting,
+          createMissing: autoForm.createMissing,
+          setCostFromUpstream: autoForm.setCostFromUpstream,
+        }),
+      });
+      setAutoForm({ ...defaultAutoForm(), ...res.data });
+      setAutoOpen(false);
+      setSyncMsg(
+        res.data.enabled
+          ? `已保存：每 ${res.data.intervalHours} 小时自动同步${
+              res.data.envDisabled ? "（环境变量已关闭自动任务）" : ""
+            }`
+          : "已保存：自动同步已关闭，仍可手动点「同步所有服务商」",
+      );
+    } catch (e) {
+      setAutoMetaError(e instanceof Error ? e.message : "保存失败");
+    } finally {
+      setAutoSaveBusy(false);
+    }
+  }
+
   async function runUpstreamSync() {
     if (!syncChannelId) {
       setSyncMetaError("请选择服务商");
@@ -419,18 +530,42 @@ export default function ModelPricingPage() {
           <button
             className="btn ghost"
             type="button"
-            disabled={noChannels}
+            disabled={noChannels || syncBusy}
             onClick={openSyncModal}
           >
             从上游同步定价
           </button>
+          <div className="btn-split">
+            <button
+              className="btn ghost"
+              type="button"
+              disabled={noChannels || autoBusy}
+              onClick={() => void runSyncAll()}
+            >
+              {autoBusy ? "同步中…" : "同步所有服务商"}
+            </button>
+            <button
+              className="btn ghost btn-split-gear"
+              type="button"
+              title="自动同步设置"
+              aria-label="自动同步设置"
+              disabled={autoBusy || autoSaveBusy}
+              onClick={() => {
+                setAutoOpen(true);
+                setAutoMetaError("");
+                void loadAutoSettings();
+              }}
+            >
+              <IconGear size={15} />
+            </button>
+          </div>
           <button className="btn" type="button" onClick={openCreate}>
             + 配置新价格
           </button>
         </div>
       </div>
 
-      {error && !open && !syncOpen ? <div className="alert">{error}</div> : null}
+      {error && !open && !syncOpen && !autoOpen ? <div className="alert">{error}</div> : null}
       {syncMsg ? <div className="alert ok">{syncMsg}</div> : null}
 
       <div className="panel">
@@ -565,10 +700,7 @@ export default function ModelPricingPage() {
                 >
                   官网价目表
                 </a>
-                （美元 / 百万 tokens，含高峰与空闲）。OpenAI / Anthropic
-                等其他厂商官方暂未接入，请手工填写或走中转站。默认每 24
-                小时自动同步一次已接入的中转站和 DeepSeek 官方（
-                <code>PRICING_AUTO_SYNC</code>）。
+                （美元 / 百万 tokens，含高峰与空闲）。批量与定时同步请用「同步所有服务商」旁的齿轮。
               </p>
             </div>
             {syncMetaError ? <div className="alert">{syncMetaError}</div> : null}
@@ -694,6 +826,176 @@ export default function ModelPricingPage() {
                 onClick={() => void runUpstreamSync()}
               >
                 {syncBusy ? "同步中…" : "开始同步"}
+              </button>
+            </div>
+          </div>
+        </ModalBackdrop>
+      ) : null}
+
+      {autoOpen ? (
+        <ModalBackdrop onClose={() => { if (!autoSaveBusy) setAutoOpen(false); }}>
+          <div
+            className="modal modal-user"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-user-head">
+              <h3>自动同步设置</h3>
+              <p>
+                保存后，「同步所有服务商」和定时任务都按这里的选项执行。默认：全部服务商、分组全部（中转站取最便宜）、DeepSeek 空闲时段、范围「模型管理已映射」、每 4 小时一次。
+              </p>
+            </div>
+            {autoMetaError ? <div className="alert">{autoMetaError}</div> : null}
+            {autoForm.envDisabled ? (
+              <div className="alert">
+                环境变量 <code>PRICING_AUTO_SYNC=0</code> 已关闭定时任务，手动同步仍可用。
+              </div>
+            ) : null}
+            <div className="modal-user-grid">
+              <label className="stack-field">
+                <span>服务商</span>
+                <SoftSelect
+                  ariaLabel="自动同步服务商"
+                  value={autoForm.channelId}
+                  onChange={(v) => setAutoForm((f) => ({ ...f, channelId: v }))}
+                  options={[
+                    { value: CHANNEL_ALL, label: "全部服务商" },
+                    ...channels.map((ch) => ({ value: ch.id, label: ch.name })),
+                  ]}
+                />
+              </label>
+              <label className="stack-field">
+                <span>上游计费分组</span>
+                <SoftSelect
+                  ariaLabel="自动同步分组"
+                  value={autoForm.group}
+                  onChange={(v) => setAutoForm((f) => ({ ...f, group: v }))}
+                  options={[
+                    { value: GROUP_ALL, label: "全部（中转站取最便宜分组）" },
+                  ]}
+                />
+              </label>
+              <label className="stack-field">
+                <span>DeepSeek 时段</span>
+                <SoftSelect
+                  ariaLabel="DeepSeek 时段"
+                  value={autoForm.deepseekGroup}
+                  onChange={(v) =>
+                    setAutoForm((f) => ({ ...f, deepseekGroup: v }))
+                  }
+                  options={[
+                    { value: "空闲时段", label: "空闲时段" },
+                    { value: "高峰时段", label: "高峰时段" },
+                  ]}
+                />
+              </label>
+              <label className="stack-field">
+                <span>同步范围</span>
+                <SoftSelect
+                  ariaLabel="自动同步范围"
+                  value={autoForm.scope}
+                  onChange={(v) =>
+                    setAutoForm((f) => ({ ...f, scope: v as SyncScope }))
+                  }
+                  options={[
+                    { value: "catalog", label: "模型管理已映射" },
+                    { value: "channel", label: "供应商模型列表" },
+                    { value: "upstream", label: "上游全部可售模型" },
+                  ]}
+                />
+              </label>
+              <label className="stack-field">
+                <span>间隔（小时）</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={168}
+                  step={1}
+                  value={autoForm.intervalHours}
+                  onChange={(e) =>
+                    setAutoForm((f) => ({
+                      ...f,
+                      intervalHours: Number(e.target.value) || 1,
+                    }))
+                  }
+                />
+              </label>
+            </div>
+            <div className="pricing-sync-options">
+              <label className="check-row">
+                <input
+                  type="checkbox"
+                  checked={autoForm.enabled}
+                  onChange={(e) =>
+                    setAutoForm((f) => ({ ...f, enabled: e.target.checked }))
+                  }
+                />
+                <span>启用定时自动同步</span>
+              </label>
+              <label className="check-row">
+                <input
+                  type="checkbox"
+                  checked={autoForm.updateExisting}
+                  onChange={(e) =>
+                    setAutoForm((f) => ({
+                      ...f,
+                      updateExisting: e.target.checked,
+                    }))
+                  }
+                />
+                <span>更新已有定价</span>
+              </label>
+              <label className="check-row">
+                <input
+                  type="checkbox"
+                  checked={autoForm.createMissing}
+                  onChange={(e) =>
+                    setAutoForm((f) => ({
+                      ...f,
+                      createMissing: e.target.checked,
+                    }))
+                  }
+                />
+                <span>为未配置模型新建定价</span>
+              </label>
+              <label className="check-row">
+                <input
+                  type="checkbox"
+                  checked={autoForm.setCostFromUpstream}
+                  onChange={(e) =>
+                    setAutoForm((f) => ({
+                      ...f,
+                      setCostFromUpstream: e.target.checked,
+                    }))
+                  }
+                />
+                <span>将上游输入价写入进价</span>
+              </label>
+            </div>
+            <p className="field-hint pricing-sync-meta">
+              上次同步：{fmtSyncTime(autoForm.lastRunAt)}
+              {autoForm.lastRunSummary ? ` · ${autoForm.lastRunSummary}` : ""}
+              <br />
+              下次自动：
+              {autoForm.enabled && !autoForm.envDisabled
+                ? fmtSyncTime(autoForm.nextRunAt)
+                : "已关闭"}
+            </p>
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn ghost"
+                disabled={autoSaveBusy}
+                onClick={() => setAutoOpen(false)}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                className="btn"
+                disabled={autoSaveBusy}
+                onClick={() => void saveAutoSettings()}
+              >
+                {autoSaveBusy ? "保存中…" : "保存设置"}
               </button>
             </div>
           </div>

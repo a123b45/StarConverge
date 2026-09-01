@@ -343,6 +343,11 @@ export function migrate() {
   );
   sqlite.exec(`CREATE INDEX IF NOT EXISTS card_keys_code_idx ON card_keys(code)`);
   sqlite.exec(`CREATE INDEX IF NOT EXISTS card_keys_user_idx ON card_keys(user_id)`);
+  sqlite.exec(`CREATE TABLE IF NOT EXISTS app_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL DEFAULT '{}',
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
+  )`);
   sqlite.exec(`CREATE TABLE IF NOT EXISTS roles (
     id TEXT PRIMARY KEY,
     key TEXT NOT NULL UNIQUE,

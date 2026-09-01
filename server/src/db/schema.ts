@@ -295,6 +295,15 @@ export const userNotifications = sqliteTable(
   (t) => [index("user_notifications_updated_idx").on(t.updatedAt)],
 );
 
+/** JSON blobs for admin-configurable jobs (pricing auto-sync, etc.). */
+export const appSettings = sqliteTable("app_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull().default("{}"),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+    .notNull()
+    .default(sql`(unixepoch() * 1000)`),
+});
+
 export type User = typeof users.$inferSelect;
 export type Role = typeof roles.$inferSelect;
 export type Channel = typeof channels.$inferSelect;
@@ -333,3 +342,4 @@ export const rechargeOrders = sqliteTable(
 export type CardKey = typeof cardKeys.$inferSelect;
 export type UserNotification = typeof userNotifications.$inferSelect;
 export type RechargeOrder = typeof rechargeOrders.$inferSelect;
+export type AppSetting = typeof appSettings.$inferSelect;

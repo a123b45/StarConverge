@@ -42,10 +42,10 @@ export const config = {
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean),
-  /** Daily pricing sync: NewAPI /api/pricing + DeepSeek official docs */
+  /** Kill switch for pricing auto-sync. Interval/scope live in admin settings. */
   pricingAutoSync: (process.env.PRICING_AUTO_SYNC ?? "1") !== "0",
   pricingAutoSyncHours: Math.max(
     1,
-    Number(process.env.PRICING_AUTO_SYNC_HOURS ?? 24),
+    Number(process.env.PRICING_AUTO_SYNC_HOURS ?? 4),
   ),
 };

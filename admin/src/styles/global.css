@@ -496,6 +496,25 @@ code,
   white-space: nowrap;
 }
 
+.btn-split {
+  display: inline-flex;
+  align-items: stretch;
+}
+
+.btn-split > .btn:first-child {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.btn-split-gear {
+  width: 36px;
+  min-width: 36px;
+  padding: 0;
+  margin-left: -1px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
 .pricing-footer {
   display: flex;
   align-items: center;

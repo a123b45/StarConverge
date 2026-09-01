@@ -34,7 +34,14 @@ import {
   pricingUrlFromBaseUrl,
   upstreamModelNameForChannel,
 } from "../services/upstream-pricing.js";
-import { syncChannelPricing } from "../services/pricing-sync.js";
+import {
+  syncChannelPricing,
+  runPricingSyncAll,
+  getPricingAutoSyncSettings,
+  savePricingAutoSyncSettings,
+  schedulePricingAutoSync,
+  nextPricingAutoSyncAt,
+} from "../services/pricing-sync.js";
 import {
   explicitChannelModels,
   fetchUpstreamModels,
@@ -1054,6 +1061,63 @@ adminRoutes.post("/pricing", async (c) => {
     },
     201,
   );
+});
+
+adminRoutes.get("/pricing/auto-sync", async (c) => {
+  const auth = c.get("adminAuth");
+  if (!hasApiPerm(auth, "api.pricing.read")) {
+    return c.json({ error: "无权限" }, 403);
+  }
+  const settings = await getPricingAutoSyncSettings();
+  return c.json({
+    data: {
+      ...settings,
+      envDisabled: !config.pricingAutoSync,
+      nextRunAt: nextPricingAutoSyncAt(settings),
+    },
+  });
+});
+
+adminRoutes.put("/pricing/auto-sync", async (c) => {
+  const auth = c.get("adminAuth");
+  if (!hasApiPerm(auth, "api.pricing.write")) {
+    return c.json({ error: "无权限" }, 403);
+  }
+  const schema = z.object({
+    enabled: z.boolean().optional(),
+    intervalHours: z.number().min(1).max(168).optional(),
+    channelId: z.string().min(1).optional(),
+    group: z.string().min(1).optional(),
+    deepseekGroup: z.string().min(1).optional(),
+    scope: z.enum(["channel", "catalog", "upstream"]).optional(),
+    updateExisting: z.boolean().optional(),
+    createMissing: z.boolean().optional(),
+    setCostFromUpstream: z.boolean().optional(),
+  });
+  const parsed = schema.safeParse(await c.req.json());
+  if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
+  const settings = await savePricingAutoSyncSettings(parsed.data);
+  schedulePricingAutoSync();
+  return c.json({
+    ok: true,
+    data: {
+      ...settings,
+      envDisabled: !config.pricingAutoSync,
+      nextRunAt: nextPricingAutoSyncAt(settings),
+    },
+  });
+});
+
+adminRoutes.post("/pricing/sync-all", async (c) => {
+  const auth = c.get("adminAuth");
+  if (!hasApiPerm(auth, "api.pricing.write")) {
+    return c.json({ error: "无权限" }, 403);
+  }
+  const result = await runPricingSyncAll();
+  if (result.running) {
+    return c.json({ error: result.summary, ...result }, 409);
+  }
+  return c.json(result);
 });
 
 adminRoutes.put("/pricing/:id", async (c) => {
