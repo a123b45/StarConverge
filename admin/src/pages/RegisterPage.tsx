@@ -77,12 +77,13 @@ export default function RegisterPage() {
         redirect: string;
       }>("/register", {
         method: "POST",
-        body: JSON.stringify({ username, password, email, code }),
+        body: JSON.stringify({ username, password, email, code, captchaId, captcha }),
       });
       setSession(res.token, res.role);
       navigate(res.redirect || "/app/models");
     } catch (err) {
       setError(err instanceof Error ? err.message : "注册失败");
+      await loadCaptcha();
     } finally {
       setLoading(false);
     }
@@ -201,7 +202,7 @@ export default function RegisterPage() {
                   autoComplete="off"
                   placeholder="点击图片可刷新"
                   required
-                  minLength={4}
+                  minLength={5}
                   maxLength={8}
                   spellCheck={false}
                 />
@@ -227,7 +228,7 @@ export default function RegisterPage() {
               <button
                 type="button"
                 className="auth-send-code"
-                disabled={sending || cooldown > 0 || !email || !captcha}
+                disabled={sending || cooldown > 0 || !email || captcha.trim().length < 5}
                 onClick={() => void sendCode()}
               >
                 {sending ? "发送中…" : cooldown > 0 ? `${cooldown}s` : "发送验证码"}

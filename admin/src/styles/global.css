@@ -3754,8 +3754,8 @@ html[data-theme="dark"] .modal-token .stack-field > span {
   min-width: 0;
 }
 .auth-captcha-img {
-  flex: 0 0 132px;
-  height: 48px;
+  flex: 0 0 176px;
+  height: 56px;
   border: 1px solid var(--auth-line);
   border-radius: 14px;
   background: #f5f3ff;

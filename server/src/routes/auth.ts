@@ -100,6 +100,7 @@ authRoutes.post("/login", async (c) => {
 });
 
 authRoutes.get("/captcha", (c) => {
+  c.header("Cache-Control", "no-store, no-cache, must-revalidate");
   return c.json({ data: createCaptcha() });
 });
 
@@ -166,14 +167,20 @@ authRoutes.post("/register", async (c) => {
     displayName: z.string().max(64).optional(),
     email: emailSchema,
     code: z.string().regex(/^\d{6}$/, "验证码为 6 位数字"),
+    captchaId: z.string().min(8).max(64),
+    captcha: z.string().min(4).max(8),
   });
   const parsed = schema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) {
-    return c.json({ error: "请填写有效的用户名、邮箱、密码和邮箱验证码" }, 400);
+    return c.json({ error: "请填写有效的用户名、邮箱、密码和验证码" }, 400);
   }
-  const { username, password, displayName, email, code } = parsed.data;
+  const { username, password, displayName, email, code, captchaId, captcha } =
+    parsed.data;
   const emailNorm = email.toLowerCase();
 
+  if (!consumeCaptcha(captchaId, captcha)) {
+    return c.json({ error: "图片验证码错误或已过期" }, 400);
+  }
   if (!consumeEmailCode(emailNorm, code)) {
     return c.json({ error: "邮箱验证码错误或已过期" }, 400);
   }
