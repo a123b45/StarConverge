@@ -189,8 +189,11 @@ export default function RegisterPage() {
               <button
                 type="button"
                 className="auth-captcha-img"
-                onClick={() => void loadCaptcha()}
-                title="点击刷新"
+                onClick={() => {
+                  if (!codeSent) void loadCaptcha();
+                }}
+                title={codeSent ? "验证码已校验" : "点击刷新"}
+                disabled={codeSent}
               >
                 {captchaImg ? (
                   <img src={captchaImg} alt="验证码" />

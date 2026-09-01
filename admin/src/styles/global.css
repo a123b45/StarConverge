@@ -3776,6 +3776,10 @@ html[data-theme="dark"] .modal-token .stack-field > span {
   font-size: 12px;
   color: #a1a1aa;
 }
+.auth-captcha-img:disabled {
+  cursor: default;
+  opacity: 0.85;
+}
 .auth-send-code {
   flex: 0 0 auto;
   border: none;
