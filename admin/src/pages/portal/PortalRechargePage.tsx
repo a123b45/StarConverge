@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { portalApi } from "../../lib/api";
 import SoftToast from "../../components/SoftToast";
@@ -18,9 +18,16 @@ const METHOD_LABEL: Record<PayType, string> = {
   qqpay: "QQ 钱包",
 };
 
+function isNativePayUrl(url: string) {
+  return /^(weixin|alipays|alipay):\/\//i.test(url);
+}
+
+function isScanQr(qrcode: string) {
+  return /^https?:\/\//i.test(qrcode) || qrcode.startsWith("data:");
+}
+
 export default function PortalRechargePage() {
   const [params] = useSearchParams();
-  const [code, setCode] = useState("");
   const [balance, setBalance] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -89,35 +96,6 @@ export default function PortalRechargePage() {
     return (amountUsd * rate).toFixed(2);
   }, [amountUsd, epay]);
 
-  async function redeem(e: FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError("");
-    try {
-      const res = await portalApi<{
-        data: { amount: number; balance: number; totalRecharged?: number };
-      }>("/recharge/card", {
-        method: "POST",
-        body: JSON.stringify({ code }),
-      });
-      setBalance(res.data.balance);
-      setCode("");
-      setToast(`兑换成功，余额 +$${res.data.amount.toFixed(2)}`);
-      window.dispatchEvent(
-        new CustomEvent("sc:balance-updated", {
-          detail: {
-            balance: res.data.balance,
-            totalRecharged: res.data.totalRecharged,
-          },
-        }),
-      );
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "兑换失败");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function startEpay() {
     setBusy(true);
     setError("");
@@ -135,7 +113,9 @@ export default function PortalRechargePage() {
         body: JSON.stringify({ amountUsd, type: payType }),
       });
       setPending(res.data);
-      if (res.data.payUrl) window.open(res.data.payUrl, "_blank");
+      if (res.data.payUrl && isNativePayUrl(res.data.payUrl)) {
+        window.location.href = res.data.payUrl;
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "下单失败");
     } finally {
@@ -175,9 +155,10 @@ export default function PortalRechargePage() {
     };
   }, [pending?.outTradeNo]);
 
-  const showQr =
-    pending?.qrcode &&
-    (/^https?:\/\//i.test(pending.qrcode) || pending.qrcode.startsWith("data:"));
+  const showQr = pending?.qrcode ? isScanQr(pending.qrcode) : false;
+  const nativePay = pending?.payUrl ? isNativePayUrl(pending.payUrl) : false;
+  const cashierLink =
+    pending?.payUrl && !showQr && !nativePay ? pending.payUrl : "";
 
   return (
     <div className="portal-page">
@@ -185,19 +166,24 @@ export default function PortalRechargePage() {
       <div className="portal-hero">
         <div>
           <h1>充值</h1>
-          <p>在线支付或兑换卡密，为账户增加美元余额</p>
+          <p>使用支付宝或微信支付为账户增加美元余额</p>
         </div>
       </div>
 
-      {epay?.enabled ? (
-        <div className="portal-panel">
-          <div className="portal-panel-head">
-            <h3>在线充值</h3>
-            <span className="muted">
-              当前余额 {balance == null ? "—" : `$${balance.toFixed(2)}`}
-            </span>
-          </div>
-          {error ? <div className="alert">{error}</div> : null}
+      <div className="portal-panel">
+        <div className="portal-panel-head">
+          <h3>在线充值</h3>
+          <span className="muted">
+            当前余额 {balance == null ? "—" : `$${balance.toFixed(2)}`}
+          </span>
+        </div>
+        {error ? <div className="alert">{error}</div> : null}
+        {epay && !epay.enabled ? (
+          <p className="muted recharge-rate-hint" style={{ padding: "4px 16px 18px" }}>
+            在线支付尚未开通，请使用下方人工充值。
+          </p>
+        ) : null}
+        {epay?.enabled ? (
           <div className="recharge-online">
             <div className="recharge-presets">
               {epay.presets.map((n) => (
@@ -237,49 +223,25 @@ export default function PortalRechargePage() {
             {pending ? (
               <div className="recharge-pending">
                 <p>
-                  已打开支付页。付完后本页会自动到账；若没有跳转请
-                  {pending.payUrl ? (
-                    <>
-                      {" "}
-                      <a href={pending.payUrl} target="_blank" rel="noreferrer">
-                        再次打开支付
-                      </a>
-                    </>
-                  ) : null}
+                  {showQr
+                    ? "请使用手机扫码支付。到账后本页会自动刷新。"
+                    : "请完成支付。到账后本页会自动刷新。"}
                 </p>
                 {showQr ? (
                   <img className="recharge-qr" src={pending.qrcode} alt="支付二维码" />
                 ) : null}
-                <span className="muted">订单 {pending.outTradeNo} · 等待支付回调</span>
+                {cashierLink ? (
+                  <a className="portal-btn" href={cashierLink} target="_blank" rel="noreferrer">
+                    打开支付
+                  </a>
+                ) : null}
+                <span className="muted">
+                  订单 {pending.outTradeNo} · ¥{pending.moneyCny} · 等待到账
+                </span>
               </div>
             ) : null}
           </div>
-        </div>
-      ) : null}
-
-      <div className="portal-panel">
-        <div className="portal-panel-head">
-          <h3>卡密兑换</h3>
-          {!epay?.enabled ? (
-            <span className="muted">
-              当前余额 {balance == null ? "—" : `$${balance.toFixed(2)}`}
-            </span>
-          ) : null}
-        </div>
-        {error && !epay?.enabled ? <div className="alert">{error}</div> : null}
-        <form className="portal-toolbar recharge-redeem-bar" onSubmit={redeem}>
-          <input
-            className="portal-search"
-            placeholder="输入卡密，如 SC-XXXXX-XXXXX-XXXXX-XXXXX"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            autoComplete="off"
-            spellCheck={false}
-          />
-          <button className="portal-btn" disabled={busy || !code.trim()}>
-            {busy ? "兑换中…" : "兑换卡密"}
-          </button>
-        </form>
+        ) : null}
       </div>
 
       <div className="portal-panel recharge-contact">
@@ -287,7 +249,7 @@ export default function PortalRechargePage() {
           <h3>人工充值</h3>
         </div>
         <p className="recharge-contact-text">
-          充值请联系管理员，微信号：<strong>yanxueliangmax</strong>
+          如需对公转账或大额充值，请联系管理员，微信号：<strong>yanxueliangmax</strong>
         </p>
       </div>
     </div>

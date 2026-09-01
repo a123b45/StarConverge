@@ -45,7 +45,7 @@ export default function PortalBillsPage() {
       <div className="portal-hero">
         <div>
           <h1>账单</h1>
-          <p>查看本账户的卡密兑换与在线充值记录</p>
+          <p>查看本账户的在线充值记录</p>
         </div>
       </div>
 

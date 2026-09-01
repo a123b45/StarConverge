@@ -161,7 +161,7 @@ export default function CardKeysPage() {
       <div className="topbar">
         <div className="page-head">
           <h2>卡密管理</h2>
-          <p>生成充值卡密，可设定余额、有效期与限定用户</p>
+          <p>门户已关闭卡密兑换。给用户加余额请到客户管理直接充值</p>
         </div>
         <div className="row-actions">
           <input
