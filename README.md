@@ -55,7 +55,7 @@ bash deploy/start.sh              # 默认源码部署（无 Node 时自动下�
 # bash deploy/start.sh --rebuild  # 更新代码后重建
 ```
 
-- 管理后台 / API：`http://服务器IP:8787`
+- 管理后台 / API：`https://inkstudio.work/`
 - 默认管理员：`admin` / `123456`（控制台 `/admin`）
 - 普通用户：注册后进入门户 `/app`（模型、密钥、用量、对话、文档）
 - 日志：`bash deploy/logs.sh` · 停止：`bash deploy/stop.sh`

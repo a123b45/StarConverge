@@ -46,8 +46,6 @@ bash deploy/start.sh --rebuild
 
 ## 访问
 
-- 管理后台 / API：`http://服务器IP:8787`
+- 管理后台 / API：`https://inkstudio.work/`
 - 健康检查：`http://127.0.0.1:8787/health`
 - 默认管理员：`admin` / `123456`
-
-外网访问请在云安全组放行 TCP `8787`。

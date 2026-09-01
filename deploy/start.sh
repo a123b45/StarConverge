@@ -48,17 +48,22 @@ banner() {
   echo ""
 }
 
-# 启动摘要里可直接复制的公网地址（PUBLIC_HOST 来自 .env）
+# 启动摘要里可直接复制的公网地址（优先 PUBLIC_BASE_URL）
 public_base_url() {
-  local host="${PUBLIC_HOST:-193.112.202.161}"
+  if [[ -n "${PUBLIC_BASE_URL:-}" ]]; then
+    local url="${PUBLIC_BASE_URL%/}"
+    echo "${url}/"
+    return
+  fi
+  local host="${PUBLIC_HOST:-inkstudio.work}"
   host="${host#http://}"
   host="${host#https://}"
   host="${host%%/*}"
   host="${host%%:*}"
   if [[ -z "$host" ]]; then
-    host="193.112.202.161"
+    host="inkstudio.work"
   fi
-  echo "http://${host}:${PORT}"
+  echo "https://${host}/"
 }
 
 ensure_env() {
@@ -90,13 +95,25 @@ ensure_env() {
     cp "$DEPLOY_DIR/.env.example" "$DEPLOY_DIR/.env" 2>/dev/null || true
   fi
 
-  # 已有环境缺少 PUBLIC_HOST 时补上，便于启动摘要直接复制访问
-  if [[ -f "$ROOT/server/.env" ]] && ! grep -q '^PUBLIC_HOST=' "$ROOT/server/.env" 2>/dev/null; then
-    echo "PUBLIC_HOST=193.112.202.161" >> "$ROOT/server/.env"
-    ok "已写入 PUBLIC_HOST=193.112.202.161（可在 server/.env 修改）"
+  # 公网入口用域名；旧 IP 启动摘要一并迁走
+  if [[ -f "$ROOT/server/.env" ]]; then
+    if grep -qE '^PUBLIC_HOST=193\.112\.202\.161$' "$ROOT/server/.env" 2>/dev/null; then
+      sed -i 's/^PUBLIC_HOST=193\.112\.202\.161$/PUBLIC_HOST=inkstudio.work/' "$ROOT/server/.env"
+    fi
+    if ! grep -q '^PUBLIC_HOST=' "$ROOT/server/.env" 2>/dev/null; then
+      echo "PUBLIC_HOST=inkstudio.work" >> "$ROOT/server/.env"
+    fi
+    if ! grep -q '^PUBLIC_BASE_URL=' "$ROOT/server/.env" 2>/dev/null; then
+      echo "PUBLIC_BASE_URL=https://inkstudio.work" >> "$ROOT/server/.env"
+    fi
   fi
-  if [[ -f "$DEPLOY_DIR/.env" ]] && ! grep -q '^PUBLIC_HOST=' "$DEPLOY_DIR/.env" 2>/dev/null; then
-    echo "PUBLIC_HOST=193.112.202.161" >> "$DEPLOY_DIR/.env"
+  if [[ -f "$DEPLOY_DIR/.env" ]]; then
+    if grep -qE '^PUBLIC_HOST=193\.112\.202\.161$' "$DEPLOY_DIR/.env" 2>/dev/null; then
+      sed -i 's/^PUBLIC_HOST=193\.112\.202\.161$/PUBLIC_HOST=inkstudio.work/' "$DEPLOY_DIR/.env"
+    fi
+    if ! grep -q '^PUBLIC_HOST=' "$DEPLOY_DIR/.env" 2>/dev/null; then
+      echo "PUBLIC_HOST=inkstudio.work" >> "$DEPLOY_DIR/.env"
+    fi
   fi
 }
 
