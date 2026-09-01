@@ -3,6 +3,7 @@ import { stream } from "hono/streaming";
 import { requireApiToken, assertModelAllowed, type AuthVars } from "../middleware/auth.js";
 import { resolveChannelsForModel, joinUrl } from "../services/router.js";
 import { writeLog } from "../services/stats.js";
+import { assertPortalBalance } from "../services/billing.js";
 import {
   countMessages,
   extractRequestPreview,
@@ -96,6 +97,11 @@ async function proxyOpenAI(c: Context<AuthVars>, upstreamPath: string) {
       { error: { message: "model is required", type: "invalid_request_error" } },
       400,
     );
+  }
+
+  const billed = await assertPortalBalance(token);
+  if (!billed.ok) {
+    return c.json(billed.body, billed.status);
   }
 
   const reqPreview = extractRequestPreview(bodyText);

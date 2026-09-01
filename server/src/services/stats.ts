@@ -3,6 +3,7 @@ import { db } from "../db/index.js";
 import { channels, modelRoutes, requestLogs, tokens } from "../db/schema.js";
 import { id, parseJsonArray } from "../utils/crypto.js";
 import { parseIpRules } from "../utils/ip-allow.js";
+import { debitPortalUsage } from "./billing.js";
 
 export async function writeLog(input: {
   tokenId?: string | null;
@@ -50,6 +51,20 @@ export async function writeLog(input: {
         updatedAt: new Date(),
       })
       .where(eq(tokens.id, input.tokenId));
+  }
+
+  try {
+    await debitPortalUsage({
+      tokenId: input.tokenId,
+      channelId: input.channelId,
+      model: input.model,
+      statusCode: input.statusCode,
+      promptTokens: input.promptTokens,
+      completionTokens: input.completionTokens,
+      totalTokens: input.totalTokens,
+    });
+  } catch {
+    /* billing must not fail the upstream response */
   }
 }
 

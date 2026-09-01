@@ -49,6 +49,7 @@ export default function PortalChatPage() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [balance, setBalance] = useState<number | null>(null);
   const [sideCollapsed, setSideCollapsed] = useState(false);
   const [menuId, setMenuId] = useState<string | null>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
@@ -59,6 +60,24 @@ export default function PortalChatPage() {
     () => sessions.find((s) => s.id === activeId) ?? null,
     [sessions, activeId],
   );
+
+  function applyBalance(next?: number | null, totalRecharged?: number) {
+    if (typeof next === "number") setBalance(next);
+    window.dispatchEvent(
+      new CustomEvent("sc:balance-updated", {
+        detail: { balance: next, totalRecharged },
+      }),
+    );
+  }
+
+  async function refreshBalance() {
+    try {
+      const me = await portalApi<{ balance?: number; totalRecharged?: number }>("/me");
+      applyBalance(me.balance ?? 0, me.totalRecharged);
+    } catch {
+      /* keep last known */
+    }
+  }
 
   useEffect(() => {
     portalApi<{ data: { model: string }[] }>("/models").then((r) => {
@@ -74,6 +93,13 @@ export default function PortalChatPage() {
         if (full.key) setApiKey(full.key);
       }
     });
+    void refreshBalance();
+    function onBalance(e: Event) {
+      const detail = (e as CustomEvent<{ balance?: number }>).detail;
+      if (typeof detail?.balance === "number") setBalance(detail.balance);
+    }
+    window.addEventListener("sc:balance-updated", onBalance);
+    return () => window.removeEventListener("sc:balance-updated", onBalance);
   }, []);
 
   useEffect(() => {
@@ -203,6 +229,10 @@ export default function PortalChatPage() {
   async function send(e?: FormEvent) {
     e?.preventDefault();
     if (!input.trim() || !apiKey || !model) return;
+    if (balance != null && balance <= 0) {
+      setError("余额不足，请先充值后再对话");
+      return;
+    }
     let current = active;
     if (!current) {
       current = {
@@ -275,6 +305,7 @@ export default function PortalChatPage() {
         saveSessions(next);
         return next;
       });
+      void refreshBalance();
     } catch (err) {
       setError(err instanceof Error ? err.message : "发送失败");
     } finally {
@@ -387,7 +418,13 @@ export default function PortalChatPage() {
               <div className="ds-welcome-mark">in</div>
               <h2>开始一次对话测试</h2>
               <p>选择模型与 API 密钥后，在下方输入消息即可调用网关。</p>
-              {!apiKey ? (
+              {balance != null && balance <= 0 ? (
+                <p className="ds-hint">
+                  当前余额为 $0.00，对话会按模型单价扣费。请先
+                  <Link to="/app/recharge"> 充值 </Link>
+                  后再发送。
+                </p>
+              ) : !apiKey ? (
                 <p className="ds-hint">
                   还没有密钥？先去 <Link to="/app/keys">API 密钥</Link> 创建。
                 </p>
@@ -421,28 +458,46 @@ export default function PortalChatPage() {
         </div>
 
         <div className="ds-composer-wrap">
-          {error ? <div className="ds-error">{error}</div> : null}
+          {error ? (
+            <div className="ds-error">
+              {error}
+              {error.includes("余额") ? (
+                <>
+                  {" "}
+                  <Link to="/app/recharge">去充值</Link>
+                </>
+              ) : null}
+            </div>
+          ) : null}
           <form className="ds-composer" onSubmit={(e) => void send(e)}>
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={onKeyDown}
               placeholder={
-                !apiKey
-                  ? "请先创建 API 密钥…"
-                  : model
-                    ? `给 ${model} 发送消息`
-                    : "请先选择模型…"
+                balance != null && balance <= 0
+                  ? "余额不足，请先充值…"
+                  : !apiKey
+                    ? "请先创建 API 密钥…"
+                    : model
+                      ? `给 ${model} 发送消息`
+                      : "请先选择模型…"
               }
               rows={1}
-              disabled={busy || !apiKey || !model}
+              disabled={busy || !apiKey || !model || (balance != null && balance <= 0)}
             />
             <div className="ds-composer-bar">
               <span className="ds-composer-tip">Enter 发送 · Shift+Enter 换行</span>
               <button
                 type="submit"
                 className="ds-send"
-                disabled={busy || !apiKey || !model || !input.trim()}
+                disabled={
+                  busy ||
+                  !apiKey ||
+                  !model ||
+                  !input.trim() ||
+                  (balance != null && balance <= 0)
+                }
                 aria-label="发送"
               >
                 ↑
