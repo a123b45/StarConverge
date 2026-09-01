@@ -24,6 +24,7 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [cooldown, setCooldown] = useState(0);
+  const [codeSent, setCodeSent] = useState(false);
 
   const loadCaptcha = useCallback(async () => {
     try {
@@ -57,7 +58,7 @@ export default function RegisterPage() {
       });
       setHint(res.message || "验证码已发送，请查收邮箱");
       setCooldown(60);
-      await loadCaptcha();
+      setCodeSent(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "发送失败");
       await loadCaptcha();
@@ -77,13 +78,12 @@ export default function RegisterPage() {
         redirect: string;
       }>("/register", {
         method: "POST",
-        body: JSON.stringify({ username, password, email, code, captchaId, captcha }),
+        body: JSON.stringify({ username, password, email, code }),
       });
       setSession(res.token, res.role);
       navigate(res.redirect || "/app/models");
     } catch (err) {
       setError(err instanceof Error ? err.message : "注册失败");
-      await loadCaptcha();
     } finally {
       setLoading(false);
     }
@@ -172,7 +172,10 @@ export default function RegisterPage() {
               <input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setCodeSent(false);
+                }}
                 autoComplete="email"
                 placeholder="用于接收验证码和找回密码"
                 required
@@ -201,10 +204,11 @@ export default function RegisterPage() {
                   onChange={(e) => setCaptcha(e.target.value.toUpperCase())}
                   autoComplete="off"
                   placeholder="点击图片可刷新"
-                  required
-                  minLength={5}
+                  required={!codeSent}
+                  minLength={codeSent ? undefined : 5}
                   maxLength={8}
                   spellCheck={false}
+                  disabled={codeSent}
                 />
               </div>
             </div>
