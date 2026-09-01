@@ -6,11 +6,9 @@ import { id, parseJsonArray } from "../utils/crypto.js";
 import { notifyPricesChanged } from "./notifications.js";
 import { explicitChannelModels } from "./upstream-models.js";
 import {
-  buildUpstreamPriceMap,
-  fetchNewApiPricing,
-  firstPartyVendorFromBaseUrl,
-  pickCheapestGroup,
-  pricingUrlFromBaseUrl,
+  canSyncChannelPricing,
+  loadChannelPricingCatalog,
+  lookupUpstreamPrice,
 } from "./upstream-pricing.js";
 
 const PRICE_UNIT = 1000;
@@ -111,14 +109,19 @@ export async function syncChannelPricing(opts: {
   const updateExisting = opts.updateExisting ?? true;
   const createMissing = opts.createMissing ?? true;
   const setCostFromUpstream = opts.setCostFromUpstream ?? true;
-  const pricingUrl = pricingUrlFromBaseUrl(opts.channel.baseUrl);
-  const payload = await fetchNewApiPricing(pricingUrl, opts.channel.timeoutMs, {
-    apiKey: opts.channel.apiKey,
+  const catalog = await loadChannelPricingCatalog({
     baseUrl: opts.channel.baseUrl,
+    apiKey: opts.channel.apiKey,
+    timeoutMs: opts.channel.timeoutMs,
   });
-  const group = opts.group || pickCheapestGroup(payload);
+  const group =
+    opts.group ||
+    (catalog.source === "newapi"
+      ? catalog.cheapestGroup
+      : catalog.defaultGroup);
   if (!group) throw new Error("上游没有可用计费分组");
-  const priceMap = buildUpstreamPriceMap(payload, group);
+  const pricingUrl = catalog.pricingUrl;
+  const priceMap = catalog.buildPriceMap(group);
   const modelNames = await resolveSyncModelNames(opts.channel, scope, [
     ...priceMap.keys(),
   ]);
@@ -134,7 +137,7 @@ export async function syncChannelPricing(opts: {
   const changedNames: string[] = [];
 
   for (const modelName of modelNames) {
-    const upstream = priceMap.get(modelName);
+    const upstream = lookupUpstreamPrice(priceMap, modelName);
     if (!upstream) {
       missingUpstream += 1;
       continue;
@@ -167,7 +170,7 @@ export async function syncChannelPricing(opts: {
           outputPer1mCents: nextOutput,
           cacheHitPer1mCents: nextCache,
           costPer1mCents: priceUnitFromUsd(costPer1m),
-          remark: `上游同步 · ${group} · ${payload.pricing_version ?? ""}`.slice(0, 500),
+          remark: `上游同步 · ${group} · ${catalog.pricingVersion ?? ""}`.slice(0, 500),
           updatedAt: new Date(),
         })
         .where(eq(modelPrices.id, existing.id));
@@ -192,7 +195,7 @@ export async function syncChannelPricing(opts: {
       cacheHitPer1mCents: priceUnitFromUsd(upstream.cacheHitPer1m),
       costPer1mCents: priceUnitFromUsd(costPer1m),
       enabled: true,
-      remark: `上游同步 · ${group} · ${payload.pricing_version ?? ""}`.slice(0, 500),
+      remark: `上游同步 · ${group} · ${catalog.pricingVersion ?? ""}`.slice(0, 500),
     });
     created += 1;
     changedNames.push(modelName);
@@ -203,7 +206,7 @@ export async function syncChannelPricing(opts: {
   return {
     pricingUrl,
     group,
-    pricingVersion: payload.pricing_version ?? "",
+    pricingVersion: catalog.pricingVersion ?? "",
     scope,
     targeted: modelNames.length,
     created,
@@ -217,8 +220,8 @@ export async function runDailyPricingSync() {
   const rows = await db.select().from(channels).where(eq(channels.enabled, true));
   const results: string[] = [];
   for (const ch of rows) {
-    if (firstPartyVendorFromBaseUrl(ch.baseUrl)) {
-      results.push(`跳过 ${ch.name}（厂商官方接口）`);
+    if (!canSyncChannelPricing(ch.baseUrl)) {
+      results.push(`跳过 ${ch.name}（厂商官方暂无定价适配）`);
       continue;
     }
     try {

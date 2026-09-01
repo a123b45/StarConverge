@@ -1,4 +1,16 @@
-/** NewAPI-compatible upstream pricing (/api/pricing). */
+/** Upstream pricing: NewAPI `/api/pricing`, plus vendor-specific docs (DeepSeek). */
+
+import {
+  DEEPSEEK_GROUP_OFF_PEAK,
+  DEEPSEEK_GROUP_PEAK,
+  DEEPSEEK_PRICING_DOCS_URL,
+  DEEPSEEK_PRICING_NOTE,
+  deepSeekPricingVersion,
+  fetchDeepSeekPricingHtml,
+  normalizeDeepSeekGroup,
+  parseDeepSeekPricingHtml,
+  type DeepSeekModelPricing,
+} from "./deepseek-pricing.js";
 
 export type NewApiPricingRow = {
   model_name: string;
@@ -55,15 +67,32 @@ export function firstPartyVendorFromBaseUrl(baseUrl: string): string | null {
   }
 }
 
+export function hasOfficialPricingAdapter(baseUrl: string): boolean {
+  return firstPartyVendorFromBaseUrl(baseUrl) === "DeepSeek";
+}
+
+export function canSyncChannelPricing(baseUrl: string): boolean {
+  const vendor = firstPartyVendorFromBaseUrl(baseUrl);
+  return !vendor || hasOfficialPricingAdapter(baseUrl);
+}
+
 export function assertNewApiPricingHost(baseUrl: string) {
   const vendor = firstPartyVendorFromBaseUrl(baseUrl);
   if (!vendor) return;
+  if (vendor === "DeepSeek") {
+    throw new Error(
+      "DeepSeek 官方没有 NewAPI 的 /api/pricing；请走官网价目同步，不要对 api.deepseek.com 请求该接口。",
+    );
+  }
   throw new Error(
-    `${vendor} 是厂商官方 API，没有 NewAPI 的 /api/pricing，无法从这里同步价格。请改选 TAO-API 等中转站（DeepSeek 模型价在中转站价目里），或在定价中心按官网手工填写。`,
+    `${vendor} 是厂商官方 API，没有 NewAPI 的 /api/pricing，也无法从官网自动抓价。请改选 TAO-API 等中转站，或在定价中心按官网手工填写。`,
   );
 }
 
 export function pricingUrlFromBaseUrl(baseUrl: string): string {
+  if (firstPartyVendorFromBaseUrl(baseUrl) === "DeepSeek") {
+    return DEEPSEEK_PRICING_DOCS_URL;
+  }
   const trimmed = baseUrl.trim().replace(/\/+$/, "");
   let origin = trimmed;
   try {
@@ -96,7 +125,7 @@ export async function fetchNewApiPricing(
     if (!res.ok) {
       const hint =
         res.status === 401 || res.status === 403
-          ? "（需要密钥或此站不是 NewAPI 价目接口；厂商官方如 DeepSeek 请改用中转站同步）"
+          ? "（需要密钥或此站不是 NewAPI 价目接口）"
           : "";
       throw new Error(
         `上游定价接口 ${res.status}: ${text.slice(0, 160)}${hint}`,
@@ -267,6 +296,112 @@ export function resolveBestPriceForModel(
     }
   }
   return best;
+}
+
+export function lookupUpstreamPrice(
+  map: Map<string, ResolvedUpstreamPrice>,
+  modelName: string,
+): ResolvedUpstreamPrice | undefined {
+  const raw = modelName.trim();
+  if (!raw) return undefined;
+  const exact = map.get(raw) ?? map.get(raw.toLowerCase());
+  if (exact) return exact;
+  const stripped = raw.toLowerCase().replace(/-\d{4}$/, "");
+  if (stripped !== raw.toLowerCase()) {
+    const parent = map.get(stripped);
+    if (parent) return { ...parent, modelName: raw };
+  }
+  return undefined;
+}
+
+function buildDeepSeekPriceMap(
+  models: DeepSeekModelPricing[],
+  groupName: string,
+): Map<string, ResolvedUpstreamPrice> {
+  const group = normalizeDeepSeekGroup(groupName);
+  const peak = group === DEEPSEEK_GROUP_PEAK;
+  const out = new Map<string, ResolvedUpstreamPrice>();
+  for (const row of models) {
+    const quote = peak ? row.peak : row.offPeak;
+    for (const alias of row.aliases) {
+      out.set(alias, {
+        modelName: alias,
+        inputPer1m: quote.inputPer1m,
+        outputPer1m: quote.outputPer1m,
+        cacheHitPer1m: quote.cacheHitPer1m,
+        group,
+      });
+    }
+  }
+  return out;
+}
+
+export type ChannelPricingCatalog = {
+  source: "newapi" | "deepseek-docs";
+  pricingUrl: string;
+  pricingVersion: string;
+  note: string;
+  groups: Array<{ name: string; ratio: number }>;
+  defaultGroup: string | null;
+  cheapestGroup: string | null;
+  buildPriceMap: (groupName: string) => Map<string, ResolvedUpstreamPrice>;
+  resolveBestForModel: (modelName: string) => ResolvedUpstreamPrice | null;
+};
+
+export async function loadChannelPricingCatalog(opts: {
+  baseUrl: string;
+  apiKey?: string;
+  timeoutMs?: number;
+}): Promise<ChannelPricingCatalog> {
+  const timeoutMs = opts.timeoutMs ?? 20_000;
+  const vendor = firstPartyVendorFromBaseUrl(opts.baseUrl);
+
+  if (vendor === "DeepSeek") {
+    const html = await fetchDeepSeekPricingHtml(timeoutMs);
+    const models = parseDeepSeekPricingHtml(html);
+    const peakMap = buildDeepSeekPriceMap(models, DEEPSEEK_GROUP_PEAK);
+    return {
+      source: "deepseek-docs",
+      pricingUrl: DEEPSEEK_PRICING_DOCS_URL,
+      pricingVersion: deepSeekPricingVersion(models),
+      note: DEEPSEEK_PRICING_NOTE,
+      groups: [
+        { name: DEEPSEEK_GROUP_PEAK, ratio: 1 },
+        { name: DEEPSEEK_GROUP_OFF_PEAK, ratio: 0.5 },
+      ],
+      defaultGroup: DEEPSEEK_GROUP_PEAK,
+      cheapestGroup: DEEPSEEK_GROUP_OFF_PEAK,
+      buildPriceMap: (groupName) => buildDeepSeekPriceMap(models, groupName),
+      resolveBestForModel: (modelName) =>
+        lookupUpstreamPrice(peakMap, modelName) ?? null,
+    };
+  }
+
+  if (vendor) {
+    throw new Error(
+      `${vendor} 是厂商官方 API，尚未接入独立价目源。请改选 TAO-API 等中转站，或在定价中心按官网手工填写。`,
+    );
+  }
+
+  const pricingUrl = pricingUrlFromBaseUrl(opts.baseUrl);
+  const payload = await fetchNewApiPricing(pricingUrl, timeoutMs, {
+    apiKey: opts.apiKey,
+    baseUrl: opts.baseUrl,
+  });
+  const groups = listNewApiGroups(payload);
+  const cheapestGroup = pickCheapestGroup(payload);
+  return {
+    source: "newapi",
+    pricingUrl,
+    pricingVersion: payload.pricing_version ?? "",
+    note: "",
+    groups,
+    defaultGroup: pickDefaultGroup(payload),
+    cheapestGroup,
+    buildPriceMap: (groupName) => buildUpstreamPriceMap(payload, groupName),
+    resolveBestForModel: (modelName) =>
+      resolveBestPriceForModel(payload, modelName),
+  };
 }
 
 export function upstreamModelNameForChannel(

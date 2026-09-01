@@ -42,7 +42,7 @@ export const config = {
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean),
-  /** Daily NewAPI /api/pricing sync for all compatible channels */
+  /** Daily pricing sync: NewAPI /api/pricing + DeepSeek official docs */
   pricingAutoSync: (process.env.PRICING_AUTO_SYNC ?? "1") !== "0",
   pricingAutoSyncHours: Math.max(
     1,

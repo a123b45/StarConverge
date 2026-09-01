@@ -30,12 +30,8 @@ import {
 import { signToken } from "../utils/jwt.js";
 import { getDashboardStats, getUsageAnalytics, publicChannel, publicToken } from "../services/stats.js";
 import {
-  buildUpstreamPriceMap,
-  fetchNewApiPricing,
-  listNewApiGroups,
-  pickDefaultGroup,
+  loadChannelPricingCatalog,
   pricingUrlFromBaseUrl,
-  resolveBestPriceForModel,
   upstreamModelNameForChannel,
 } from "../services/upstream-pricing.js";
 import { syncChannelPricing } from "../services/pricing-sync.js";
@@ -1221,24 +1217,24 @@ adminRoutes.get("/pricing/upstream-meta", async (c) => {
 
   const pricingUrl = pricingUrlFromBaseUrl(ch.baseUrl);
   try {
-    const payload = await fetchNewApiPricing(pricingUrl, ch.timeoutMs, {
-      apiKey: ch.apiKey,
+    const catalog = await loadChannelPricingCatalog({
       baseUrl: ch.baseUrl,
+      apiKey: ch.apiKey,
+      timeoutMs: ch.timeoutMs,
     });
-    const groups = listNewApiGroups(payload);
-    const defaultGroup = pickDefaultGroup(payload);
-    const priceMap = defaultGroup
-      ? buildUpstreamPriceMap(payload, defaultGroup)
-      : new Map();
+    const defaultGroup = catalog.defaultGroup;
+    const priceMap = defaultGroup ? catalog.buildPriceMap(defaultGroup) : new Map();
     const channelModels = explicitChannelModels(ch.models);
     const catalogModels = await catalogUpstreamModelsForChannel(channelId);
     return c.json({
       data: {
         channelId,
         channelName: ch.name,
-        pricingUrl,
-        pricingVersion: payload.pricing_version ?? "",
-        groups,
+        source: catalog.source,
+        pricingUrl: catalog.pricingUrl,
+        pricingVersion: catalog.pricingVersion,
+        note: catalog.note,
+        groups: catalog.groups,
         defaultGroup,
         upstreamModelCount: priceMap.size,
         channelModelCount: channelModels.length,
@@ -1751,18 +1747,18 @@ adminRoutes.post("/models/sync-pricing", async (c) => {
 
   for (const [channelId, items] of byChannel) {
     const ch = channelById.get(channelId)!;
-    const pricingUrl = pricingUrlFromBaseUrl(ch.baseUrl);
     const deduped = new Map<string, SyncItem>();
     for (const item of items) {
       deduped.set(`${item.displayModel}\0${item.upstreamModel}`, item);
     }
     const work = [...deduped.values()];
 
-    let payload;
+    let catalog;
     try {
-      payload = await fetchNewApiPricing(pricingUrl, ch.timeoutMs, {
-        apiKey: ch.apiKey,
+      catalog = await loadChannelPricingCatalog({
         baseUrl: ch.baseUrl,
+        apiKey: ch.apiKey,
+        timeoutMs: ch.timeoutMs,
       });
     } catch (e) {
       const err = e instanceof Error ? e.message : "拉取上游定价失败";
@@ -1793,14 +1789,14 @@ adminRoutes.post("/models/sync-pricing", async (c) => {
     }
 
     for (const item of work) {
-      const upstream = resolveBestPriceForModel(payload, item.upstreamModel);
+      const upstream = catalog.resolveBestForModel(item.upstreamModel);
       if (!upstream) {
         missingModels.push(item.displayModel);
         continue;
       }
       const existing = priceIndex.get(item.displayModel);
       const remark =
-        `模型管理同步 · ${upstream.group} · ${payload.pricing_version ?? ""}`.slice(0, 500);
+        `模型管理同步 · ${upstream.group} · ${catalog.pricingVersion ?? ""}`.slice(0, 500);
       const costPer1m = upstream.inputPer1m;
 
       if (existing) {

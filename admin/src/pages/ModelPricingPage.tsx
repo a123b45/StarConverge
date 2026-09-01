@@ -61,8 +61,10 @@ type UpstreamGroup = { name: string; ratio: number };
 type UpstreamMeta = {
   channelId: string;
   channelName: string;
+  source?: "newapi" | "deepseek-docs";
   pricingUrl: string;
   pricingVersion: string;
+  note?: string;
   groups: UpstreamGroup[];
   defaultGroup: string | null;
   upstreamModelCount: number;
@@ -554,10 +556,18 @@ export default function ModelPricingPage() {
             <div className="modal-user-head">
               <h3>从上游同步定价</h3>
               <p>
-                读取 <strong>NewAPI 兼容中转站</strong> 的 <code>/api/pricing</code>
-                ，批量写入输入 / 输出 / 缓存命中价格（USD / 百万 tokens）。DeepSeek / OpenAI /
-                Anthropic 等<strong>厂商官方接口没有这份价目</strong>，请改选 TAO-API
-                这类渠道。服务端默认每 24 小时自动同步一次已接入的中转站（
+                按服务商使用不同定价源：NewAPI 兼容中转站读取{" "}
+                <code>/api/pricing</code>；DeepSeek 官方读取{" "}
+                <a
+                  href="https://api-docs.deepseek.com/zh-cn/quick_start/pricing"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  官网价目表
+                </a>
+                （美元 / 百万 tokens，含高峰与空闲）。OpenAI / Anthropic
+                等其他厂商官方暂未接入，请手工填写或走中转站。默认每 24
+                小时自动同步一次已接入的中转站和 DeepSeek 官方（
                 <code>PRICING_AUTO_SYNC</code>）。
               </p>
             </div>
@@ -587,7 +597,10 @@ export default function ModelPricingPage() {
                   onChange={setSyncGroup}
                   options={(syncMeta?.groups ?? []).map((g) => ({
                     value: g.name,
-                    label: `${g.name} · ${g.ratio}x`,
+                    label:
+                      syncMeta?.source === "deepseek-docs"
+                        ? g.name
+                        : `${g.name} · ${g.ratio}x`,
                   }))}
                   placeholder={syncMeta ? "选择分组" : "先选择服务商"}
                 />
@@ -630,7 +643,13 @@ export default function ModelPricingPage() {
             {syncMeta ? (
               <p className="field-hint pricing-sync-meta">
                 定价源：<span className="mono">{syncMeta.pricingUrl}</span>
-                {syncMeta.pricingVersion ? ` · 版本 ${syncMeta.pricingVersion.slice(0, 8)}` : ""}
+                {syncMeta.pricingVersion ? ` · 版本 ${syncMeta.pricingVersion.slice(0, 12)}` : ""}
+                {syncMeta.note ? (
+                  <>
+                    <br />
+                    {syncMeta.note}
+                  </>
+                ) : null}
               </p>
             ) : null}
             <div className="pricing-sync-options">
