@@ -26,6 +26,8 @@ function isScanQr(qrcode: string) {
   return /^https?:\/\//i.test(qrcode) || qrcode.startsWith("data:");
 }
 
+const CARD_SHOP_URL = "https://9.plus/shop/JJRZ0I7J";
+
 export default function PortalRechargePage() {
   const [params] = useSearchParams();
   const [balance, setBalance] = useState<number | null>(null);
@@ -200,7 +202,7 @@ export default function PortalRechargePage() {
       <div className="portal-hero">
         <div>
           <h1>充值</h1>
-          <p>使用支付宝、微信，或兑换卡密为账户增加美元余额</p>
+          <p>在线支付、购买卡密或兑换卡密，为账户增加美元余额</p>
         </div>
       </div>
 
@@ -283,6 +285,9 @@ export default function PortalRechargePage() {
         <div className="portal-panel-head">
           <h3>卡密兑换</h3>
         </div>
+        <p className="muted recharge-rate-hint" style={{ padding: "0 16px 8px" }}>
+          没有卡密可先购买，付款后把卡密粘贴到下方兑换。
+        </p>
         <form
           className="portal-toolbar recharge-redeem-bar"
           style={{ padding: "4px 16px 18px" }}
@@ -299,8 +304,16 @@ export default function PortalRechargePage() {
             autoComplete="off"
             spellCheck={false}
           />
+          <a
+            className="portal-btn ghost"
+            href={CARD_SHOP_URL}
+            target="_blank"
+            rel="noreferrer"
+          >
+            获取卡密
+          </a>
           <button className="portal-btn" type="submit" disabled={busy}>
-            {busy ? "兑换中…" : "兑换"}
+            {busy ? "兑换中…" : "兑换卡密"}
           </button>
         </form>
       </div>

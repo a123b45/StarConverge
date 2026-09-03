@@ -2693,6 +2693,10 @@ html[data-theme="dark"] .dash-mline-tip {
   max-width: none;
   flex: 1 1 280px;
 }
+.recharge-redeem-bar a.portal-btn {
+  text-decoration: none;
+  white-space: nowrap;
+}
 .recharge-contact-text {
   margin: 0;
   padding: 4px 16px 18px;
