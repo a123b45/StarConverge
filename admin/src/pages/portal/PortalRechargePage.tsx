@@ -70,7 +70,7 @@ export default function PortalRechargePage() {
           </span>
         </div>
         <p className="muted recharge-rate-hint" style={{ padding: "0 16px 8px" }}>
-          没有卡密可先购买，付款后把卡密粘贴到下方兑换。
+          没有卡密可先点击获取卡密，充值后把获取的卡密粘贴到下方进行兑换。
         </p>
         <form
           className="portal-toolbar recharge-redeem-bar"
