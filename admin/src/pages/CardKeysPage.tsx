@@ -161,7 +161,7 @@ export default function CardKeysPage() {
       <div className="topbar">
         <div className="page-head">
           <h2>卡密管理</h2>
-          <p>门户已关闭卡密兑换。给用户加余额请到客户管理直接充值</p>
+          <p>门户可兑换卡密。也可拿到发卡站发货，或到客户管理直接加余额</p>
         </div>
         <div className="row-actions">
           <input

@@ -22,7 +22,7 @@ import {
   toJsonArray,
 } from "../utils/crypto.js";
 import { publicToken } from "../services/stats.js";
-import { usdFromCents } from "../services/card-keys.js";
+import { redeemCardKey, usdFromCents } from "../services/card-keys.js";
 import {
   createEpayOrder,
   epayPublicConfig,
@@ -396,8 +396,26 @@ portalRoutes.get("/recharge/epay/order/:outTradeNo", async (c) => {
   return c.json({ data: publicOrder(row) });
 });
 
-portalRoutes.post("/recharge/card", (c) => {
-  return c.json({ error: "已关闭卡密充值，请使用在线支付" }, 410);
+portalRoutes.post("/recharge/card", async (c) => {
+  const auth = c.get("auth");
+  const schema = z.object({ code: z.string().min(1) });
+  const parsed = schema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: "请输入卡密" }, 400);
+  try {
+    const data = await redeemCardKey(parsed.data.code, auth.userId!);
+    return c.json({ data });
+  } catch (e) {
+    const status =
+      e instanceof Error &&
+      "status" in e &&
+      typeof (e as { status: unknown }).status === "number"
+        ? (e as { status: number }).status
+        : 400;
+    return c.json(
+      { error: e instanceof Error ? e.message : "兑换失败" },
+      status === 403 ? 403 : 400,
+    );
+  }
 });
 
 portalRoutes.get("/bills", async (c) => {

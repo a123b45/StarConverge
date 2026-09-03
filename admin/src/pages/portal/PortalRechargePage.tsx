@@ -35,6 +35,7 @@ export default function PortalRechargePage() {
   const [epay, setEpay] = useState<EpayConfig | null>(null);
   const [amountUsd, setAmountUsd] = useState(10);
   const [payType, setPayType] = useState<PayType>("alipay");
+  const [cardCode, setCardCode] = useState("");
   const [pending, setPending] = useState<{
     outTradeNo: string;
     payUrl: string;
@@ -95,6 +96,39 @@ export default function PortalRechargePage() {
     const rate = epay?.cnyPerUsd ?? 7.2;
     return (amountUsd * rate).toFixed(2);
   }, [amountUsd, epay]);
+
+  async function redeemCard() {
+    const code = cardCode.trim();
+    if (!code) {
+      setError("请输入卡密");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const res = await portalApi<{
+        data: { amount: number; balance: number; totalRecharged: number };
+      }>("/recharge/card", {
+        method: "POST",
+        body: JSON.stringify({ code }),
+      });
+      setCardCode("");
+      setBalance(res.data.balance);
+      setToast(`兑换成功，余额 +$${res.data.amount.toFixed(2)}`);
+      window.dispatchEvent(
+        new CustomEvent("sc:balance-updated", {
+          detail: {
+            balance: res.data.balance,
+            totalRecharged: res.data.totalRecharged,
+          },
+        }),
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "兑换失败");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function startEpay() {
     setBusy(true);
@@ -166,9 +200,11 @@ export default function PortalRechargePage() {
       <div className="portal-hero">
         <div>
           <h1>充值</h1>
-          <p>使用支付宝或微信支付为账户增加美元余额</p>
+          <p>使用支付宝、微信，或兑换卡密为账户增加美元余额</p>
         </div>
       </div>
+
+      {error ? <div className="alert">{error}</div> : null}
 
       <div className="portal-panel">
         <div className="portal-panel-head">
@@ -177,10 +213,9 @@ export default function PortalRechargePage() {
             当前余额 {balance == null ? "—" : `$${balance.toFixed(2)}`}
           </span>
         </div>
-        {error ? <div className="alert">{error}</div> : null}
         {epay && !epay.enabled ? (
           <p className="muted recharge-rate-hint" style={{ padding: "4px 16px 18px" }}>
-            在线支付尚未开通，请使用下方人工充值。
+            在线支付尚未开通，可先兑换卡密，或使用下方人工充值。
           </p>
         ) : null}
         {epay?.enabled ? (
@@ -242,6 +277,32 @@ export default function PortalRechargePage() {
             ) : null}
           </div>
         ) : null}
+      </div>
+
+      <div className="portal-panel">
+        <div className="portal-panel-head">
+          <h3>卡密兑换</h3>
+        </div>
+        <form
+          className="portal-toolbar recharge-redeem-bar"
+          style={{ padding: "4px 16px 18px" }}
+          onSubmit={(e) => {
+            e.preventDefault();
+            void redeemCard();
+          }}
+        >
+          <input
+            className="portal-search"
+            placeholder="输入卡密，例如 SC-XXXXX-XXXXX-XXXXX-XXXXX"
+            value={cardCode}
+            onChange={(e) => setCardCode(e.target.value)}
+            autoComplete="off"
+            spellCheck={false}
+          />
+          <button className="portal-btn" type="submit" disabled={busy}>
+            {busy ? "兑换中…" : "兑换"}
+          </button>
+        </form>
       </div>
 
       <div className="portal-panel recharge-contact">
