@@ -23,24 +23,24 @@ export const MODEL_CAPABILITIES: Array<{ id: ModelCapability; label: string }> =
   { id: "longctx", label: "长上下文" },
 ];
 
-export const MODEL_FAMILIES: Array<{ id: ModelFamily; label: string }> = [
-  { id: "all", label: "全部系列" },
-  { id: "gpt", label: "GPT / OpenAI" },
-  { id: "deepseek", label: "DeepSeek" },
-  { id: "qwen", label: "Qwen / 通义" },
-  { id: "claude", label: "Claude" },
-  { id: "gemini", label: "Gemini" },
-  { id: "glm", label: "GLM / 智谱" },
-  { id: "kimi", label: "Kimi / Moonshot" },
-  { id: "llama", label: "Llama / Meta" },
-  { id: "mistral", label: "Mistral" },
-  { id: "other", label: "其他" },
+export const MODEL_FAMILIES: Array<{ id: ModelFamily; label: string; short: string }> = [
+  { id: "all", label: "全部系列", short: "全部" },
+  { id: "gpt", label: "GPT / OpenAI", short: "GPT" },
+  { id: "deepseek", label: "DeepSeek", short: "DeepSeek" },
+  { id: "qwen", label: "Qwen / 通义", short: "Qwen" },
+  { id: "claude", label: "Claude", short: "Claude" },
+  { id: "gemini", label: "Gemini", short: "Gemini" },
+  { id: "glm", label: "GLM / 智谱", short: "GLM" },
+  { id: "kimi", label: "Kimi / Moonshot", short: "Kimi" },
+  { id: "llama", label: "Llama / Meta", short: "Llama" },
+  { id: "mistral", label: "Mistral", short: "Mistral" },
+  { id: "other", label: "其他", short: "其他" },
 ];
 
-export const MODEL_MODALITIES: Array<{ id: ModelModality; label: string }> = [
-  { id: "all", label: "全部能力" },
-  { id: "text", label: "纯文本" },
-  { id: "multimodal", label: "多模态" },
+export const MODEL_MODALITIES: Array<{ id: ModelModality; label: string; short: string }> = [
+  { id: "all", label: "全部能力", short: "全部" },
+  { id: "text", label: "纯文本", short: "文本" },
+  { id: "multimodal", label: "多模态", short: "多模态" },
 ];
 
 function norm(name: string): string {

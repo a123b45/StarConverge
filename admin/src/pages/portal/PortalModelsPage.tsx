@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { portalApi } from "../../lib/api";
 import { IconBolt } from "../../components/icons";
-import ModelCatalogFilters from "../../components/portal/ModelCatalogFilters";
+import ModelCatalogFilters, {
+  type FilterSkin,
+} from "../../components/portal/ModelCatalogFilters";
 import ModalBackdrop from "../../components/ModalBackdrop";
 import {
   matchesFamily,
@@ -16,11 +18,28 @@ import {
   type ModelCapability,
 } from "../../lib/model-taxonomy";
 import {
-  exportModelsCsv,
   formatLatency,
   formatPerMillion,
   type PortalModel,
 } from "../../lib/portal-models";
+
+const SKIN_STORE = "sc_model_filter_skin";
+const SKINS: Array<{ id: FilterSkin; label: string }> = [
+  { id: "pill", label: "胶囊" },
+  { id: "segment", label: "分段" },
+  { id: "outline", label: "描边" },
+  { id: "soft", label: "轻底" },
+];
+
+function readSkin(): FilterSkin {
+  try {
+    const v = localStorage.getItem(SKIN_STORE);
+    if (v === "pill" || v === "segment" || v === "outline" || v === "soft") return v;
+  } catch {
+    /* ignore */
+  }
+  return "pill";
+}
 
 function modelInitial(name: string): string {
   const part = name.split(/[-_/]/).find(Boolean) || name;
@@ -43,6 +62,7 @@ export default function PortalModelsPage() {
   const [cap, setCap] = useState<ModelCapability | "all">("all");
   const [showRetired, setShowRetired] = useState(false);
   const [detail, setDetail] = useState<PortalModel | null>(null);
+  const [skin, setSkin] = useState<FilterSkin>(() => readSkin());
 
   useEffect(() => {
     portalApi<{ data: PortalModel[] }>("/models")
@@ -91,44 +111,46 @@ export default function PortalModelsPage() {
                 : "暂无上架模型 · 需管理员在模型管理中同步给用户"}
             </p>
           </div>
+          <div className="portal-skin-switch" role="radiogroup" aria-label="筛选按钮样式">
+            <span>筛选样式</span>
+            {SKINS.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                role="radio"
+                aria-checked={skin === s.id}
+                className={skin === s.id ? "is-on" : ""}
+                onClick={() => {
+                  setSkin(s.id);
+                  try {
+                    localStorage.setItem(SKIN_STORE, s.id);
+                  } catch {
+                    /* ignore */
+                  }
+                }}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="portal-toolbar">
+        <div className="portal-toolbar portal-models-toolbar">
           <input
             className="portal-search"
             placeholder="搜索模型名称 / ID / 描述"
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
-          <button
-            type="button"
-            className="portal-btn ghost"
-            onClick={() => exportModelsCsv(showRetired ? models : live)}
-            disabled={!models.length}
-          >
-            导出清单
-          </button>
-          <Link className="portal-btn" to="/app/keys">
-            获取 API Key
-          </Link>
-        </div>
-        <div className="portal-cap-chips" role="tablist" aria-label="能力筛选">
-          <button
-            type="button"
-            className={cap === "all" ? "active" : ""}
-            onClick={() => setCap("all")}
-          >
-            全部
-          </button>
-          {MODEL_CAPABILITIES.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              className={cap === c.id ? "active" : ""}
-              onClick={() => setCap(c.id)}
-            >
-              {c.label}
-            </button>
-          ))}
+          <ModelCatalogFilters
+            models={live}
+            family={family}
+            modality={modality}
+            cap={cap}
+            skin={skin}
+            onFamilyChange={setFamily}
+            onModalityChange={setModality}
+            onCapChange={setCap}
+          />
         </div>
       </div>
 
@@ -136,13 +158,6 @@ export default function PortalModelsPage() {
         {error ? <div className="alert">{error}</div> : null}
 
         <div className="portal-models-body">
-          <ModelCatalogFilters
-            models={live}
-            family={family}
-            modality={modality}
-            onFamilyChange={setFamily}
-            onModalityChange={setModality}
-          />
           <div className="portal-models-main">
             <div className="portal-model-grid">
               {filteredLive.map((m) => (
