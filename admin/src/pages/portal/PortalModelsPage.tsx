@@ -26,13 +26,6 @@ function modelInitial(name: string): string {
   return part.slice(0, 1).toUpperCase();
 }
 
-function isNew(createdAt?: PortalModel["createdAt"]) {
-  if (!createdAt) return false;
-  const t = new Date(createdAt).getTime();
-  if (!Number.isFinite(t)) return false;
-  return Date.now() - t < 14 * 86400_000;
-}
-
 export default function PortalModelsPage() {
   const [models, setModels] = useState<PortalModel[]>([]);
   const [q, setQ] = useState("");
@@ -116,7 +109,6 @@ export default function PortalModelsPage() {
             key={m.id}
             m={m}
             hot={hotIds.has(m.id)}
-            fresh={isNew(m.createdAt)}
             onDetail={() => setDetail(m)}
           />
         ))}
@@ -152,7 +144,6 @@ export default function PortalModelsPage() {
                   key={m.id}
                   m={m}
                   hot={false}
-                  fresh={false}
                   retired
                   onDetail={() => setDetail(m)}
                 />
@@ -226,17 +217,23 @@ export default function PortalModelsPage() {
 function ModelCard({
   m,
   hot,
-  fresh,
   retired,
   onDetail,
 }: {
   m: PortalModel;
   hot: boolean;
-  fresh: boolean;
   retired?: boolean;
   onDetail: () => void;
 }) {
   const caps = detectCapabilities(m.model, [m.rewriteModel]);
+  const tags = [
+    ...(hot ? [{ id: "hot", label: "热门", kind: "hot" as const }] : []),
+    ...caps.map((id) => ({
+      id,
+      label: MODEL_CAPABILITIES.find((c) => c.id === id)?.label ?? id,
+      kind: "cap" as const,
+    })),
+  ];
   return (
     <article className={`portal-model-card${retired ? " is-retired" : ""}`}>
       <div className="portal-model-top">
@@ -254,15 +251,15 @@ function ModelCard({
           <span className="portal-provider-pill">{m.providerLabel}</span>
         </div>
       </div>
-      <div className="portal-model-tags">
-        {fresh ? <span className="portal-flag new">上新</span> : null}
-        {hot ? <span className="portal-flag hot">热门</span> : null}
-        {caps.map((id) => (
-          <span key={id} className="portal-cap-tag">
-            {MODEL_CAPABILITIES.find((c) => c.id === id)?.label ?? id}
-          </span>
-        ))}
-      </div>
+      {tags.length ? (
+        <div className="portal-model-tags">
+          {tags.map((t) => (
+            <span key={t.id} className={t.kind === "hot" ? "portal-flag hot" : "portal-cap-tag"}>
+              {t.label}
+            </span>
+          ))}
+        </div>
+      ) : null}
       <p className="portal-model-desc">{modelBlurb(m.model, m.providerLabel)}</p>
       <div className="portal-price-grid" aria-label="模型定价">
         <div className="portal-price-cell">

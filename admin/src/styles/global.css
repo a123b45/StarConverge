@@ -4848,14 +4848,18 @@ html[data-theme="dark"] .portal-user-dropdown button:hover {
   color: #5b52d6;
   background: color-mix(in srgb, #6d5efc 10%, var(--bg-elevated));
 }
-.portal-cap-tag {
-  padding: 2px 8px;
+.portal-cap-tag,
+.portal-model-tags .portal-flag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 22px;
+  padding: 0 8px;
   font-size: 11px;
-}
-.portal-flag.new {
-  color: #b42318;
-  border-color: color-mix(in srgb, #f04438 40%, var(--line));
-  background: color-mix(in srgb, #f04438 8%, var(--bg-elevated));
+  line-height: 1;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 .portal-flag.hot {
   color: #b54708;
@@ -4865,6 +4869,7 @@ html[data-theme="dark"] .portal-user-dropdown button:hover {
 .portal-model-tags {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
   margin: 0 0 8px;
 }
