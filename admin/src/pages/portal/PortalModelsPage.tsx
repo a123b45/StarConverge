@@ -2,9 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { portalApi } from "../../lib/api";
 import { IconBolt } from "../../components/icons";
-import ModelCatalogFilters, {
-  type FilterSkin,
-} from "../../components/portal/ModelCatalogFilters";
+import ModelCatalogFilters from "../../components/portal/ModelCatalogFilters";
 import ModalBackdrop from "../../components/ModalBackdrop";
 import {
   matchesFamily,
@@ -22,24 +20,6 @@ import {
   formatPerMillion,
   type PortalModel,
 } from "../../lib/portal-models";
-
-const SKIN_STORE = "sc_model_filter_skin";
-const SKINS: Array<{ id: FilterSkin; label: string }> = [
-  { id: "pill", label: "胶囊" },
-  { id: "segment", label: "分段" },
-  { id: "outline", label: "描边" },
-  { id: "soft", label: "轻底" },
-];
-
-function readSkin(): FilterSkin {
-  try {
-    const v = localStorage.getItem(SKIN_STORE);
-    if (v === "pill" || v === "segment" || v === "outline" || v === "soft") return v;
-  } catch {
-    /* ignore */
-  }
-  return "pill";
-}
 
 function modelInitial(name: string): string {
   const part = name.split(/[-_/]/).find(Boolean) || name;
@@ -62,7 +42,6 @@ export default function PortalModelsPage() {
   const [cap, setCap] = useState<ModelCapability | "all">("all");
   const [showRetired, setShowRetired] = useState(false);
   const [detail, setDetail] = useState<PortalModel | null>(null);
-  const [skin, setSkin] = useState<FilterSkin>(() => readSkin());
 
   useEffect(() => {
     portalApi<{ data: PortalModel[] }>("/models")
@@ -100,119 +79,88 @@ export default function PortalModelsPage() {
   );
 
   return (
-    <div className="portal-models-page">
-      <div className="portal-page portal-page-head">
-        <div className="portal-hero portal-hero-title">
-          <div>
-            <h1>模型广场</h1>
-            <p>
-              {live.length
-                ? `共 ${live.length} 个可买模型 · 充值后按 token 扣费`
-                : "暂无上架模型 · 需管理员在模型管理中同步给用户"}
-            </p>
-          </div>
-          <div className="portal-skin-switch" role="radiogroup" aria-label="筛选按钮样式">
-            <span>筛选样式</span>
-            {SKINS.map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                role="radio"
-                aria-checked={skin === s.id}
-                className={skin === s.id ? "is-on" : ""}
-                onClick={() => {
-                  setSkin(s.id);
-                  try {
-                    localStorage.setItem(SKIN_STORE, s.id);
-                  } catch {
-                    /* ignore */
-                  }
-                }}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="portal-toolbar portal-models-toolbar">
-          <input
-            className="portal-search"
-            placeholder="搜索模型名称 / ID / 描述"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-          <ModelCatalogFilters
-            models={live}
-            family={family}
-            modality={modality}
-            cap={cap}
-            skin={skin}
-            onFamilyChange={setFamily}
-            onModalityChange={setModality}
-            onCapChange={setCap}
-          />
+    <div className="portal-page">
+      <div className="portal-hero">
+        <div>
+          <h1>模型广场</h1>
+          <p>
+            {live.length
+              ? `共 ${live.length} 个可买模型 · 充值后按 token 扣费`
+              : "暂无上架模型 · 需管理员在模型管理中同步给用户"}
+          </p>
         </div>
       </div>
+      <div className="portal-toolbar">
+        <input
+          className="portal-search"
+          placeholder="搜索模型名称 / ID / 描述"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+        />
+      </div>
+      <ModelCatalogFilters
+        models={live}
+        family={family}
+        modality={modality}
+        cap={cap}
+        onFamilyChange={setFamily}
+        onModalityChange={setModality}
+        onCapChange={setCap}
+      />
 
-      <div className="portal-models-layout">
-        {error ? <div className="alert">{error}</div> : null}
+      {error ? <div className="alert">{error}</div> : null}
 
-        <div className="portal-models-body">
-          <div className="portal-models-main">
-            <div className="portal-model-grid">
-              {filteredLive.map((m) => (
+      <div className="portal-model-grid">
+        {filteredLive.map((m) => (
+          <ModelCard
+            key={m.id}
+            m={m}
+            hot={hotIds.has(m.id)}
+            fresh={isNew(m.createdAt)}
+            onDetail={() => setDetail(m)}
+          />
+        ))}
+      </div>
+      {!filteredLive.length ? (
+        <div className="portal-empty">
+          <strong>没有匹配的模型</strong>
+          <p>试试调整筛选，或先去充值后再看已开通范围。</p>
+          <div className="portal-empty-actions">
+            <Link className="portal-btn" to="/app/recharge">
+              去充值
+            </Link>
+            <Link className="portal-btn ghost" to="/app/docs">
+              看接入说明
+            </Link>
+          </div>
+        </div>
+      ) : null}
+
+      {retired.length ? (
+        <div className="portal-retired-fold">
+          <button
+            type="button"
+            className="portal-btn ghost sm"
+            onClick={() => setShowRetired((v) => !v)}
+          >
+            {showRetired ? "收起" : "展开"}已退役模型（{filteredRetired.length}）
+          </button>
+          {showRetired ? (
+            <div className="portal-model-grid" style={{ marginTop: 12 }}>
+              {filteredRetired.map((m) => (
                 <ModelCard
                   key={m.id}
                   m={m}
-                  hot={hotIds.has(m.id)}
-                  fresh={isNew(m.createdAt)}
+                  hot={false}
+                  fresh={false}
+                  retired
                   onDetail={() => setDetail(m)}
                 />
               ))}
             </div>
-            {!filteredLive.length ? (
-              <div className="portal-empty">
-                <strong>没有匹配的模型</strong>
-                <p>试试调整筛选，或先去充值后再看已开通范围。</p>
-                <div className="portal-empty-actions">
-                  <Link className="portal-btn" to="/app/recharge">
-                    去充值
-                  </Link>
-                  <Link className="portal-btn ghost" to="/app/docs">
-                    看接入说明
-                  </Link>
-                </div>
-              </div>
-            ) : null}
-
-            {retired.length ? (
-              <div className="portal-retired-fold">
-                <button
-                  type="button"
-                  className="portal-btn ghost sm"
-                  onClick={() => setShowRetired((v) => !v)}
-                >
-                  {showRetired ? "收起" : "展开"}已退役模型（{filteredRetired.length}）
-                </button>
-                {showRetired ? (
-                  <div className="portal-model-grid" style={{ marginTop: 12 }}>
-                    {filteredRetired.map((m) => (
-                      <ModelCard
-                        key={m.id}
-                        m={m}
-                        hot={false}
-                        fresh={false}
-                        retired
-                        onDetail={() => setDetail(m)}
-                      />
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
+          ) : null}
         </div>
-      </div>
+      ) : null}
 
       {detail ? (
         <ModalBackdrop onClose={() => setDetail(null)}>

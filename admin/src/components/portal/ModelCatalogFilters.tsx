@@ -12,8 +12,6 @@ import {
   matchesModality,
 } from "../../lib/model-taxonomy";
 
-export type FilterSkin = "pill" | "segment" | "outline" | "soft";
-
 type ModelRef = { model: string; rewriteModel?: string | null };
 
 type Props = {
@@ -21,7 +19,6 @@ type Props = {
   family: ModelFamily;
   modality: ModelModality;
   cap: ModelCapability | "all";
-  skin: FilterSkin;
   onFamilyChange: (v: ModelFamily) => void;
   onModalityChange: (v: ModelModality) => void;
   onCapChange: (v: ModelCapability | "all") => void;
@@ -59,7 +56,6 @@ export default function ModelCatalogFilters({
   family,
   modality,
   cap,
-  skin,
   onFamilyChange,
   onModalityChange,
   onCapChange,
@@ -100,8 +96,9 @@ export default function ModelCatalogFilters({
   }, [models, family, modality]);
 
   return (
-    <div className="portal-fbar" data-skin={skin} role="toolbar" aria-label="模型筛选">
-      <div className="portal-fbar-group" aria-label="文本或多模态">
+    <div className="portal-fbar" role="toolbar" aria-label="模型筛选">
+      <div className="portal-fbar-group">
+        <span className="portal-fbar-label">类型</span>
         {MODEL_MODALITIES.map((item) => (
           <Chip
             key={item.id}
@@ -113,7 +110,8 @@ export default function ModelCatalogFilters({
           />
         ))}
       </div>
-      <div className="portal-fbar-group" aria-label="能力">
+      <div className="portal-fbar-group">
+        <span className="portal-fbar-label">能力</span>
         <Chip
           active={cap === "all"}
           label="全部"
@@ -130,7 +128,8 @@ export default function ModelCatalogFilters({
           />
         ))}
       </div>
-      <div className="portal-fbar-group" aria-label="模型系列">
+      <div className="portal-fbar-group">
+        <span className="portal-fbar-label">系列</span>
         {MODEL_FAMILIES.filter((item) => item.id === "all" || (familyCounts.get(item.id) ?? 0) > 0).map(
           (item) => (
             <Chip
