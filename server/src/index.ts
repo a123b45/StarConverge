@@ -27,7 +27,7 @@ app.use(
   "*",
   cors({
     origin: config.corsOrigin === "*" ? "*" : config.corsOrigin.split(","),
-    allowHeaders: ["Content-Type", "Authorization", "x-api-key"],
+    allowHeaders: ["Content-Type", "Authorization", "x-api-key", "anthropic-version", "anthropic-beta"],
     exposeHeaders: [
       "X-StarConverge-Channel",
       "X-StarConverge-Bound-Route",

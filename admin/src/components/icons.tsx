@@ -443,3 +443,4 @@ export const NavIconChat = IconChat;
 export const NavIconDocs = IconFile;
 export const NavIconRecharge = IconCard;
 export const NavIconBills = IconBill;
+export const NavIconEstimate = IconTag;

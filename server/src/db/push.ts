@@ -188,6 +188,12 @@ export function migrate() {
   if (!tokenCols.some((c) => c.name === "concurrency")) {
     sqlite.exec(`ALTER TABLE tokens ADD COLUMN concurrency INTEGER DEFAULT 0`);
   }
+  if (!tokenCols.some((c) => c.name === "daily_quota")) {
+    sqlite.exec(`ALTER TABLE tokens ADD COLUMN daily_quota INTEGER NOT NULL DEFAULT -1`);
+  }
+  if (!tokenCols.some((c) => c.name === "monthly_quota")) {
+    sqlite.exec(`ALTER TABLE tokens ADD COLUMN monthly_quota INTEGER NOT NULL DEFAULT -1`);
+  }
 
   const logCols = sqlite.prepare(`PRAGMA table_info(request_logs)`).all() as Array<{
     name: string;
@@ -464,6 +470,7 @@ function requireRoles() {
     "menu.portal.keys",
     "menu.portal.usage",
     "menu.portal.chat",
+    "menu.portal.estimate",
     "menu.portal.recharge",
     "menu.portal.bills",
     "menu.portal.docs",

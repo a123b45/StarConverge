@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db/index.js";
 import {
@@ -29,8 +29,31 @@ import {
   publicOrder,
 } from "../services/epay.js";
 import { getRequestClientIp } from "../utils/client-ip.js";
+import { parseIpRules, serializeIpRules, type IpRule } from "../utils/ip-allow.js";
 
 export const portalRoutes = new Hono<SessionVars>();
+
+const ipRuleSchema = z.object({
+  name: z.string().optional(),
+  ip: z.string().min(1),
+  action: z.enum(["ALLOW", "DENY"]).default("ALLOW"),
+});
+
+function bodyToIpRules(body: {
+  ipRules?: unknown;
+  ipAllowlist?: unknown;
+}): IpRule[] | null {
+  if (body.ipRules != null) {
+    return parseIpRules(
+      Array.isArray(body.ipRules) ? body.ipRules : String(body.ipRules),
+    );
+  }
+  if (body.ipAllowlist != null) {
+    if (Array.isArray(body.ipAllowlist)) return parseIpRules(body.ipAllowlist);
+    return parseIpRules(String(body.ipAllowlist));
+  }
+  return null;
+}
 
 portalRoutes.use("/*", requireUser);
 
@@ -144,11 +167,11 @@ portalRoutes.post("/notifications/read", async (c) => {
 
 portalRoutes.get("/models", async (c) => {
   const auth = c.get("auth");
-  // Only models explicitly published from 模型管理
+  // Published models: live (enabled + channel) or retired (published but off)
   const routes = await db
     .select()
     .from(modelRoutes)
-    .where(and(eq(modelRoutes.enabled, true), eq(modelRoutes.published, true)));
+    .where(eq(modelRoutes.published, true));
   const chRows = await db.select().from(channels);
   const chMap = new Map(chRows.map((ch) => [ch.id, ch]));
   const priceRows = await db.select().from(modelPrices);
@@ -160,10 +183,13 @@ portalRoutes.get("/models", async (c) => {
     providers: { id: string; name: string; type: string }[];
     providerLabel: string;
     enabled: boolean;
+    retired: boolean;
     inputPer1m: number;
     outputPer1m: number;
     cacheHitPer1m: number;
     latencyMs: number;
+    callCount: number;
+    createdAt: Date | null;
   };
 
   function usdFromPriceUnit(units: number) {
@@ -194,19 +220,22 @@ portalRoutes.get("/models", async (c) => {
       .map((cid) => chMap.get(cid))
       .filter((ch): ch is NonNullable<typeof ch> => !!ch && ch.enabled)
       .map((ch) => ({ id: ch.id, name: ch.name, type: ch.type }));
-    if (!providers.length) continue;
+    const live = r.enabled && providers.length > 0;
     const price = pickPrice(r.model, channelIds);
     filtered.push({
       id: r.id,
       model: r.model,
       rewriteModel: r.rewriteModel,
       providers,
-      providerLabel: providers.map((p) => p.name).join(" / "),
-      enabled: true,
+      providerLabel: providers.map((p) => p.name).join(" / ") || "—",
+      enabled: live,
+      retired: !live,
       inputPer1m: price ? usdFromPriceUnit(price.inputPer1mCents) : 0,
       outputPer1m: price ? usdFromPriceUnit(price.outputPer1mCents) : 0,
       cacheHitPer1m: price ? usdFromPriceUnit(price.cacheHitPer1mCents ?? 0) : 0,
       latencyMs: 0,
+      callCount: 0,
+      createdAt: r.createdAt ?? null,
     });
   }
 
@@ -241,15 +270,18 @@ portalRoutes.get("/models", async (c) => {
         ),
       );
     const buckets = new Map<string, number[]>();
+    const counts = new Map<string, number>();
     for (const log of latencyLogs) {
-      if (log.durationMs == null || log.durationMs < 0) continue;
       const key = log.model || "";
       if (!key) continue;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+      if (log.durationMs == null || log.durationMs < 0) continue;
       const arr = buckets.get(key) ?? [];
       arr.push(log.durationMs);
       buckets.set(key, arr);
     }
     for (const row of filtered) {
+      row.callCount = counts.get(row.model) ?? 0;
       const samples = buckets.get(row.model);
       if (!samples?.length) continue;
       samples.sort((a, b) => a - b);
@@ -283,14 +315,22 @@ portalRoutes.post("/keys", async (c) => {
   const auth = c.get("auth");
   const schema = z.object({
     name: z.string().min(1).max(64),
-    quota: z.number().int().default(1_000_000),
+    quota: z.number().int().default(-1),
+    dailyQuota: z.number().int().default(-1),
+    monthlyQuota: z.number().int().default(-1),
     rateLimit: z.number().int().min(0).default(60),
     allowedModels: z.array(z.string()).default([]),
+    enabled: z.boolean().optional(),
+    remark: z.string().max(200).optional(),
+    ipRules: z.array(ipRuleSchema).optional(),
+    ipAllowlist: z.array(z.union([z.string(), ipRuleSchema])).optional(),
+    expiresAt: z.number().nullable().optional(),
   });
   const parsed = schema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
   const v = parsed.data;
   const key = generateApiKey();
+  const ipRules = bodyToIpRules(v) ?? [];
   const row = {
     id: id("tk"),
     userId: auth.userId!,
@@ -300,16 +340,18 @@ portalRoutes.post("/keys", async (c) => {
     keyPlain: key.key,
     quota: v.quota,
     usedQuota: 0,
+    dailyQuota: v.dailyQuota,
+    monthlyQuota: v.monthlyQuota,
     rateLimit: v.rateLimit,
     concurrency: 0,
-    enabled: true,
+    enabled: v.enabled ?? true,
     allowedModels: toJsonArray(v.allowedModels),
     groupName: "",
-    ipAllowlist: "[]",
+    ipAllowlist: serializeIpRules(ipRules),
     routeIds: "[]",
     lastUsedAt: null,
-    expiresAt: null,
-    remark: "",
+    expiresAt: v.expiresAt ? new Date(v.expiresAt) : null,
+    remark: v.remark ?? "",
   };
   await db.insert(tokens).values(row);
   return c.json(
@@ -336,13 +378,37 @@ portalRoutes.patch("/keys/:id", async (c) => {
     where: and(eq(tokens.id, c.req.param("id")), eq(tokens.userId, auth.userId!)),
   });
   if (!row) return c.json({ error: "Not found" }, 404);
-  const schema = z.object({ name: z.string().min(1).max(64) });
+  const schema = z.object({
+    name: z.string().min(1).max(64).optional(),
+    quota: z.number().int().optional(),
+    dailyQuota: z.number().int().optional(),
+    monthlyQuota: z.number().int().optional(),
+    rateLimit: z.number().int().min(0).optional(),
+    allowedModels: z.array(z.string()).optional(),
+    enabled: z.boolean().optional(),
+    remark: z.string().max(200).optional(),
+    ipRules: z.array(ipRuleSchema).optional(),
+    ipAllowlist: z.array(z.union([z.string(), ipRuleSchema])).optional(),
+    expiresAt: z.number().nullable().optional(),
+  });
   const parsed = schema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "参数无效" }, 400);
-  await db
-    .update(tokens)
-    .set({ name: parsed.data.name.trim(), updatedAt: new Date() })
-    .where(eq(tokens.id, row.id));
+  const v = parsed.data;
+  const patch: Record<string, unknown> = { updatedAt: new Date() };
+  if (v.name != null) patch.name = v.name.trim();
+  if (v.quota != null) patch.quota = v.quota;
+  if (v.dailyQuota != null) patch.dailyQuota = v.dailyQuota;
+  if (v.monthlyQuota != null) patch.monthlyQuota = v.monthlyQuota;
+  if (v.rateLimit != null) patch.rateLimit = v.rateLimit;
+  if (v.allowedModels != null) patch.allowedModels = toJsonArray(v.allowedModels);
+  if (v.enabled != null) patch.enabled = v.enabled;
+  if (v.remark != null) patch.remark = v.remark;
+  if (v.expiresAt !== undefined) {
+    patch.expiresAt = v.expiresAt ? new Date(v.expiresAt) : null;
+  }
+  const ipRules = bodyToIpRules(v);
+  if (ipRules) patch.ipAllowlist = serializeIpRules(ipRules);
+  await db.update(tokens).set(patch).where(eq(tokens.id, row.id));
   const saved = await db.query.tokens.findFirst({ where: eq(tokens.id, row.id) });
   return c.json({ data: publicToken(saved!) });
 });
@@ -697,7 +763,11 @@ portalRoutes.get("/usage/requests", async (c) => {
   const page = Math.max(1, Number(c.req.query("page") ?? 1));
   const pageSize = Math.min(100, Math.max(1, Number(c.req.query("pageSize") ?? 20)));
   const from = Number(c.req.query("from") ?? Date.now() - 30 * 86400_000);
+  const toRaw = c.req.query("to");
+  const to = toRaw ? Number(toRaw) : 0;
   const modelFilter = c.req.query("model");
+  const tokenFilter = c.req.query("tokenId");
+  const statusFilter = c.req.query("status"); // ok | error
 
   const userTokens = await db
     .select({ id: tokens.id })
@@ -712,7 +782,22 @@ portalRoutes.get("/usage/requests", async (c) => {
     inArray(requestLogs.tokenId, tokenIds),
     gte(requestLogs.createdAt, new Date(from)),
   ];
+  if (to && Number.isFinite(to)) {
+    conditions.push(lte(requestLogs.createdAt, new Date(to)));
+  }
   if (modelFilter) conditions.push(eq(requestLogs.model, modelFilter));
+  if (tokenFilter && tokenIds.includes(tokenFilter)) {
+    conditions.push(eq(requestLogs.tokenId, tokenFilter));
+  }
+  if (statusFilter === "ok") {
+    conditions.push(
+      sql`${requestLogs.statusCode} >= 200 AND ${requestLogs.statusCode} < 400`,
+    );
+  } else if (statusFilter === "error") {
+    conditions.push(
+      sql`(${requestLogs.statusCode} IS NULL OR ${requestLogs.statusCode} < 200 OR ${requestLogs.statusCode} >= 400)`,
+    );
+  }
 
   const where = and(...conditions);
   const countRow = await db

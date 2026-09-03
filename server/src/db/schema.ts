@@ -124,6 +124,10 @@ export const tokens = sqliteTable(
     concurrency: integer("concurrency").notNull().default(0),
     lastUsedAt: integer("last_used_at", { mode: "timestamp_ms" }),
     expiresAt: integer("expires_at", { mode: "timestamp_ms" }),
+    /** Token cap per UTC day; -1 = unlimited */
+    dailyQuota: integer("daily_quota").notNull().default(-1),
+    /** Token cap per UTC month; -1 = unlimited */
+    monthlyQuota: integer("monthly_quota").notNull().default(-1),
     remark: text("remark").default(""),
     createdAt: integer("created_at", { mode: "timestamp_ms" })
       .notNull()

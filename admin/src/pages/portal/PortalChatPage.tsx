@@ -1,14 +1,16 @@
 import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { createPortal } from "react-dom";
 import { portalApi } from "../../lib/api";
 import { IconMore, IconSidebar, IconStop } from "../../components/icons";
 import SoftSelect from "../../components/SoftSelect";
 import { softConfirm, softPrompt } from "../../components/SoftDialog";
+import { detectModelModality } from "../../lib/model-taxonomy";
 
 type Msg = {
   role: "user" | "assistant";
   content: string;
+  images?: string[];
   at: number;
   model?: string;
   variant?: "balance" | "aborted" | "error";
@@ -45,14 +47,20 @@ function saveSessions(list: Session[]) {
 }
 
 export default function PortalChatPage() {
+  const [params] = useSearchParams();
   const [sessions, setSessions] = useState<Session[]>(() => loadSessions());
   const [activeId, setActiveId] = useState<string>(() => sessions[0]?.id ?? "");
   const [models, setModels] = useState<string[]>([]);
-  const [model, setModel] = useState("");
+  const [model, setModel] = useState(params.get("model") || "");
+  const [compareOn, setCompareOn] = useState(Boolean(params.get("compare")));
+  const [compareModel, setCompareModel] = useState(
+    (params.get("compare") || "").split(",")[0] || "",
+  );
   const [apiKey, setApiKey] = useState("");
   const [keyId, setKeyId] = useState("");
   const [keys, setKeys] = useState<{ id: string; name: string }[]>([]);
   const [input, setInput] = useState("");
+  const [images, setImages] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [sideCollapsed, setSideCollapsed] = useState(false);
   const [menuId, setMenuId] = useState<string | null>(null);
@@ -60,6 +68,7 @@ export default function PortalChatPage() {
   const menuRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const active = useMemo(
     () => sessions.find((s) => s.id === activeId) ?? null,
@@ -80,10 +89,11 @@ export default function PortalChatPage() {
   }
 
   useEffect(() => {
-    portalApi<{ data: { model: string }[] }>("/models").then((r) => {
-      const ids = r.data.map((m) => m.model);
+    portalApi<{ data: { model: string; retired?: boolean }[] }>("/models").then((r) => {
+      const ids = r.data.filter((m) => !m.retired).map((m) => m.model);
       setModels(ids);
-      if (ids[0]) setModel(ids[0]);
+      setModel((cur) => cur || ids[0] || "");
+      setCompareModel((cur) => cur || ids.find((id) => id !== (params.get("model") || ids[0])) || "");
     });
     portalApi<{ data: { id: string; name: string }[] }>("/keys").then(async (r) => {
       setKeys(r.data);
@@ -234,32 +244,95 @@ export default function PortalChatPage() {
     abortRef.current?.abort();
   }
 
-  function assistantFromError(status: number, raw: string): Msg {
-    const text = raw.trim();
-    const balanceFail =
-      status === 402 ||
-      /余额不足|insufficient_balance|insufficient_quota/i.test(text);
-    if (balanceFail) {
-      return {
-        role: "assistant",
-        content: "余额不足，请先充值",
-        at: Date.now(),
-        model,
-        variant: "balance",
-      };
+  async function readSse(
+    res: Response,
+    onDelta: (text: string) => void,
+  ): Promise<string> {
+    if (!res.body) {
+      const data = await res.json().catch(() => ({}));
+      return String(
+        data?.choices?.[0]?.message?.content ?? data?.choices?.[0]?.text ?? "",
+      );
     }
-    return {
-      role: "assistant",
-      content: text || "发送失败",
-      at: Date.now(),
-      model,
-      variant: "error",
-    };
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    let full = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split("\n");
+      buf = lines.pop() ?? "";
+      for (const line of lines) {
+        if (!line.startsWith("data:")) continue;
+        const data = line.slice(5).trim();
+        if (!data || data === "[DONE]") continue;
+        try {
+          const json = JSON.parse(data) as {
+            choices?: Array<{ delta?: { content?: string }; message?: { content?: string } }>;
+          };
+          const piece =
+            json.choices?.[0]?.delta?.content ?? json.choices?.[0]?.message?.content ?? "";
+          if (piece) {
+            full += piece;
+            onDelta(full);
+          }
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+    return full;
   }
 
-  async function send(e?: FormEvent) {
+  function toApiContent(text: string, imgs: string[]) {
+    if (!imgs.length) return text;
+    return [
+      { type: "text" as const, text },
+      ...imgs.map((url) => ({ type: "image_url" as const, image_url: { url } })),
+    ];
+  }
+
+  async function completeOne(
+    modelId: string,
+    messages: Array<{ role: string; content: unknown }>,
+    onDelta?: (text: string) => void,
+  ) {
+    const res = await fetch("/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      signal: abortRef.current?.signal,
+      body: JSON.stringify({
+        model: modelId,
+        stream: Boolean(onDelta),
+        messages,
+      }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      const raw =
+        (typeof data?.error?.message === "string" && data.error.message) ||
+        (typeof data?.error === "string" && data.error) ||
+        res.statusText;
+      const err = new Error(String(raw));
+      (err as Error & { status?: number }).status = res.status;
+      throw err;
+    }
+    if (onDelta) return readSse(res, onDelta);
+    const data = await res.json().catch(() => ({}));
+    return String(
+      data?.choices?.[0]?.message?.content ?? data?.choices?.[0]?.text ?? "",
+    );
+  }
+
+  async function send(e?: FormEvent, preset?: string) {
     e?.preventDefault();
-    if (busy || !input.trim() || !apiKey || !model) return;
+    const text = (preset ?? input).trim();
+    if (busy || (!text && !images.length) || !apiKey || !model) return;
     let current = active;
     if (!current) {
       current = {
@@ -275,69 +348,102 @@ export default function PortalChatPage() {
     const controller = new AbortController();
     abortRef.current = controller;
     setBusy(true);
-    const userMsg: Msg = { role: "user", content: input.trim(), at: Date.now() };
+    const userMsg: Msg = {
+      role: "user",
+      content: text,
+      images: images.length ? [...images] : undefined,
+      at: Date.now(),
+    };
     const withUser: Session = {
       ...current,
-      title: current.messages.length ? current.title : userMsg.content.slice(0, 28),
+      title: current.messages.length ? current.title : (text || "图片").slice(0, 28),
       messages: [...current.messages, userMsg],
       updatedAt: Date.now(),
     };
     upsertSession(withUser);
     setInput("");
+    setImages([]);
+
+    const history = withUser.messages
+      .filter((m) => !m.variant)
+      .map((m) => ({
+        role: m.role,
+        content: toApiContent(m.content, m.images ?? []),
+      }));
+    const targets = compareOn && compareModel && compareModel !== model
+      ? [model, compareModel]
+      : [model];
 
     try {
-      const res = await fetch("/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        signal: controller.signal,
-        body: JSON.stringify({
+      if (targets.length === 1) {
+        const placeholder: Msg = {
+          role: "assistant",
+          content: "",
+          at: Date.now(),
           model,
-          messages: withUser.messages
-            .filter((m) => !m.variant)
-            .map((m) => ({
-              role: m.role,
-              content: m.content,
-            })),
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        const raw =
-          (typeof data?.error?.message === "string" && data.error.message) ||
-          (typeof data?.error === "string" && data.error) ||
-          res.statusText;
+        };
         upsertSession({
           ...withUser,
-          messages: [...withUser.messages, assistantFromError(res.status, String(raw))],
+          messages: [...withUser.messages, placeholder],
           updatedAt: Date.now(),
         });
-        return;
+        const content = await completeOne(model, history, (full) => {
+          upsertSession({
+            ...withUser,
+            messages: [
+              ...withUser.messages,
+              { ...placeholder, content: full, at: Date.now() },
+            ],
+            updatedAt: Date.now(),
+          });
+        });
+        upsertSession({
+          ...withUser,
+          messages: [
+            ...withUser.messages,
+            { ...placeholder, content: content || "（空回复）", at: Date.now() },
+          ],
+          updatedAt: Date.now(),
+        });
+      } else {
+        const results = await Promise.all(
+          targets.map(async (mid) => {
+            try {
+              const content = await completeOne(mid, history);
+              return { mid, content, err: null as string | null, status: 200 };
+            } catch (err) {
+              const status = (err as Error & { status?: number }).status ?? 0;
+              return {
+                mid,
+                content: err instanceof Error ? err.message : "失败",
+                err: "error" as const,
+                status,
+              };
+            }
+          }),
+        );
+        const extras: Msg[] = results.map((r) =>
+          r.err
+            ? assistantFromError(r.status, r.content, r.mid)
+            : {
+                role: "assistant" as const,
+                content: r.content || "（空回复）",
+                at: Date.now(),
+                model: r.mid,
+              },
+        );
+        upsertSession({
+          ...withUser,
+          messages: [...withUser.messages, ...extras],
+          updatedAt: Date.now(),
+        });
       }
-      const content =
-        data?.choices?.[0]?.message?.content ??
-        data?.choices?.[0]?.text ??
-        JSON.stringify(data);
-      upsertSession({
-        ...withUser,
-        messages: [
-          ...withUser.messages,
-          {
-            role: "assistant",
-            content: String(content),
-            at: Date.now(),
-            model,
-          },
-        ],
-        updatedAt: Date.now(),
-      });
       void refreshBalance();
     } catch (err) {
       const aborted =
         (err instanceof DOMException && err.name === "AbortError") ||
         (err instanceof Error && err.name === "AbortError");
+      const status = (err as Error & { status?: number }).status ?? 0;
       upsertSession({
         ...withUser,
         messages: [
@@ -351,7 +457,7 @@ export default function PortalChatPage() {
                 variant: "aborted" as const,
               }
             : assistantFromError(
-                0,
+                status,
                 err instanceof Error ? err.message : "发送失败",
               ),
         ],
@@ -361,6 +467,29 @@ export default function PortalChatPage() {
       abortRef.current = null;
       setBusy(false);
     }
+  }
+
+  function assistantFromError(status: number, raw: string, mid = model): Msg {
+    const text = raw.trim();
+    const balanceFail =
+      status === 402 ||
+      /余额不足|insufficient_balance|insufficient_quota/i.test(text);
+    if (balanceFail) {
+      return {
+        role: "assistant",
+        content: "余额不足，请先充值",
+        at: Date.now(),
+        model: mid,
+        variant: "balance",
+      };
+    }
+    return {
+      role: "assistant",
+      content: text || "发送失败",
+      at: Date.now(),
+      model: mid,
+      variant: "error",
+    };
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
@@ -445,6 +574,27 @@ export default function PortalChatPage() {
                 }
               />
             </label>
+            <button
+              type="button"
+              className={`portal-btn ghost sm${compareOn ? " is-on" : ""}`}
+              onClick={() => setCompareOn((v) => !v)}
+            >
+              对比
+            </button>
+            {compareOn ? (
+              <label className="ds-select">
+                <span>对比模型</span>
+                <SoftSelect
+                  className="soft-select-filter soft-select-sm"
+                  ariaLabel="对比模型"
+                  value={compareModel}
+                  onChange={setCompareModel}
+                  options={models
+                    .filter((m) => m !== model)
+                    .map((m) => ({ value: m, label: m }))}
+                />
+              </label>
+            ) : null}
             <label className="ds-select">
               <span>密钥</span>
               <SoftSelect
@@ -466,13 +616,30 @@ export default function PortalChatPage() {
           {!active?.messages.length ? (
             <div className="ds-welcome">
               <div className="ds-welcome-mark">in</div>
-              <h2>开始一次对话测试</h2>
-              <p>选择模型与 API 密钥后，在下方输入消息即可调用网关。</p>
+              <h2>试一下模型再决定买多少</h2>
+              <p>选择模型与密钥后即可对话。对比模式会把同一句发给两个模型。</p>
               {!apiKey ? (
                 <p className="ds-hint">
                   还没有密钥？先去 <Link to="/app/keys">API 密钥</Link> 创建。
                 </p>
-              ) : null}
+              ) : (
+                <div className="ds-presets">
+                  {[
+                    "用三句话介绍你自己，并说明你适合什么任务。",
+                    "比较 REST、GraphQL、gRPC 的适用场景。",
+                    "写一个 TypeScript 函数：把 CSV 第一列去重后排序。",
+                  ].map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      className="ds-preset"
+                      onClick={() => void send(undefined, p)}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           ) : (
             <div className="ds-thread">
@@ -483,6 +650,13 @@ export default function PortalChatPage() {
                     <div
                       className={`ds-msg-text${m.variant === "aborted" ? " muted" : ""}`}
                     >
+                      {m.images?.length ? (
+                        <div className="ds-msg-imgs">
+                          {m.images.map((src) => (
+                            <img key={src.slice(0, 24)} src={src} alt="" />
+                          ))}
+                        </div>
+                      ) : null}
                       {m.variant === "balance" ? (
                         <>
                           余额不足，请先
@@ -499,7 +673,7 @@ export default function PortalChatPage() {
                   </div>
                 </div>
               ))}
-              {busy ? (
+              {busy && active.messages[active.messages.length - 1]?.role !== "assistant" ? (
                 <div className="ds-msg assistant">
                   <div className="ds-avatar">in</div>
                   <div className="ds-msg-body">
@@ -528,8 +702,54 @@ export default function PortalChatPage() {
               rows={1}
               disabled={!apiKey || !model}
             />
+            {images.length ? (
+              <div className="ds-pending-imgs">
+                {images.map((src, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setImages((prev) => prev.filter((_, j) => j !== i))}
+                    title="移除"
+                  >
+                    <img src={src} alt="" />
+                  </button>
+                ))}
+              </div>
+            ) : null}
             <div className="ds-composer-bar">
-              <span className="ds-composer-tip">Enter 发送 · Shift+Enter 换行</span>
+              <span className="ds-composer-tip">
+                Enter 发送 · Shift+Enter 换行 · 对话按 token 扣费
+              </span>
+              <span className="ds-composer-tools">
+                {detectModelModality(model) === "multimodal" ? (
+                  <>
+                    <input
+                      ref={fileRef}
+                      type="file"
+                      accept="image/*"
+                      hidden
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        e.target.value = "";
+                        if (!f || !f.type.startsWith("image/")) return;
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                          const url = String(reader.result || "");
+                          if (url) setImages((prev) => [...prev, url].slice(0, 4));
+                        };
+                        reader.readAsDataURL(f);
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="portal-btn ghost sm"
+                      onClick={() => fileRef.current?.click()}
+                    >
+                      图片
+                    </button>
+                  </>
+                ) : null}
+              </span>
               {busy ? (
                 <button
                   type="button"
@@ -544,7 +764,7 @@ export default function PortalChatPage() {
                 <button
                   type="submit"
                   className="ds-send"
-                  disabled={!apiKey || !model || !input.trim()}
+                  disabled={!apiKey || !model || (!input.trim() && !images.length)}
                   aria-label="发送"
                 >
                   ↑

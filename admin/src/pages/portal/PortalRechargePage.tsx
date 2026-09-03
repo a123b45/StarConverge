@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { portalApi } from "../../lib/api";
 import SoftToast from "../../components/SoftToast";
 
@@ -55,22 +56,50 @@ export default function PortalRechargePage() {
       <SoftToast message={toast} tone="ok" onDone={() => setToast(null)} />
       <div className="portal-hero">
         <div>
-          <h1>充值</h1>
-          <p>购买卡密后在本页兑换，为账户增加美元余额</p>
+          <h1>买额度</h1>
+          <p>先买卡密额度包，再在本页兑换。余额按 token 扣费，用完再买。</p>
         </div>
       </div>
 
       {error ? <div className="alert">{error}</div> : null}
 
+      <div className="portal-pack-banner">
+        <div>
+          <strong>用量告急？先补一包额度</strong>
+          <p>在商店付款后拿到卡密，回到这里兑换即到账。</p>
+        </div>
+        <a className="portal-btn" href={CARD_SHOP_URL} target="_blank" rel="noreferrer">
+          去买额度包
+        </a>
+      </div>
+
+      <div className="portal-pack-grid">
+        <article className="portal-pack-card">
+          <span className="portal-flag hot">在售</span>
+          <h3>卡密额度包</h3>
+          <p>按美元面额到账，适合 Cursor、Claude Code 日常调用。</p>
+          <a className="portal-btn" href={CARD_SHOP_URL} target="_blank" rel="noreferrer">
+            获取卡密
+          </a>
+        </article>
+        <article className="portal-pack-card muted-card">
+          <h3>兑换到账</h3>
+          <p>当前余额 {balance == null ? "—" : `$${balance.toFixed(2)}`}。卡密只能兑换一次。</p>
+          <Link className="portal-btn ghost" to="/app/bills">
+            看账单
+          </Link>
+        </article>
+      </div>
+
       <div className="portal-panel">
         <div className="portal-panel-head">
-          <h3>卡密兑换</h3>
+          <h3>兑换卡密</h3>
           <span className="muted">
             当前余额 {balance == null ? "—" : `$${balance.toFixed(2)}`}
           </span>
         </div>
         <p className="muted recharge-rate-hint" style={{ padding: "0 16px 8px" }}>
-          没有卡密可先点击获取卡密，充值后把获取的卡密粘贴到下方进行兑换。
+          没有卡密可先点击获取卡密，充值后把卡密粘贴到下方兑换。
         </p>
         <form
           className="portal-toolbar recharge-redeem-bar"

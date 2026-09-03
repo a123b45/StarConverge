@@ -14,6 +14,12 @@ import { channels, modelRoutes } from "../db/schema.js";
 import { and, eq } from "drizzle-orm";
 import { parseJsonArray } from "../utils/crypto.js";
 import { getRequestClientIp } from "../utils/client-ip.js";
+import {
+  anthropicToOpenAIBody,
+  openAIChunkToAnthropicSse,
+  openAIToAnthropicMessage,
+  type AnthropicMessageReq,
+} from "../services/anthropic-compat.js";
 
 export const v1Routes = new Hono<AuthVars>();
 
@@ -61,28 +67,68 @@ v1Routes.post("/embeddings", async (c) => {
   return proxyOpenAI(c, "/v1/embeddings");
 });
 
+v1Routes.post("/messages", async (c) => {
+  return proxyAnthropicMessages(c);
+});
+
 v1Routes.all("/*", async (c) => {
   const sub = c.req.path.replace(/^\/v1/, "") || "/";
   return proxyOpenAI(c, `/v1${sub}`);
 });
 
-async function proxyOpenAI(c: Context<AuthVars>, upstreamPath: string) {
+async function proxyAnthropicMessages(c: Context<AuthVars>) {
+  let raw = "";
+  try {
+    raw = await c.req.text();
+  } catch {
+    return c.json(
+      { type: "error", error: { type: "invalid_request_error", message: "Invalid JSON body" } },
+      400,
+    );
+  }
+  let req: AnthropicMessageReq;
+  try {
+    req = JSON.parse(raw || "{}") as AnthropicMessageReq;
+  } catch {
+    return c.json(
+      { type: "error", error: { type: "invalid_request_error", message: "Invalid JSON body" } },
+      400,
+    );
+  }
+  if (!req.model) {
+    return c.json(
+      { type: "error", error: { type: "invalid_request_error", message: "model is required" } },
+      400,
+    );
+  }
+  return proxyOpenAI(c, "/v1/chat/completions", {
+    bodyText: JSON.stringify(anthropicToOpenAIBody(req)),
+    anthropic: true,
+    clientModel: req.model,
+  });
+}
+
+async function proxyOpenAI(
+  c: Context<AuthVars>,
+  upstreamPath: string,
+  opts?: { bodyText?: string; anthropic?: boolean; clientModel?: string },
+) {
   const token = c.get("token");
   const started = Date.now();
   const ip = getRequestClientIp(c);
 
-  let bodyText = "";
-  let model = "unknown";
+  let bodyText = opts?.bodyText ?? "";
+  let model = opts?.clientModel ?? "unknown";
   let streamMode = false;
 
   try {
-    bodyText = await c.req.text();
+    if (!bodyText) bodyText = await c.req.text();
     if (bodyText) {
       const parsed = JSON.parse(bodyText) as {
         model?: string;
         stream?: boolean;
       };
-      model = parsed.model ?? "unknown";
+      model = opts?.clientModel ?? parsed.model ?? "unknown";
       streamMode = Boolean(parsed.stream);
     }
   } catch {
@@ -187,7 +233,9 @@ async function proxyOpenAI(c: Context<AuthVars>, upstreamPath: string) {
       const usageHint = { prompt: 0, completion: 0, total: 0 };
 
       if (streamMode && upstream.ok) {
-        const ct = upstream.headers.get("content-type") ?? "text/event-stream";
+        const ct = opts?.anthropic
+          ? "text/event-stream; charset=utf-8"
+          : (upstream.headers.get("content-type") ?? "text/event-stream");
         c.header("Content-Type", ct);
         c.header("Cache-Control", "no-cache");
         c.header("X-StarConverge-Channel", channel.name);
@@ -200,6 +248,7 @@ async function proxyOpenAI(c: Context<AuthVars>, upstreamPath: string) {
           continue;
         }
 
+        const anthState = { started: false, id: "", model };
         return stream(c, async (s) => {
           const decoder = new TextDecoder();
           let leftover = "";
@@ -208,32 +257,79 @@ async function proxyOpenAI(c: Context<AuthVars>, upstreamPath: string) {
               const { done, value } = await reader.read();
               if (done) break;
               if (value) {
-                await s.write(value);
                 leftover += decoder.decode(value, { stream: true });
-                // try parse usage from stream chunks
-                for (const line of leftover.split("\n")) {
-                  if (!line.startsWith("data:")) continue;
-                  const data = line.slice(5).trim();
-                  if (!data || data === "[DONE]") continue;
-                  try {
-                    const json = JSON.parse(data) as {
-                      usage?: {
-                        prompt_tokens?: number;
-                        completion_tokens?: number;
-                        total_tokens?: number;
-                      };
-                    };
-                    if (json.usage) {
-                      usageHint.prompt = json.usage.prompt_tokens ?? usageHint.prompt;
-                      usageHint.completion =
-                        json.usage.completion_tokens ?? usageHint.completion;
-                      usageHint.total = json.usage.total_tokens ?? usageHint.total;
+                if (opts?.anthropic) {
+                  const lines = leftover.split("\n");
+                  leftover = lines.pop() ?? "";
+                  for (const line of lines) {
+                    if (!line.startsWith("data:")) continue;
+                    const data = line.slice(5).trim();
+                    if (!data) continue;
+                    for (const ev of openAIChunkToAnthropicSse(data, anthState)) {
+                      await s.write(ev);
                     }
-                  } catch {
-                    /* ignore */
+                    if (data !== "[DONE]") {
+                      try {
+                        const json = JSON.parse(data) as {
+                          usage?: {
+                            prompt_tokens?: number;
+                            completion_tokens?: number;
+                            total_tokens?: number;
+                          };
+                        };
+                        if (json.usage) {
+                          usageHint.prompt = json.usage.prompt_tokens ?? usageHint.prompt;
+                          usageHint.completion =
+                            json.usage.completion_tokens ?? usageHint.completion;
+                          usageHint.total = json.usage.total_tokens ?? usageHint.total;
+                        }
+                      } catch {
+                        /* ignore */
+                      }
+                    }
                   }
+                } else {
+                  await s.write(value);
+                  for (const line of leftover.split("\n")) {
+                    if (!line.startsWith("data:")) continue;
+                    const data = line.slice(5).trim();
+                    if (!data || data === "[DONE]") continue;
+                    try {
+                      const json = JSON.parse(data) as {
+                        usage?: {
+                          prompt_tokens?: number;
+                          completion_tokens?: number;
+                          total_tokens?: number;
+                        };
+                      };
+                      if (json.usage) {
+                        usageHint.prompt = json.usage.prompt_tokens ?? usageHint.prompt;
+                        usageHint.completion =
+                          json.usage.completion_tokens ?? usageHint.completion;
+                        usageHint.total = json.usage.total_tokens ?? usageHint.total;
+                      }
+                    } catch {
+                      /* ignore */
+                    }
+                  }
+                  if (leftover.length > 64_000) leftover = leftover.slice(-8_000);
                 }
-                if (leftover.length > 64_000) leftover = leftover.slice(-8_000);
+              }
+            }
+            if (opts?.anthropic) {
+              leftover += decoder.decode();
+              for (const line of leftover.split("\n")) {
+                if (!line.startsWith("data:")) continue;
+                const data = line.slice(5).trim();
+                if (!data) continue;
+                for (const ev of openAIChunkToAnthropicSse(data, anthState)) {
+                  await s.write(ev);
+                }
+              }
+              if (anthState.started) {
+                for (const ev of openAIChunkToAnthropicSse("[DONE]", anthState)) {
+                  await s.write(ev);
+                }
               }
             }
           } finally {
@@ -243,7 +339,7 @@ async function proxyOpenAI(c: Context<AuthVars>, upstreamPath: string) {
               channelId: channel.id,
               model,
               upstreamModel: resolved.upstreamModel,
-              path: upstreamPath,
+              path: opts?.anthropic ? "/v1/messages" : upstreamPath,
               method: c.req.method,
               statusCode: upstream.status,
               promptTokens: usageHint.prompt,
@@ -299,7 +395,7 @@ async function proxyOpenAI(c: Context<AuthVars>, upstreamPath: string) {
           messageCount: msgCount,
         });
         return c.body(
-          restoreClientModel(respText, model, resolved.upstreamModel),
+          encodeClientBody(respText, model, resolved.upstreamModel, opts?.anthropic),
           upstream.status as 400,
           {
           "Content-Type": upstream.headers.get("content-type") ?? "application/json",
@@ -313,7 +409,7 @@ async function proxyOpenAI(c: Context<AuthVars>, upstreamPath: string) {
         channelId: channel.id,
         model,
         upstreamModel: resolved.upstreamModel,
-        path: upstreamPath,
+        path: opts?.anthropic ? "/v1/messages" : upstreamPath,
         method: c.req.method,
         statusCode: upstream.status,
         promptTokens: usageHint.prompt,
@@ -327,10 +423,10 @@ async function proxyOpenAI(c: Context<AuthVars>, upstreamPath: string) {
       });
 
       return c.body(
-        restoreClientModel(respText, model, resolved.upstreamModel),
+        encodeClientBody(respText, model, resolved.upstreamModel, opts?.anthropic),
         upstream.status as 200,
         {
-        "Content-Type": upstream.headers.get("content-type") ?? "application/json",
+        "Content-Type": "application/json",
         "X-StarConverge-Channel": channel.name,
         },
       );
@@ -382,6 +478,32 @@ function restoreClientModel(
     /* non-json */
   }
   return respText;
+}
+
+function encodeClientBody(
+  respText: string,
+  clientModel: string,
+  upstreamModel: string,
+  anthropic?: boolean,
+): string {
+  const restored = restoreClientModel(respText, clientModel, upstreamModel);
+  if (!anthropic) return restored;
+  try {
+    const json = JSON.parse(restored) as Record<string, unknown>;
+    if (json.error) {
+      const msg =
+        json.error && typeof json.error === "object" && "message" in json.error
+          ? String((json.error as { message?: string }).message ?? "error")
+          : String(json.error);
+      return JSON.stringify({
+        type: "error",
+        error: { type: "api_error", message: msg },
+      });
+    }
+    return JSON.stringify(openAIToAnthropicMessage(json, clientModel));
+  } catch {
+    return restored;
+  }
 }
 
 function extractStreamPreview(sseText: string, max = 4000): string {

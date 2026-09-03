@@ -33,6 +33,7 @@ import PortalChatPage from "./pages/portal/PortalChatPage";
 import PortalDocsPage from "./pages/portal/PortalDocsPage";
 import PortalRechargePage from "./pages/portal/PortalRechargePage";
 import PortalBillsPage from "./pages/portal/PortalBillsPage";
+import PortalEstimatePage from "./pages/portal/PortalEstimatePage";
 import TopTools from "./components/TopTools";
 import { applyChromePrefs } from "./lib/chrome";
 import {
@@ -56,6 +57,7 @@ import {
   NavIconBills,
   NavIconChat,
   NavIconDocs,
+  NavIconEstimate,
   NavIconKey,
   NavIconOverview,
   NavIconRecharge,
@@ -67,10 +69,11 @@ import { SoftDialogHost } from "./components/SoftDialog";
 applyChromePrefs();
 
 const PORTAL_TITLES: Record<string, string> = {
-  "/app/models": "模型列表",
+  "/app/models": "模型广场",
   "/app/keys": "API 密钥",
   "/app/usage": "用量",
   "/app/chat": "对话测试",
+  "/app/estimate": "计费预估",
   "/app/docs": "API 文档",
   "/app/recharge": "充值",
   "/app/bills": "账单",
@@ -364,7 +367,7 @@ function PortalShell() {
             {can("menu.portal.models") ? (
               <NavLink to="/app/models">
                 <NavIconOverview />
-                模型列表
+                模型广场
               </NavLink>
             ) : null}
             {can("menu.portal.keys") ? (
@@ -383,6 +386,12 @@ function PortalShell() {
               <NavLink to="/app/chat">
                 <NavIconChat />
                 对话测试
+              </NavLink>
+            ) : null}
+            {can("menu.portal.estimate") ? (
+              <NavLink to="/app/estimate">
+                <NavIconEstimate />
+                计费预估
               </NavLink>
             ) : null}
             {can("menu.portal.recharge") ? (
@@ -536,6 +545,7 @@ export default function App() {
         <Route path="keys" element={<PortalKeysPage />} />
         <Route path="usage" element={<PortalUsagePage />} />
         <Route path="chat" element={<PortalChatPage />} />
+        <Route path="estimate" element={<PortalEstimatePage />} />
         <Route path="docs" element={<PortalDocsPage />} />
         <Route path="recharge" element={<PortalRechargePage />} />
         <Route path="bills" element={<PortalBillsPage />} />

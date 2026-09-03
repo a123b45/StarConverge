@@ -1,7 +1,7 @@
 import { createMiddleware } from "hono/factory";
-import { eq } from "drizzle-orm";
+import { and, eq, gte, sql } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { tokens, users, type Token } from "../db/schema.js";
+import { requestLogs, tokens, users, type Token } from "../db/schema.js";
 import { extractBearer, hashKey, parseJsonArray } from "../utils/crypto.js";
 import { verifyAdminToken, verifyToken } from "../utils/jwt.js";
 import { checkRateLimit } from "../services/rate-limit.js";
@@ -74,6 +74,8 @@ export const requireApiToken = createMiddleware<AuthVars>(async (c, next) => {
       429,
     );
   }
+  const period = await assertPeriodQuota(row);
+  if (period) return period;
 
   const rl = checkRateLimit(`token:${row.id}`, row.rateLimit);
   if (!rl.ok) {
@@ -108,6 +110,51 @@ export const requireApiToken = createMiddleware<AuthVars>(async (c, next) => {
   c.set("apiKey", raw);
   await next();
 });
+
+async function assertPeriodQuota(row: Token) {
+  const daily = row.dailyQuota ?? -1;
+  const monthly = row.monthlyQuota ?? -1;
+  if (daily < 0 && monthly < 0) return null;
+  const now = Date.now();
+  if (daily >= 0) {
+    const used = await sumTokenUsage(row.id, utcDayStart(now));
+    if (used >= daily) {
+      return cJsonQuota("Daily quota exceeded");
+    }
+  }
+  if (monthly >= 0) {
+    const used = await sumTokenUsage(row.id, utcMonthStart(now));
+    if (used >= monthly) {
+      return cJsonQuota("Monthly quota exceeded");
+    }
+  }
+  return null;
+}
+
+function cJsonQuota(message: string) {
+  return new Response(JSON.stringify({ error: { message, type: "quota_error" } }), {
+    status: 429,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+async function sumTokenUsage(tokenId: string, since: Date): Promise<number> {
+  const row = await db
+    .select({ n: sql<number>`coalesce(sum(${requestLogs.totalTokens}), 0)` })
+    .from(requestLogs)
+    .where(and(eq(requestLogs.tokenId, tokenId), gte(requestLogs.createdAt, since)));
+  return Number(row[0]?.n ?? 0);
+}
+
+function utcDayStart(now: number) {
+  const d = new Date(now);
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+}
+
+function utcMonthStart(now: number) {
+  const d = new Date(now);
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
+}
 
 export function assertModelAllowed(token: Token, model: string): boolean {
   const allowed = parseJsonArray(token.allowedModels);

@@ -487,6 +487,8 @@ export function publicToken(row: typeof tokens.$inferSelect) {
     remainingQuota: remaining,
     rateLimit: row.rateLimit,
     qps: row.rateLimit,
+    dailyQuota: row.dailyQuota ?? -1,
+    monthlyQuota: row.monthlyQuota ?? -1,
     concurrency: row.concurrency ?? 0,
     enabled: row.enabled,
     allowedModels: parseJsonArray(row.allowedModels),

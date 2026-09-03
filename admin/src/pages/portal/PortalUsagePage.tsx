@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { formatTokens, portalApi } from "../../lib/api";
+import { Link } from "react-router-dom";
 import SoftSelect from "../../components/SoftSelect";
+import ModalBackdrop from "../../components/ModalBackdrop";
+import { copyText } from "../../lib/copy";
 import {
   IconBolt,
   IconClock,
@@ -58,7 +61,17 @@ type Req = {
   totalTokens: number;
   durationMs: number | null;
   ok: boolean;
+  statusCode?: number;
   createdAt: string | Date;
+  error?: string | null;
+};
+
+type ReqDetail = Req & {
+  requestPreview?: string | null;
+  responsePreview?: string | null;
+  channelName?: string | null;
+  ip?: string | null;
+  messageCount?: number;
 };
 
 function money(n: number, digits = 3) {
@@ -96,7 +109,13 @@ export default function PortalUsagePage() {
   const [total, setTotal] = useState(0);
   const [model, setModel] = useState("");
   const [modelOptions, setModelOptions] = useState<string[]>([]);
+  const [keys, setKeys] = useState<{ id: string; name: string }[]>([]);
+  const [tokenId, setTokenId] = useState("");
+  const [status, setStatus] = useState("");
+  const [fromDays, setFromDays] = useState("30");
+  const [detail, setDetail] = useState<ReqDetail | null>(null);
   const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
 
   const maxCalls = useMemo(
     () => Math.max(1, ...daily.map((d) => d.calls), 1),
@@ -110,21 +129,27 @@ export default function PortalUsagePage() {
   async function load(p = page) {
     try {
       setError("");
-      const q = model ? `&model=${encodeURIComponent(model)}` : "";
+      const from = Date.now() - Number(fromDays || 30) * 86400_000;
+      const q = [
+        model ? `model=${encodeURIComponent(model)}` : "",
+        tokenId ? `tokenId=${encodeURIComponent(tokenId)}` : "",
+        status ? `status=${encodeURIComponent(status)}` : "",
+        `from=${from}`,
+      ]
+        .filter(Boolean)
+        .join("&");
       const usage = await portalApi<{
         summary: Summary;
         byModel: ByModel[];
         daily?: Daily[];
-      }>(`/usage?from=${Date.now() - 30 * 86400_000}${q}`);
+      }>(`/usage?from=${from}${model ? `&model=${encodeURIComponent(model)}` : ""}`);
       setSummary(usage.summary);
       setByModel(usage.byModel);
       setDaily(usage.daily ?? []);
       if (!model) {
         setModelOptions(usage.byModel.map((m) => m.model));
       } else if (!modelOptions.length) {
-        const all = await portalApi<{ byModel: ByModel[] }>(
-          `/usage?from=${Date.now() - 30 * 86400_000}`,
-        );
+        const all = await portalApi<{ byModel: ByModel[] }>(`/usage?from=${from}`);
         setModelOptions(all.byModel.map((m) => m.model));
       }
       const req = await portalApi<{
@@ -132,7 +157,7 @@ export default function PortalUsagePage() {
         totalPages: number;
         page: number;
         total: number;
-      }>(`/usage/requests?page=${p}&pageSize=20${q}`);
+      }>(`/usage/requests?page=${p}&pageSize=20&${q}`);
       setRequests(req.data);
       setTotalPages(req.totalPages);
       setPage(req.page);
@@ -143,9 +168,24 @@ export default function PortalUsagePage() {
   }
 
   useEffect(() => {
+    portalApi<{ data: { id: string; name: string }[] }>("/keys")
+      .then((r) => setKeys(r.data ?? []))
+      .catch(() => setKeys([]));
+  }, []);
+
+  useEffect(() => {
     void load(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [model]);
+  }, [model, tokenId, status, fromDays]);
+
+  async function openDetail(id: string) {
+    try {
+      const res = await portalApi<{ data: ReqDetail }>(`/usage/requests/${id}`);
+      setDetail(res.data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "无法加载详情");
+    }
+  }
 
   const balance = summary?.balance ?? 0;
   const totalRecharged = summary?.totalRecharged ?? 0;
@@ -165,7 +205,18 @@ export default function PortalUsagePage() {
           <h1>用量与链路</h1>
           <p>调用趋势、模型明细与请求链路记录</p>
         </div>
-        <div className="portal-hero-actions">
+        <div className="portal-hero-actions portal-usage-filters">
+          <SoftSelect
+            className="soft-select-filter"
+            ariaLabel="时间范围"
+            value={fromDays}
+            onChange={setFromDays}
+            options={[
+              { value: "1", label: "近 1 天" },
+              { value: "7", label: "近 7 天" },
+              { value: "30", label: "近 30 天" },
+            ]}
+          />
           <SoftSelect
             className="soft-select-filter"
             ariaLabel="模型筛选"
@@ -174,6 +225,27 @@ export default function PortalUsagePage() {
             options={[
               { value: "", label: "全部模型" },
               ...modelOptions.map((m) => ({ value: m, label: m })),
+            ]}
+          />
+          <SoftSelect
+            className="soft-select-filter"
+            ariaLabel="密钥筛选"
+            value={tokenId}
+            onChange={setTokenId}
+            options={[
+              { value: "", label: "全部密钥" },
+              ...keys.map((k) => ({ value: k.id, label: k.name })),
+            ]}
+          />
+          <SoftSelect
+            className="soft-select-filter"
+            ariaLabel="状态"
+            value={status}
+            onChange={setStatus}
+            options={[
+              { value: "", label: "全部状态" },
+              { value: "ok", label: "成功" },
+              { value: "error", label: "失败" },
             ]}
           />
           <button className="portal-btn ghost" onClick={() => void load(page)}>
@@ -381,7 +453,11 @@ export default function PortalUsagePage() {
               </thead>
               <tbody>
                 {requests.map((r) => (
-                  <tr key={r.id}>
+                  <tr
+                    key={r.id}
+                    className="portal-trace-row"
+                    onClick={() => void openDetail(r.id)}
+                  >
                     <td className="portal-trace-time">
                       {new Date(r.createdAt).toLocaleString()}
                     </td>
@@ -409,7 +485,13 @@ export default function PortalUsagePage() {
                 {!requests.length ? (
                   <tr>
                     <td colSpan={8} className="muted">
-                      暂无请求记录
+                      <div className="portal-empty" style={{ padding: 16 }}>
+                        <strong>暂无请求记录</strong>
+                        <p>先去对话测试或客户端里跑一笔，再回到这里看链路。</p>
+                        <Link className="portal-btn" to="/app/chat">
+                          去对话测试
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 ) : null}
@@ -437,6 +519,47 @@ export default function PortalUsagePage() {
           </div>
         </div>
       )}
+
+      {detail ? (
+        <ModalBackdrop onClose={() => setDetail(null)}>
+          <div className="modal modal-md portal-trace" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-user-head">
+              <h3>请求详情</h3>
+              <p>
+                {detail.model} · {new Date(detail.createdAt).toLocaleString()}
+              </p>
+            </div>
+            <div className="copy-row">
+              <code>{detail.id}</code>
+              <button
+                type="button"
+                className="portal-btn ghost sm"
+                onClick={async () => {
+                  const ok = await copyText(detail.id);
+                  setCopied(ok);
+                  window.setTimeout(() => setCopied(false), 1200);
+                }}
+              >
+                {copied ? "已复制" : "复制请求 ID"}
+              </button>
+            </div>
+            <p className="muted">
+              状态 {detail.statusCode ?? (detail.ok ? 200 : "失败")} · Key {detail.keyName || "—"} ·
+              渠道 {detail.channelName || "—"} · IP {detail.ip || "—"}
+            </p>
+            {detail.error ? <div className="alert">{detail.error}</div> : null}
+            <h4>请求预览</h4>
+            <pre>{detail.requestPreview || "—"}</pre>
+            <h4>响应预览</h4>
+            <pre>{detail.responsePreview || "—"}</pre>
+            <div className="modal-actions">
+              <button type="button" className="btn" onClick={() => setDetail(null)}>
+                关闭
+              </button>
+            </div>
+          </div>
+        </ModalBackdrop>
+      ) : null}
     </div>
   );
 }

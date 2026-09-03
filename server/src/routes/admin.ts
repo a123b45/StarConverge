@@ -1588,6 +1588,8 @@ adminRoutes.post("/tokens", async (c) => {
     routeIds: toJsonArray(v.routeIds),
     expiresAt: v.expiresAt ? new Date(v.expiresAt) : null,
     remark: v.remark ?? "",
+    dailyQuota: -1,
+    monthlyQuota: -1,
   };
   await db.insert(tokens).values(row);
   return c.json(

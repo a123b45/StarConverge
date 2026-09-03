@@ -13,6 +13,16 @@ export type ModelFamily =
 
 export type ModelModality = "all" | "text" | "multimodal";
 
+export type ModelCapability = "tools" | "thinking" | "vision" | "coding" | "longctx";
+
+export const MODEL_CAPABILITIES: Array<{ id: ModelCapability; label: string }> = [
+  { id: "tools", label: "工具调用" },
+  { id: "thinking", label: "深度思考" },
+  { id: "vision", label: "图像理解" },
+  { id: "coding", label: "AI 编程" },
+  { id: "longctx", label: "长上下文" },
+];
+
 export const MODEL_FAMILIES: Array<{ id: ModelFamily; label: string }> = [
   { id: "all", label: "全部系列" },
   { id: "gpt", label: "GPT / OpenAI" },
@@ -153,4 +163,84 @@ export function matchesModality(
 ) {
   if (modality === "all") return true;
   return detectModelModalityFromNames(name, ...extraNames) === modality;
+}
+
+export function detectCapabilities(
+  name: string,
+  extraNames: Array<string | null | undefined> = [],
+): ModelCapability[] {
+  const n = norm([name, ...extraNames.filter(Boolean)].join(" "));
+  const out: ModelCapability[] = [];
+  if (
+    /embed(?:ding)?|rerank|moderation|whisper|(?:^|[-_/])tts(?:[-_/]|$)|dall-e|imagen/.test(
+      n,
+    )
+  ) {
+    return out;
+  }
+  if (detectModelModalityFromNames(name, ...extraNames) === "multimodal") {
+    out.push("vision");
+  }
+  if (
+    /\bo[134](?:[-_.]|$)|reasoner|thinking|[-_/]r1(?:[-_/]|$)|qwq|deepseek-r1|kimi-k1\.5/.test(
+      n,
+    )
+  ) {
+    out.push("thinking");
+  }
+  if (
+    /coder|codestral|codex|devstral|gpt-5|claude|deepseek-v3|deepseek-v4|glm-5|qwen2\.5-coder|qwen3-coder|kimi/.test(
+      n,
+    )
+  ) {
+    out.push("coding");
+  }
+  if (
+    /128k|200k|256k|1m|1000k|long|claude|gemini|gpt-4\.1|gpt-5|kimi-k3|kimi k3/.test(
+      n,
+    )
+  ) {
+    out.push("longctx");
+  }
+  if (
+    /gpt-4o|gpt-4\.1|gpt-5|claude|gemini|qwen|glm|deepseek-v3|deepseek-v4|kimi|mistral|llama-4|tool/.test(
+      n,
+    )
+  ) {
+    out.push("tools");
+  } else if (out.length && !out.includes("tools")) {
+    /* keep existing */
+  } else if (!out.length) {
+    out.push("tools");
+  }
+  const seen = new Set<ModelCapability>();
+  return out.filter((c) => (seen.has(c) ? false : (seen.add(c), true)));
+}
+
+export function hasCapability(
+  name: string,
+  cap: ModelCapability | "all",
+  extraNames: Array<string | null | undefined> = [],
+) {
+  if (cap === "all") return true;
+  return detectCapabilities(name, extraNames).includes(cap);
+}
+
+export function modelBlurb(
+  name: string,
+  providerLabel?: string,
+): string {
+  const caps = detectCapabilities(name);
+  const family = detectModelFamily(name);
+  const bits: string[] = [];
+  if (family !== "other") {
+    const label = MODEL_FAMILIES.find((f) => f.id === family)?.label;
+    if (label) bits.push(label.replace(" / ", "·"));
+  }
+  if (caps.includes("coding")) bits.push("适合写代码和 Agent");
+  else if (caps.includes("thinking")) bits.push("偏推理与长思考");
+  else if (caps.includes("vision")) bits.push("可看图理解");
+  else bits.push("按量调用，OpenAI 兼容");
+  if (providerLabel) bits.push(`经 ${providerLabel} 上游`);
+  return bits.join(" · ");
 }
