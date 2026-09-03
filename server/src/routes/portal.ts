@@ -180,8 +180,6 @@ portalRoutes.get("/models", async (c) => {
     id: string;
     model: string;
     rewriteModel: string | null;
-    providers: { id: string; name: string; type: string }[];
-    providerLabel: string;
     enabled: boolean;
     retired: boolean;
     inputPer1m: number;
@@ -226,8 +224,6 @@ portalRoutes.get("/models", async (c) => {
       id: r.id,
       model: r.model,
       rewriteModel: r.rewriteModel,
-      providers,
-      providerLabel: providers.map((p) => p.name).join(" / ") || "—",
       enabled: live,
       retired: !live,
       inputPer1m: price ? usdFromPriceUnit(price.inputPer1mCents) : 0,

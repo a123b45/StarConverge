@@ -2,8 +2,6 @@ export type PortalModel = {
   id: string;
   model: string;
   rewriteModel?: string | null;
-  providerLabel: string;
-  providers: { name: string; type: string }[];
   inputPer1m: number;
   outputPer1m: number;
   cacheHitPer1m: number;

@@ -4702,7 +4702,6 @@ html[data-theme="dark"] .portal-user-dropdown button:hover {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin-bottom: 6px;
 }
 .portal-model-card h3 {
   margin: 0;
@@ -4717,21 +4716,6 @@ html[data-theme="dark"] .portal-user-dropdown button:hover {
   flex-shrink: 0;
   align-self: flex-start;
   margin-top: 2px;
-}
-.portal-provider-pill {
-  display: inline-flex;
-  align-items: center;
-  max-width: 100%;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 550;
-  color: #5b52d6;
-  background: color-mix(in srgb, #6d5efc 10%, var(--bg-elevated));
-  border: 1px solid color-mix(in srgb, #6d5efc 22%, var(--line));
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .portal-model-desc {
   font-size: 12px;

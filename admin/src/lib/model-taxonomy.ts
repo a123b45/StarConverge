@@ -226,10 +226,7 @@ export function hasCapability(
   return detectCapabilities(name, extraNames).includes(cap);
 }
 
-export function modelBlurb(
-  name: string,
-  providerLabel?: string,
-): string {
+export function modelBlurb(name: string): string {
   const caps = detectCapabilities(name);
   const family = detectModelFamily(name);
   const bits: string[] = [];
@@ -241,6 +238,5 @@ export function modelBlurb(
   else if (caps.includes("thinking")) bits.push("偏推理与长思考");
   else if (caps.includes("vision")) bits.push("可看图理解");
   else bits.push("按量调用，OpenAI 兼容");
-  if (providerLabel) bits.push(`经 ${providerLabel} 上游`);
   return bits.join(" · ");
 }

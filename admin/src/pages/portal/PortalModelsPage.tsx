@@ -60,8 +60,7 @@ export default function PortalModelsPage() {
     if (!s) return true;
     return (
       m.model.toLowerCase().includes(s) ||
-      m.providerLabel.toLowerCase().includes(s) ||
-      modelBlurb(m.model, m.providerLabel).toLowerCase().includes(s)
+      modelBlurb(m.model).toLowerCase().includes(s)
     );
   }
 
@@ -158,7 +157,7 @@ export default function PortalModelsPage() {
           <div className="modal modal-md portal-model-detail" onClick={(e) => e.stopPropagation()}>
             <div className="modal-user-head">
               <h3>{detail.model}</h3>
-              <p>{modelBlurb(detail.model, detail.providerLabel)}</p>
+              <p>{modelBlurb(detail.model)}</p>
             </div>
             <div className="portal-cap-chips static">
               {detectCapabilities(detail.model, [detail.rewriteModel]).map((id) => (
@@ -248,7 +247,6 @@ function ModelCard({
               {retired ? "已退役" : "可用"}
             </span>
           </div>
-          <span className="portal-provider-pill">{m.providerLabel}</span>
         </div>
       </div>
       {tags.length ? (
@@ -260,7 +258,7 @@ function ModelCard({
           ))}
         </div>
       ) : null}
-      <p className="portal-model-desc">{modelBlurb(m.model, m.providerLabel)}</p>
+      <p className="portal-model-desc">{modelBlurb(m.model)}</p>
       <div className="portal-price-grid" aria-label="模型定价">
         <div className="portal-price-cell">
           <span className="portal-price-label">输入</span>
