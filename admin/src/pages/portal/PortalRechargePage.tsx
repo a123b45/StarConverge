@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { portalApi } from "../../lib/api";
 import SoftToast from "../../components/SoftToast";
+import { IconArrowUpRight } from "../../components/icons";
 
 const CARD_SHOP_URL = "https://9.plus/shop/JJRZ0I7J";
 
@@ -63,34 +64,6 @@ export default function PortalRechargePage() {
 
       {error ? <div className="alert">{error}</div> : null}
 
-      <div className="portal-pack-banner">
-        <div>
-          <strong>用量告急？先补一包额度</strong>
-          <p>在商店付款后拿到卡密，回到这里兑换即到账。</p>
-        </div>
-        <a className="portal-btn" href={CARD_SHOP_URL} target="_blank" rel="noreferrer">
-          去买额度包
-        </a>
-      </div>
-
-      <div className="portal-pack-grid">
-        <article className="portal-pack-card">
-          <span className="portal-flag hot">在售</span>
-          <h3>卡密额度包</h3>
-          <p>按美元面额到账，适合 Cursor、Claude Code 日常调用。</p>
-          <a className="portal-btn" href={CARD_SHOP_URL} target="_blank" rel="noreferrer">
-            获取卡密
-          </a>
-        </article>
-        <article className="portal-pack-card muted-card">
-          <h3>兑换到账</h3>
-          <p>当前余额 {balance == null ? "—" : `$${balance.toFixed(2)}`}。卡密只能兑换一次。</p>
-          <Link className="portal-btn ghost" to="/app/bills">
-            看账单
-          </Link>
-        </article>
-      </div>
-
       <div className="portal-panel">
         <div className="portal-panel-head">
           <h3>兑换卡密</h3>
@@ -99,7 +72,12 @@ export default function PortalRechargePage() {
           </span>
         </div>
         <p className="muted recharge-rate-hint" style={{ padding: "0 16px 8px" }}>
-          没有卡密可先点击获取卡密，充值后把卡密粘贴到下方兑换。
+          没有卡密可先点击获取卡密，充值后把卡密粘贴到下方兑换。兑换完成后可在
+          <Link to="/app/bills" className="portal-jump-link">
+            账单
+            <IconArrowUpRight size={12} />
+          </Link>
+          内查询。
         </p>
         <form
           className="portal-toolbar recharge-redeem-bar"

@@ -94,6 +94,15 @@ export function IconArrows({ size = 16 }: SizeProps) {
   );
 }
 
+export function IconArrowUpRight({ size = 16 }: SizeProps) {
+  return (
+    <Svg size={size}>
+      <path d="M7 17 17 7" />
+      <path d="M8 7h9v9" />
+    </Svg>
+  );
+}
+
 /** Isometric wireframe cube — used for 模型管理 */
 export function IconBox({ size = 16 }: SizeProps) {
   return (
