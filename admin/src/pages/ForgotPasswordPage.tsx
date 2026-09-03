@@ -54,7 +54,7 @@ export default function ForgotPasswordPage() {
             <span>重新开始。</span>
           </h1>
           <p className="auth-hero-lead">
-            通过注册邮箱接收重置链接，无需联系管理员即可恢复访问。
+            通过注册邮箱接收重置链接，找回后继续买 Token、调模型。
           </p>
         </div>
       </aside>

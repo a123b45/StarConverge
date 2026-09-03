@@ -50,33 +50,33 @@ export default function LoginPage() {
             <strong>inkstudio</strong>
           </div>
           <h1>
-            统一接入。
+            API 中转。
             <br />
-            <span>按需转发。</span>
+            <span>按量卖 Token。</span>
           </h1>
           <p className="auth-hero-lead">
-            在一个工作台里管理渠道、令牌与模型路由，面向管理员与终端用户分流访问。
+            充值买额度，一钥调用多家模型。OpenAI 兼容，即开即用。
           </p>
           <ul className="auth-features">
             <li>
               <span className="check" aria-hidden />
               <div>
-                <strong>渠道聚合</strong>
-                <p>多上游 OpenAI 兼容接口统一入口</p>
+                <strong>充值买量</strong>
+                <p>卡密兑换余额，按 token 用量扣费</p>
               </div>
             </li>
             <li>
               <span className="check" aria-hidden />
               <div>
-                <strong>令牌配额</strong>
-                <p>按 token 计量用量，密钥归属到用户</p>
+                <strong>一钥多模</strong>
+                <p>一个密钥调用 GPT、Claude、Gemini 等</p>
               </div>
             </li>
             <li>
               <span className="check" aria-hidden />
               <div>
-                <strong>角色分流</strong>
-                <p>管理员进控制台，用户进模型门户</p>
+                <strong>即开即用</strong>
+                <p>填 Base URL，Cursor、ChatBox 直接接入</p>
               </div>
             </li>
           </ul>
@@ -92,7 +92,7 @@ export default function LoginPage() {
               <em>登录 INKSTUDIO</em>
             </div>
             <h2>登录 inkstudio</h2>
-            <p>请输入账户信息以访问中转平台</p>
+            <p>登录后即可充值买 Token、调用模型</p>
           </div>
 
           {error ? <div className="alert">{error}</div> : null}

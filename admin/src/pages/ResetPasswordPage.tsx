@@ -55,7 +55,7 @@ export default function ResetPasswordPage() {
             <br />
             <span>继续使用。</span>
           </h1>
-          <p className="auth-hero-lead">重置完成后即可使用新密码登录门户或控制台。</p>
+          <p className="auth-hero-lead">重置完成后即可登录中转站，继续买 Token、调模型。</p>
         </div>
       </aside>
 

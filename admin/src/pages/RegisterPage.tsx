@@ -102,26 +102,26 @@ export default function RegisterPage() {
             <strong>inkstudio</strong>
           </div>
           <h1>
-            创建账号。
+            注册即用。
             <br />
-            <span>开始调用。</span>
+            <span>买 Token 开跑。</span>
           </h1>
           <p className="auth-hero-lead">
-            注册需验证邮箱。请先完成图片验证，再向邮箱发送验证码。
+            注册需验证邮箱。充值兑换卡密后按量扣费，密钥即开即用。
           </p>
           <ul className="auth-features">
             <li>
               <span className="check" aria-hidden />
               <div>
-                <strong>自助密钥</strong>
-                <p>创建、查看、删除属于自己的 sk 密钥</p>
+                <strong>充值买 Token</strong>
+                <p>卡密兑换余额，按调用量扣费</p>
               </div>
             </li>
             <li>
               <span className="check" aria-hidden />
               <div>
-                <strong>用量透明</strong>
-                <p>按模型统计调用次数与 token 消耗</p>
+                <strong>自助密钥</strong>
+                <p>创建、查看、删除属于自己的 sk 密钥</p>
               </div>
             </li>
             <li>
