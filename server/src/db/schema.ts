@@ -280,6 +280,29 @@ export const cardKeys = sqliteTable(
   ],
 );
 
+/** Upstream prepaid inventory (NewAPI-style /api/user/self), separate from customer balances. */
+export const upstreamAccounts = sqliteTable("upstream_accounts", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  baseUrl: text("base_url").notNull(),
+  username: text("username").notNull(),
+  password: text("password").notNull().default(""),
+  enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+  alertEnabled: integer("alert_enabled", { mode: "boolean" }).notNull().default(true),
+  /** USD * 1000; default $1.00 */
+  alertThresholdUsdMilli: integer("alert_threshold_usd_milli").notNull().default(1000),
+  lastQuota: integer("last_quota"),
+  lastBalanceUsdMilli: integer("last_balance_usd_milli"),
+  lastCheckedAt: integer("last_checked_at", { mode: "timestamp_ms" }),
+  lastError: text("last_error").default(""),
+  createdAt: integer("created_at", { mode: "timestamp_ms" })
+    .notNull()
+    .default(sql`(unixepoch() * 1000)`),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+    .notNull()
+    .default(sql`(unixepoch() * 1000)`),
+});
+
 /** Broadcast events shown in the user portal notification bell. */
 export const userNotifications = sqliteTable(
   "user_notifications",

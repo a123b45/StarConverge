@@ -23,6 +23,7 @@ import LogsPage from "./pages/LogsPage";
 import SettingsPage from "./pages/SettingsPage";
 import UsersPage from "./pages/UsersPage";
 import CardKeysPage from "./pages/CardKeysPage";
+import UpstreamAccountsPage from "./pages/UpstreamAccountsPage";
 import CustomersPage from "./pages/CustomersPage";
 import RolesPage from "./pages/RolesPage";
 import ModelPricingPage from "./pages/ModelPricingPage";
@@ -54,6 +55,7 @@ import {
   IconTag,
   IconUsers,
   IconCard,
+  IconCloud,
   NavIconBills,
   NavIconChat,
   NavIconDocs,
@@ -93,6 +95,7 @@ const ADMIN_TITLES: Record<string, string> = {
   "/admin/customers": "客户管理",
   "/admin/users": "用户管理",
   "/admin/card-keys": "卡密管理",
+  "/admin/upstream": "上游管理",
   "/admin/roles": "角色管理",
   "/admin/settings": "API 文档",
 };
@@ -103,6 +106,10 @@ function AdminShell() {
   const [siderCollapsed, setSiderCollapsed] = useState(false);
   const [menuPerms, setMenuPerms] = useState<string[] | null>(null);
   const [roleLabel, setRoleLabel] = useState("管理员");
+  const [stockAlerts, setStockAlerts] = useState<
+    Array<{ id: string; name: string; balanceUsd: number; thresholdUsd: number }>
+  >([]);
+  const [alertHiddenUntil, setAlertHiddenUntil] = useState(0);
 
   useEffect(() => {
     api<{
@@ -119,6 +126,38 @@ function AdminShell() {
       })
       .catch(() => setMenuPerms([]));
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadAlerts() {
+      try {
+        const res = await api<{
+          data: Array<{
+            id: string;
+            name: string;
+            balanceUsd: number;
+            thresholdUsd: number;
+          }>;
+        }>("/upstream-accounts/alerts");
+        if (!cancelled) setStockAlerts(res.data ?? []);
+      } catch {
+        if (!cancelled) setStockAlerts([]);
+      }
+    }
+    void loadAlerts();
+    const timer = window.setInterval(() => void loadAlerts(), 5 * 60 * 1000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!alertHiddenUntil) return;
+    const wait = Math.max(0, alertHiddenUntil - Date.now());
+    const timer = window.setTimeout(() => setAlertHiddenUntil(0), wait);
+    return () => window.clearTimeout(timer);
+  }, [alertHiddenUntil]);
 
   const can = (key: string) => !menuPerms || menuPerms.includes(key);
 
@@ -226,6 +265,12 @@ function AdminShell() {
                 卡密管理
               </NavLink>
             ) : null}
+            {can("menu.upstream") ? (
+              <NavLink to="/admin/upstream">
+                <IconCloud />
+                上游管理
+              </NavLink>
+            ) : null}
             {can("menu.roles") ? (
               <NavLink to="/admin/roles">
                 <IconShield />
@@ -274,6 +319,28 @@ function AdminShell() {
             }}
           />
         </header>
+        {stockAlerts.length > 0 && Date.now() >= alertHiddenUntil ? (
+          <div className="admin-stock-alert" role="alert">
+            <strong>上游余额不足</strong>
+            <span>
+              {stockAlerts
+                .map(
+                  (a) =>
+                    `「${a.name}」现有 $${a.balanceUsd.toFixed(4)}，低于 $${a.thresholdUsd.toFixed(2)}`,
+                )
+                .join("；")}
+              。每 5 分钟检查一次。
+            </span>
+            <NavLink to="/admin/upstream">去处理</NavLink>
+            <button
+              type="button"
+              className="admin-stock-alert-dismiss"
+              onClick={() => setAlertHiddenUntil(Date.now() + 5 * 60 * 1000)}
+            >
+              5 分钟内不再提示
+            </button>
+          </div>
+        ) : null}
         <main className="main">
           <Outlet />
         </main>
@@ -528,6 +595,7 @@ export default function App() {
         <Route path="customers" element={<CustomersPage />} />
         <Route path="users" element={<UsersPage />} />
         <Route path="card-keys" element={<CardKeysPage />} />
+        <Route path="upstream" element={<UpstreamAccountsPage />} />
         <Route path="roles" element={<RolesPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>

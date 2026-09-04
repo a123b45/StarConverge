@@ -179,6 +179,14 @@ export function IconCard({ size = 16 }: SizeProps) {
   );
 }
 
+export function IconCloud({ size = 16 }: SizeProps) {
+  return (
+    <Svg size={size}>
+      <path d="M7.2 17.5h10.1A3.4 3.4 0 0 0 20.5 13a3.4 3.4 0 0 0-3.1-3.38 4.4 4.4 0 0 0-8.3-1.12A3.6 3.6 0 0 0 3.5 12.2 3.3 3.3 0 0 0 7.2 17.5Z" />
+    </Svg>
+  );
+}
+
 export function IconBill({ size = 16 }: SizeProps) {
   return (
     <Svg size={size}>

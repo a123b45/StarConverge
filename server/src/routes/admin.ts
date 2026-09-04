@@ -11,6 +11,7 @@ import {
   requestLogs,
   roles,
   tokens,
+  upstreamAccounts,
   users,
 } from "../db/schema.js";
 import {
@@ -55,6 +56,14 @@ import {
 } from "../utils/ip-allow.js";
 import { buildExcelXml } from "../utils/excel-xml.js";
 import { cardStatus, createCardKeys } from "../services/card-keys.js";
+import {
+  listUpstreamAlerts,
+  normalizeUpstreamOrigin,
+  publicUpstreamAccount,
+  refreshAllUpstreamAccounts,
+  refreshUpstreamAccount,
+  usdToMilli,
+} from "../services/upstream-inventory.js";
 import {
   ensureOfficialPricing,
   listOfficialQuotes,
@@ -942,6 +951,138 @@ adminRoutes.delete("/card-keys/:id", async (c) => {
   }
   await db.delete(cardKeys).where(eq(cardKeys.id, row.id));
   return c.json({ ok: true });
+});
+
+// ---- Upstream prepaid inventory ----
+adminRoutes.get("/upstream-accounts", async (c) => {
+  const auth = c.get("adminAuth");
+  if (!hasApiPerm(auth, "api.upstream.read", "api.cardKeys.read")) {
+    return c.json({ error: "无权限" }, 403);
+  }
+  const rows = await db
+    .select()
+    .from(upstreamAccounts)
+    .orderBy(desc(upstreamAccounts.createdAt));
+  return c.json({ data: rows.map(publicUpstreamAccount) });
+});
+
+adminRoutes.get("/upstream-accounts/alerts", async (c) => {
+  const auth = c.get("adminAuth");
+  if (!hasApiPerm(auth, "api.upstream.read", "api.cardKeys.read", "api.dashboard.read")) {
+    return c.json({ error: "无权限" }, 403);
+  }
+  const data = await listUpstreamAlerts();
+  return c.json({ data, polledEveryMinutes: 5 });
+});
+
+adminRoutes.post("/upstream-accounts/refresh", async (c) => {
+  const auth = c.get("adminAuth");
+  if (!hasApiPerm(auth, "api.upstream.write", "api.upstream.read")) {
+    return c.json({ error: "无权限" }, 403);
+  }
+  await refreshAllUpstreamAccounts();
+  const rows = await db
+    .select()
+    .from(upstreamAccounts)
+    .orderBy(desc(upstreamAccounts.createdAt));
+  return c.json({ data: rows.map(publicUpstreamAccount) });
+});
+
+adminRoutes.post("/upstream-accounts", async (c) => {
+  const auth = c.get("adminAuth");
+  if (!hasApiPerm(auth, "api.upstream.write")) {
+    return c.json({ error: "无权限" }, 403);
+  }
+  const schema = z.object({
+    name: z.string().min(1).max(64),
+    baseUrl: z.string().min(1).max(256),
+    username: z.string().min(1).max(128),
+    password: z.string().min(1).max(256),
+    enabled: z.boolean().optional(),
+    alertEnabled: z.boolean().optional(),
+    alertThresholdUsd: z.number().min(0).max(1_000_000).optional(),
+  });
+  const parsed = schema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: "参数无效" }, 400);
+  const v = parsed.data;
+  let origin: string;
+  try {
+    origin = normalizeUpstreamOrigin(v.baseUrl);
+  } catch {
+    return c.json({ error: "网址无效" }, 400);
+  }
+  const row = {
+    id: id("up"),
+    name: v.name.trim(),
+    baseUrl: origin,
+    username: v.username.trim(),
+    password: v.password,
+    enabled: v.enabled ?? true,
+    alertEnabled: v.alertEnabled ?? true,
+    alertThresholdUsdMilli: usdToMilli(v.alertThresholdUsd ?? 1),
+    lastQuota: null as number | null,
+    lastBalanceUsdMilli: null as number | null,
+    lastCheckedAt: null as Date | null,
+    lastError: "",
+  };
+  await db.insert(upstreamAccounts).values(row);
+  const synced = await refreshUpstreamAccount(row.id);
+  return c.json({ data: publicUpstreamAccount(synced) }, 201);
+});
+
+adminRoutes.put("/upstream-accounts/:id", async (c) => {
+  const auth = c.get("adminAuth");
+  if (!hasApiPerm(auth, "api.upstream.write")) {
+    return c.json({ error: "无权限" }, 403);
+  }
+  const existing = await db.query.upstreamAccounts.findFirst({
+    where: eq(upstreamAccounts.id, c.req.param("id")),
+  });
+  if (!existing) return c.json({ error: "Not found" }, 404);
+  const body = await c.req.json().catch(() => ({}));
+  const patch: Partial<typeof upstreamAccounts.$inferInsert> = { updatedAt: new Date() };
+  if (body.name != null) patch.name = String(body.name).trim();
+  if (body.baseUrl != null) {
+    try {
+      patch.baseUrl = normalizeUpstreamOrigin(String(body.baseUrl));
+    } catch {
+      return c.json({ error: "网址无效" }, 400);
+    }
+  }
+  if (body.username != null) patch.username = String(body.username).trim();
+  if (body.password != null && String(body.password).trim() && !String(body.password).includes("•")) {
+    patch.password = String(body.password);
+  }
+  if (body.enabled != null) patch.enabled = Boolean(body.enabled);
+  if (body.alertEnabled != null) patch.alertEnabled = Boolean(body.alertEnabled);
+  if (body.alertThresholdUsd != null) {
+    patch.alertThresholdUsdMilli = usdToMilli(Number(body.alertThresholdUsd));
+  }
+  await db.update(upstreamAccounts).set(patch).where(eq(upstreamAccounts.id, existing.id));
+  const synced = await refreshUpstreamAccount(existing.id);
+  return c.json({ data: publicUpstreamAccount(synced) });
+});
+
+adminRoutes.delete("/upstream-accounts/:id", async (c) => {
+  const auth = c.get("adminAuth");
+  if (!hasApiPerm(auth, "api.upstream.write")) {
+    return c.json({ error: "无权限" }, 403);
+  }
+  await db.delete(upstreamAccounts).where(eq(upstreamAccounts.id, c.req.param("id")));
+  return c.json({ ok: true });
+});
+
+adminRoutes.post("/upstream-accounts/:id/refresh", async (c) => {
+  const auth = c.get("adminAuth");
+  if (!hasApiPerm(auth, "api.upstream.write", "api.upstream.read")) {
+    return c.json({ error: "无权限" }, 403);
+  }
+  try {
+    const row = await refreshUpstreamAccount(c.req.param("id"));
+    return c.json({ data: publicUpstreamAccount(row) });
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : "同步失败" }, 400);
+  }
 });
 
 // ---- Model pricing ----

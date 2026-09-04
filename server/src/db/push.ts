@@ -317,6 +317,22 @@ export function migrate() {
     remark TEXT DEFAULT '',
     created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
   )`);
+  sqlite.exec(`CREATE TABLE IF NOT EXISTS upstream_accounts (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    base_url TEXT NOT NULL,
+    username TEXT NOT NULL,
+    password TEXT NOT NULL DEFAULT '',
+    enabled INTEGER NOT NULL DEFAULT 1,
+    alert_enabled INTEGER NOT NULL DEFAULT 1,
+    alert_threshold_usd_milli INTEGER NOT NULL DEFAULT 1000,
+    last_quota INTEGER,
+    last_balance_usd_milli INTEGER,
+    last_checked_at INTEGER,
+    last_error TEXT DEFAULT '',
+    created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000),
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
+  )`);
   sqlite.exec(`CREATE TABLE IF NOT EXISTS user_notifications (
     id TEXT PRIMARY KEY,
     type TEXT NOT NULL,
@@ -488,6 +504,7 @@ function requireRoles() {
     "menu.customers",
     "menu.users",
     "menu.cardKeys",
+    "menu.upstream",
     "menu.roles",
     "menu.settings",
   ];
@@ -508,6 +525,8 @@ function requireRoles() {
     "api.users.write",
     "api.cardKeys.read",
     "api.cardKeys.write",
+    "api.upstream.read",
+    "api.upstream.write",
     "api.roles.read",
     "api.roles.write",
     "api.logs.read",

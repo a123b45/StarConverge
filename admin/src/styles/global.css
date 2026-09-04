@@ -276,6 +276,52 @@ code,
   z-index: 20;
 }
 
+.admin-stock-alert {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  padding: 8px 18px;
+  background: #fef3c7;
+  border-bottom: 1px solid #fcd34d;
+  color: #92400e;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.admin-stock-alert strong {
+  font-weight: 700;
+}
+.admin-stock-alert a {
+  color: #9a3412;
+  font-weight: 650;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.admin-stock-alert-dismiss {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: #92400e;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.up-balance-low {
+  color: #b45309;
+}
+
+html[data-theme="dark"] .admin-stock-alert {
+  background: color-mix(in srgb, #f59e0b 18%, var(--bg-elevated));
+  border-bottom-color: color-mix(in srgb, #f59e0b 40%, var(--line));
+  color: #fde68a;
+}
+html[data-theme="dark"] .admin-stock-alert a,
+html[data-theme="dark"] .admin-stock-alert-dismiss {
+  color: #fde68a;
+}
+
 .admin-top-left,
 .admin-top-right {
   display: flex;
