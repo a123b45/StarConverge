@@ -744,6 +744,62 @@ html[data-theme="dark"] .count-chip {
   white-space: nowrap;
 }
 
+.ch-toolbar .soft-select-filter {
+  flex: 0 0 auto;
+  min-width: 140px;
+}
+.ch-toolbar .search {
+  max-width: 220px;
+}
+.ch-official-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  user-select: none;
+}
+.ch-toolbar-actions {
+  margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.ch-toolbar-actions .btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.ch-official-meta {
+  margin: -6px 0 12px;
+  font-size: 0.85rem;
+}
+.ch-official-table {
+  table-layout: fixed;
+}
+.ch-official-table th:nth-child(1),
+.ch-official-table td:nth-child(1) {
+  width: 16%;
+}
+.ch-official-table th:nth-child(2),
+.ch-official-table td:nth-child(2) {
+  width: 32%;
+  word-break: break-all;
+}
+.ch-official-table th:nth-child(3),
+.ch-official-table td:nth-child(3),
+.ch-official-table th:nth-child(4),
+.ch-official-table td:nth-child(4),
+.ch-official-table th:nth-child(5),
+.ch-official-table td:nth-child(5) {
+  width: 17%;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
 .mc-table {
   table-layout: fixed;
 }

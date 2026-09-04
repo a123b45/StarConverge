@@ -310,14 +310,12 @@ export async function refreshOfficialPricing(): Promise<boolean> {
   return false;
 }
 
-export async function ensureOfficialPricing(): Promise<void> {
+export async function ensureOfficialPricing(opts?: { force?: boolean }): Promise<void> {
+  const force = Boolean(opts?.force);
+  if (inflight) await inflight;
   const age = cache.fetchedAt ? Date.now() - cache.fetchedAt : Number.POSITIVE_INFINITY;
-  if (cache.source === "litellm" && age < TTL_MS) return;
-  if (inflight) {
-    await inflight;
-    return;
-  }
-  if (lastAttempt && Date.now() - lastAttempt < 30_000) return;
+  if (!force && cache.source === "litellm" && age < TTL_MS) return;
+  if (!force && lastAttempt && Date.now() - lastAttempt < 30_000) return;
   inflight = refreshOfficialPricing()
     .then(() => undefined)
     .finally(() => {

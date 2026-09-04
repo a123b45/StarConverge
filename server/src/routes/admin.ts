@@ -55,6 +55,14 @@ import {
 } from "../utils/ip-allow.js";
 import { buildExcelXml } from "../utils/excel-xml.js";
 import { cardStatus, createCardKeys } from "../services/card-keys.js";
+import {
+  ensureOfficialPricing,
+  listOfficialQuotes,
+  officialPricingMeta,
+  publicOfficialQuote,
+  vendorLabel,
+  type OfficialVendor,
+} from "../services/official-pricing.js";
 
 const ipRuleSchema = z.object({
   name: z.string().optional(),
@@ -1358,6 +1366,108 @@ adminRoutes.post("/pricing/sync-upstream", async (c) => {
       502,
     );
   }
+});
+
+const OFFICIAL_VENDORS: OfficialVendor[] = [
+  "openai",
+  "anthropic",
+  "google",
+  "deepseek",
+  "qwen",
+];
+
+function parseOfficialVendor(raw: string | undefined): OfficialVendor | undefined {
+  const v = (raw ?? "").trim().toLowerCase();
+  return OFFICIAL_VENDORS.includes(v as OfficialVendor) ? (v as OfficialVendor) : undefined;
+}
+
+function officialPriceStamp() {
+  return formatLogTime(new Date()).replace(/[-:\s]/g, "").slice(0, 12);
+}
+
+function officialQuotesPayload(vendor?: OfficialVendor) {
+  const data = listOfficialQuotes(vendor).map((q) => publicOfficialQuote(q)!);
+  return {
+    ...officialPricingMeta(),
+    vendors: OFFICIAL_VENDORS.map((id) => ({ id, label: vendorLabel(id) })),
+    data,
+  };
+}
+
+// ---- Official first-party list prices ----
+adminRoutes.get("/official-prices", async (c) => {
+  const auth = c.get("adminAuth");
+  if (!hasApiPerm(auth, "api.channels.read", "api.pricing.read")) {
+    return c.json({ error: "无权限" }, 403);
+  }
+  await ensureOfficialPricing();
+  return c.json(officialQuotesPayload(parseOfficialVendor(c.req.query("vendor"))));
+});
+
+adminRoutes.post("/official-prices/refresh", async (c) => {
+  const auth = c.get("adminAuth");
+  if (!hasApiPerm(auth, "api.channels.read", "api.pricing.read")) {
+    return c.json({ error: "无权限" }, 403);
+  }
+  await ensureOfficialPricing({ force: true });
+  return c.json(officialQuotesPayload(parseOfficialVendor(c.req.query("vendor"))));
+});
+
+adminRoutes.get("/official-prices/export", async (c) => {
+  const auth = c.get("adminAuth");
+  if (!hasApiPerm(auth, "api.channels.read", "api.pricing.read")) {
+    return c.json({ error: "无权限" }, 403);
+  }
+  await ensureOfficialPricing();
+  const vendor = parseOfficialVendor(c.req.query("vendor"));
+  const payload = officialQuotesPayload(vendor);
+  const xml = buildExcelXml(
+    ["厂商", "模型", "输入USD/百万tokens", "输出USD/百万tokens", "缓存命中USD/百万tokens", "同步时间", "来源"],
+    payload.data.map((q) => [
+      q.vendorLabel,
+      q.model,
+      String(q.inputPer1m),
+      String(q.outputPer1m),
+      String(q.cacheHitPer1m),
+      payload.fetchedAt ?? "",
+      payload.source === "litellm" ? "厂商公开价目" : "离线备份",
+    ]),
+    "官方定价",
+  );
+  const stamp = officialPriceStamp();
+  return c.body(xml, 200, {
+    "Content-Type": "application/vnd.ms-excel; charset=utf-8",
+    "Content-Disposition": `attachment; filename="official-prices-${stamp}.xls"`,
+  });
+});
+
+adminRoutes.get("/channels/export", async (c) => {
+  const auth = c.get("adminAuth");
+  if (!hasApiPerm(auth, "api.channels.read")) {
+    return c.json({ error: "无权限" }, 403);
+  }
+  const rows = await db.select().from(channels).orderBy(desc(channels.priority));
+  const xml = buildExcelXml(
+    ["名称", "厂商", "Base URL", "模型", "状态", "超时ms", "备注"],
+    rows.map((r) => {
+      const pub = publicChannel(r);
+      return [
+        pub.name,
+        pub.type,
+        pub.baseUrl,
+        pub.models.join(", "),
+        pub.enabled ? "启用" : "禁用",
+        String(pub.timeoutMs),
+        pub.remark ?? "",
+      ];
+    }),
+    "供应商",
+  );
+  const stamp = officialPriceStamp();
+  return c.body(xml, 200, {
+    "Content-Type": "application/vnd.ms-excel; charset=utf-8",
+    "Content-Disposition": `attachment; filename="channels-${stamp}.xls"`,
+  });
 });
 
 // ---- Channels ----

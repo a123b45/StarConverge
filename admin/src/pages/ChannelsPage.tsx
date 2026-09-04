@@ -1,9 +1,16 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { api } from "../lib/api";
+import { api, apiDownload } from "../lib/api";
 import { softConfirm } from "../components/SoftDialog";
 import { PROVIDERS, providerById, providerLabel } from "../lib/providers";
 import SoftSelect from "../components/SoftSelect";
 import ModalBackdrop from "../components/ModalBackdrop";
+import {
+  OFFICIAL_VENDORS,
+  formatOfficialFetchedAt,
+  formatUsd,
+  type OfficialQuote,
+  type OfficialVendor,
+} from "../lib/official-pricing";
 
 type Channel = {
   id: string;
@@ -29,6 +36,13 @@ type TestResult = {
   modelCount?: number;
   synced?: number;
   models?: string[];
+};
+
+type OfficialCatalog = {
+  source?: string;
+  fetchedAt?: string | null;
+  vendors?: Array<{ id: OfficialVendor; label: string }>;
+  data: OfficialQuote[];
 };
 
 type FormState = {
@@ -107,15 +121,53 @@ export default function ChannelsPage() {
   const [error, setError] = useState("");
   const [testing, setTesting] = useState<string | null>(null);
   const [testMsg, setTestMsg] = useState("");
+  const [officialView, setOfficialView] = useState(false);
+  const [officialVendor, setOfficialVendor] = useState<OfficialVendor | "all">("all");
+  const [officialQuotes, setOfficialQuotes] = useState<OfficialQuote[]>([]);
+  const [officialVendors, setOfficialVendors] = useState(OFFICIAL_VENDORS);
+  const [officialFetchedAt, setOfficialFetchedAt] = useState<string | null>(null);
+  const [officialSource, setOfficialSource] = useState("");
+  const [officialBusy, setOfficialBusy] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   async function load() {
     const res = await api<{ data: Channel[] }>("/channels");
     setRows(res.data);
   }
 
+  async function loadOfficial(force = false) {
+    setOfficialBusy(true);
+    setError("");
+    try {
+      const res = force
+        ? await api<OfficialCatalog>("/official-prices/refresh", { method: "POST" })
+        : await api<OfficialCatalog>("/official-prices");
+      setOfficialQuotes(res.data ?? []);
+      setOfficialFetchedAt(res.fetchedAt ?? null);
+      setOfficialSource(res.source ?? "");
+      if (res.vendors?.length) setOfficialVendors(res.vendors);
+      setTestMsg(
+        force
+          ? `已同步 ${res.data?.length ?? 0} 条官方公开价${
+              res.fetchedAt ? ` · ${formatOfficialFetchedAt(res.fetchedAt)}` : ""
+            }`
+          : "",
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "加载官方定价失败");
+    } finally {
+      setOfficialBusy(false);
+    }
+  }
+
   useEffect(() => {
     load().catch((e) => setError(e.message));
   }, []);
+
+  useEffect(() => {
+    if (!officialView) return;
+    void loadOfficial(false);
+  }, [officialView]);
 
   const filtered = useMemo(() => {
     return rows.filter((r) => {
@@ -132,6 +184,19 @@ export default function ChannelsPage() {
       );
     });
   }, [rows, q, filter]);
+
+  const officialFiltered = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    return officialQuotes.filter((row) => {
+      if (officialVendor !== "all" && row.vendor !== officialVendor) return false;
+      if (!s) return true;
+      return (
+        row.model.toLowerCase().includes(s) ||
+        row.vendor.toLowerCase().includes(s) ||
+        (row.vendorLabel ?? "").toLowerCase().includes(s)
+      );
+    });
+  }, [officialQuotes, officialVendor, q]);
 
   const providersFiltered = useMemo(() => {
     const s = providerQ.trim().toLowerCase();
@@ -307,22 +372,36 @@ export default function ChannelsPage() {
     setTestMsg(results.join(" · ") || "没有启用中的供应商");
   }
 
+  async function exportCurrent() {
+    setExporting(true);
+    setError("");
+    try {
+      if (officialView) {
+        const vendor = officialVendor !== "all" ? `?vendor=${officialVendor}` : "";
+        await apiDownload(`/official-prices/export${vendor}`, "official-prices.xls");
+      } else {
+        await apiDownload("/channels/export", "channels.xls");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "导出失败");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   const modelsHint = providerById(form.type).modelsHint;
+  const syncedAt = formatOfficialFetchedAt(officialFetchedAt);
 
   return (
     <>
       <div className="topbar">
         <div className="page-head">
           <h2>供应商管理</h2>
-          <p>接入 OpenAI / Claude / Gemini 等常见上游，支持连通性测试与模型同步</p>
-        </div>
-        <div className="row-actions">
-          <button className="btn ghost" onClick={testAll} disabled={!!testing}>
-            测试全部启用
-          </button>
-          <button className="btn" onClick={startCreate}>
-            添加供应商
-          </button>
+          <p>
+            {officialView
+              ? "对照 OpenAI / Anthropic / Google / DeepSeek / 通义公开标价（USD / 百万 tokens）"
+              : "接入 OpenAI / Claude / Gemini 等常见上游，支持连通性测试与模型同步"}
+          </p>
         </div>
       </div>
 
@@ -342,94 +421,188 @@ export default function ChannelsPage() {
         </div>
       ) : null}
 
-      <div className="toolbar">
+      <div className="toolbar ch-toolbar">
         <input
           className="search"
-          placeholder="搜索名称 / 厂商 / URL / 模型"
+          placeholder={officialView ? "搜索官方模型 / 厂商" : "搜索名称 / 厂商 / URL / 模型"}
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
-        <SoftSelect
-          className="soft-select-filter"
-          ariaLabel="状态筛选"
-          value={filter}
-          onChange={(v) => setFilter(v as typeof filter)}
-          options={[
-            { value: "all", label: "全部状态" },
-            { value: "on", label: "仅启用" },
-            { value: "off", label: "仅禁用" },
-          ]}
-        />
+        {officialView ? (
+          <SoftSelect
+            className="soft-select-filter"
+            ariaLabel="官方厂商"
+            value={officialVendor}
+            onChange={(v) => setOfficialVendor(v as OfficialVendor | "all")}
+            options={[
+              { value: "all", label: "全部官方厂商" },
+              ...officialVendors.map((v) => ({ value: v.id, label: v.label })),
+            ]}
+          />
+        ) : (
+          <SoftSelect
+            className="soft-select-filter"
+            ariaLabel="状态筛选"
+            value={filter}
+            onChange={(v) => setFilter(v as typeof filter)}
+            options={[
+              { value: "all", label: "全部状态" },
+              { value: "on", label: "仅启用" },
+              { value: "off", label: "仅禁用" },
+            ]}
+          />
+        )}
+        <label className="ch-official-switch">
+          <span>切换官方</span>
+          <span className="switch">
+            <input
+              type="checkbox"
+              checked={officialView}
+              onChange={(e) => setOfficialView(e.target.checked)}
+            />
+            <span className="switch-slider" />
+          </span>
+        </label>
+        <div className="ch-toolbar-actions">
+          {officialView ? (
+            <button
+              type="button"
+              className="btn ghost"
+              disabled={officialBusy}
+              onClick={() => void loadOfficial(true)}
+            >
+              {officialBusy ? "同步中…" : "同步官方价"}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="btn ghost"
+            disabled={exporting}
+            onClick={() => void exportCurrent()}
+          >
+            {exporting ? "导出中…" : "导出"}
+          </button>
+          <button className="btn ghost" onClick={testAll} disabled={!!testing}>
+            测试全部启用
+          </button>
+          <button className="btn" onClick={startCreate}>
+            添加供应商
+          </button>
+        </div>
       </div>
+
+      {officialView && (syncedAt || officialQuotes.length) ? (
+        <p className="muted ch-official-meta">
+          {officialBusy
+            ? "正在拉取官方公开价目…"
+            : `${officialFiltered.length} 条官方定价${
+                syncedAt ? ` · 最近同步 ${syncedAt}` : ""
+              }${officialSource === "fallback" ? " · 暂用离线备份" : ""}`}
+        </p>
+      ) : null}
 
       <div className="panel">
         <div className="table-wrap">
-          <table className="table ch-table">
-            <thead>
-              <tr>
-                <th>名称</th>
-                <th>Base URL</th>
-                <th>模型</th>
-                <th>状态</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((r) => (
-                <tr key={r.id}>
-                  <td>
-                    <div className="ch-name-cell">
-                      <strong>{r.name}</strong>
-                      <span className="badge blue">{providerLabel(r.type)}</span>
-                    </div>
-                  </td>
-                  <td className="mono ch-base-url">{r.baseUrl}</td>
-                  <td>
-                    <ChannelModelTags models={r.models} />
-                  </td>
-                  <td>
-                    <span className={`badge ${r.enabled ? "on" : "off"}`}>
-                      {r.enabled ? "启用" : "禁用"}
-                    </span>
-                  </td>
-                  <td>
-                    <div className="row-actions ch-row-actions">
-                      <button
-                        className="btn ghost sm"
-                        disabled={testing === r.id}
-                        onClick={() => testOne(r)}
-                      >
-                        {testing === r.id ? "测试中" : "测试"}
-                      </button>
-                      <button
-                        className="btn ghost sm"
-                        disabled={testing === r.id}
-                        onClick={() => void syncModels(r)}
-                      >
-                        同步模型
-                      </button>
-                      <button className="btn ghost sm" onClick={() => startEdit(r)}>
-                        编辑
-                      </button>
-                      <button className="btn ghost sm" onClick={() => toggle(r)}>
-                        {r.enabled ? "禁用" : "启用"}
-                      </button>
-                      <button className="btn danger sm" onClick={() => remove(r)}>
-                        删除
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {!filtered.length ? (
+          {officialView ? (
+            <table className="table ch-table ch-official-table">
+              <thead>
                 <tr>
-                  <td colSpan={5} className="empty">
-                    暂无供应商，点击「添加供应商」接入上游
-                  </td>
+                  <th>官方渠道</th>
+                  <th>模型</th>
+                  <th>输入</th>
+                  <th>输出</th>
+                  <th>缓存命中</th>
                 </tr>
-              ) : null}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {officialFiltered.map((row) => (
+                  <tr key={`${row.vendor}:${row.id}`}>
+                    <td>
+                      <span className="badge blue">{row.vendorLabel || row.vendor}</span>
+                    </td>
+                    <td className="mono">{row.model}</td>
+                    <td className="mono">{formatUsd(row.inputPer1m)} / 百万</td>
+                    <td className="mono">{formatUsd(row.outputPer1m)} / 百万</td>
+                    <td className="mono">{formatUsd(row.cacheHitPer1m)} / 百万</td>
+                  </tr>
+                ))}
+                {!officialFiltered.length ? (
+                  <tr>
+                    <td colSpan={5} className="empty">
+                      {officialBusy ? "正在同步官方定价…" : "暂无匹配的官方定价，试试同步或调整筛选"}
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          ) : (
+            <table className="table ch-table">
+              <thead>
+                <tr>
+                  <th>名称</th>
+                  <th>Base URL</th>
+                  <th>模型</th>
+                  <th>状态</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((r) => (
+                  <tr key={r.id}>
+                    <td>
+                      <div className="ch-name-cell">
+                        <strong>{r.name}</strong>
+                        <span className="badge blue">{providerLabel(r.type)}</span>
+                      </div>
+                    </td>
+                    <td className="mono ch-base-url">{r.baseUrl}</td>
+                    <td>
+                      <ChannelModelTags models={r.models} />
+                    </td>
+                    <td>
+                      <span className={`badge ${r.enabled ? "on" : "off"}`}>
+                        {r.enabled ? "启用" : "禁用"}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="row-actions ch-row-actions">
+                        <button
+                          className="btn ghost sm"
+                          disabled={testing === r.id}
+                          onClick={() => testOne(r)}
+                        >
+                          {testing === r.id ? "测试中" : "测试"}
+                        </button>
+                        <button
+                          className="btn ghost sm"
+                          disabled={testing === r.id}
+                          onClick={() => void syncModels(r)}
+                        >
+                          同步模型
+                        </button>
+                        <button className="btn ghost sm" onClick={() => startEdit(r)}>
+                          编辑
+                        </button>
+                        <button className="btn ghost sm" onClick={() => toggle(r)}>
+                          {r.enabled ? "禁用" : "启用"}
+                        </button>
+                        <button className="btn danger sm" onClick={() => remove(r)}>
+                          删除
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {!filtered.length ? (
+                  <tr>
+                    <td colSpan={5} className="empty">
+                      暂无供应商，点击「添加供应商」接入上游
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 
