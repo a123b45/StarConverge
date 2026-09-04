@@ -187,7 +187,7 @@ export default function PortalEstimatePage() {
                   用这个模型试对话
                 </Link>
                 <Link className="portal-btn ghost" to="/app/recharge">
-                  去买额度
+                  去充值
                 </Link>
               </div>
             </>

@@ -55,7 +55,7 @@ export default function LoginPage() {
             <span>按量卖 Token。</span>
           </h1>
           <p className="auth-hero-lead">
-            充值买额度，一钥调用多家模型。OpenAI 兼容，即开即用。
+            充值买 Token，一钥调用多家模型。OpenAI 兼容，即开即用。
           </p>
           <ul className="auth-features">
             <li>

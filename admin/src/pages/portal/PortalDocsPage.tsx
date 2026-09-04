@@ -93,7 +93,7 @@ API Key：控制台创建的 sk-sc- 密钥
           <span className="n">1</span>
           <div>
             <h3>
-              买额度{" "}
+              充值{" "}
               <Link to="/app/recharge" className="inline-link">
                 去充值 →
               </Link>

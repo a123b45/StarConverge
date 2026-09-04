@@ -57,8 +57,8 @@ export default function PortalRechargePage() {
       <SoftToast message={toast} tone="ok" onDone={() => setToast(null)} />
       <div className="portal-hero">
         <div>
-          <h1>买额度</h1>
-          <p>先买卡密额度包，再在本页兑换。余额按 token 扣费，用完再买。</p>
+          <h1>充值</h1>
+          <p>先获取卡密，再在本页兑换。余额按 token 扣费，用完再充。</p>
         </div>
       </div>
 
