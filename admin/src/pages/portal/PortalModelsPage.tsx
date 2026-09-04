@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import { portalApi } from "../../lib/api";
 import { IconBolt } from "../../components/icons";
 import ModelCatalogFilters from "../../components/portal/ModelCatalogFilters";
-import ModalBackdrop from "../../components/ModalBackdrop";
 import {
   matchesFamily,
   matchesModality,
@@ -39,7 +38,6 @@ export default function PortalModelsPage() {
   const [modality, setModality] = useState<ModelModality>("all");
   const [cap, setCap] = useState<ModelCapability | "all">("all");
   const [showRetired, setShowRetired] = useState(false);
-  const [detail, setDetail] = useState<PortalModel | null>(null);
 
   useEffect(() => {
     portalApi<{ data: PortalModel[] }>("/models")
@@ -120,12 +118,7 @@ export default function PortalModelsPage() {
 
       <div className="portal-model-grid">
         {filteredLive.map((m) => (
-          <ModelCard
-            key={m.id}
-            m={m}
-            hot={hotIds.has(m.id)}
-            onDetail={() => setDetail(m)}
-          />
+          <ModelCard key={m.id} m={m} hot={hotIds.has(m.id)} />
         ))}
       </div>
       {!filteredLive.length ? (
@@ -155,59 +148,11 @@ export default function PortalModelsPage() {
           {showRetired ? (
             <div className="portal-model-grid" style={{ marginTop: 12 }}>
               {filteredRetired.map((m) => (
-                <ModelCard
-                  key={m.id}
-                  m={m}
-                  hot={false}
-                  retired
-                  onDetail={() => setDetail(m)}
-                />
+                <ModelCard key={m.id} m={m} hot={false} retired />
               ))}
             </div>
           ) : null}
         </div>
-      ) : null}
-
-      {detail ? (
-        <ModalBackdrop onClose={() => setDetail(null)}>
-          <div className="modal modal-md portal-model-detail" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-user-head">
-              <h3>{detail.model}</h3>
-              <p>{modelBlurb(detail.model)}</p>
-            </div>
-            <div className="portal-cap-chips static">
-              {detectCapabilities(detail.model, [detail.rewriteModel]).map((id) => (
-                <span key={id} className="portal-cap-tag">
-                  {MODEL_CAPABILITIES.find((c) => c.id === id)?.label ?? id}
-                </span>
-              ))}
-            </div>
-            <div className="portal-price-grid" style={{ marginTop: 12 }}>
-              <PriceTriple m={detail} />
-            </div>
-            <SaveBar m={detail} />
-            <p className="muted" style={{ marginTop: 12 }}>
-              延迟 {formatLatency(detail.latencyMs ?? 0)}
-              {detail.callCount ? ` · 近 7 日 ${detail.callCount} 次调用` : ""}
-              {detail.retired ? " · 已下架，仅供对照价格" : ""}
-            </p>
-            <div className="modal-actions">
-              <button type="button" className="btn ghost" onClick={() => setDetail(null)}>
-                关闭
-              </button>
-              {!detail.retired ? (
-                <>
-                  <Link className="btn ghost" to={`/app/estimate?model=${encodeURIComponent(detail.model)}`}>
-                    估费用
-                  </Link>
-                  <Link className="btn" to={`/app/chat?model=${encodeURIComponent(detail.model)}`}>
-                    去对话
-                  </Link>
-                </>
-              ) : null}
-            </div>
-          </div>
-        </ModalBackdrop>
       ) : null}
     </div>
   );
@@ -217,12 +162,10 @@ function ModelCard({
   m,
   hot,
   retired,
-  onDetail,
 }: {
   m: PortalModel;
   hot: boolean;
   retired?: boolean;
-  onDetail: () => void;
 }) {
   const caps = detectCapabilities(m.model, [m.rewriteModel]);
   const tags = [
@@ -270,17 +213,10 @@ function ModelCard({
         </span>
         {!retired ? (
           <span className="portal-model-actions">
-            <button type="button" className="portal-link-btn" onClick={onDetail}>
-              详情
-            </button>
             <Link to={`/app/estimate?model=${encodeURIComponent(m.model)}`}>估费用</Link>
             <Link to={`/app/chat?model=${encodeURIComponent(m.model)}`}>对话</Link>
           </span>
-        ) : (
-          <button type="button" className="portal-link-btn" onClick={onDetail}>
-            详情
-          </button>
-        )}
+        ) : null}
       </div>
     </article>
   );
