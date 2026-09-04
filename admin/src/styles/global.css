@@ -2679,12 +2679,27 @@ html[data-theme="dark"] .dash-mline-tip {
   flex-wrap: wrap;
   margin-bottom: 14px;
 }
+.portal-plaza-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 16px;
+}
+.portal-plaza-stats .portal-stat {
+  padding: 12px 14px;
+}
+.portal-plaza-stats .value {
+  font-size: 20px;
+}
 .portal-toolbar .portal-search,
 .portal-toolbar .search {
   flex: 1 1 220px;
   max-width: 420px;
   width: auto;
   min-width: 0;
+}
+.portal-toolbar.plaza-toolbar .portal-search {
+  max-width: none;
 }
 .portal-toolbar .portal-btn {
   flex: 0 0 auto;
@@ -4766,6 +4781,23 @@ html[data-theme="dark"] .portal-user-dropdown button:hover {
   font-variant-numeric: tabular-nums;
   word-break: break-word;
 }
+.portal-price-official {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--muted);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--muted) 70%, transparent);
+}
+.portal-save-bar {
+  margin: 0 0 12px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: color-mix(in srgb, #10b981 12%, var(--bg-elevated));
+  color: #047857;
+  font-size: 12px;
+  font-weight: 650;
+  text-align: center;
+}
 .portal-model-meta {
   display: flex;
   justify-content: flex-start;
@@ -4900,16 +4932,39 @@ html[data-theme="dark"] .portal-user-dropdown button:hover {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
-.portal-estimate-result {
+.portal-estimate-compare {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
   margin-top: 16px;
+}
+.portal-estimate-result {
+  margin-top: 0;
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
   padding: 14px 16px;
   border-radius: 12px;
   border: 1px solid var(--line);
   background: color-mix(in srgb, #6d5efc 8%, var(--bg-elevated));
+}
+.portal-estimate-result.official {
+  background: color-mix(in srgb, var(--muted) 8%, var(--bg-elevated));
+}
+.portal-estimate-result.save.is-win {
+  background: color-mix(in srgb, #10b981 12%, var(--bg-elevated));
+  border-color: color-mix(in srgb, #10b981 28%, var(--line));
+  color: #047857;
+}
+.portal-estimate-result em {
+  font-style: normal;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 550;
+}
+.portal-estimate-result.save.is-win em {
+  color: #047857;
 }
 .portal-estimate-result strong {
   font-size: 22px;
@@ -4987,7 +5042,9 @@ html[data-theme="dark"] .portal-user-dropdown button:hover {
 }
 @media (max-width: 900px) {
   .portal-recipe-grid,
-  .portal-estimate-grid {
+  .portal-estimate-grid,
+  .portal-estimate-compare,
+  .portal-plaza-stats {
     grid-template-columns: 1fr;
   }
 }
@@ -6021,6 +6078,9 @@ html[data-theme="dark"] .copy-row .portal-btn.ghost:hover {
   .portal-shell {
     grid-template-columns: 1fr;
   }
+  .portal-plaza-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .portal-sider {
     display: none;
   }
@@ -6200,9 +6260,14 @@ html[data-theme="dark"] .alert.ok {
   background: var(--ok-soft) !important;
   color: var(--ok) !important;
 }
-html[data-theme="dark"] .badge {
-  background: var(--bg-soft) !important;
-  color: var(--muted) !important;
+html[data-theme="dark"] .portal-save-bar,
+html[data-theme="dark"] .portal-estimate-result.save.is-win {
+  background: color-mix(in srgb, #10b981 16%, var(--bg-elevated));
+  color: #6ee7b7;
+}
+html[data-theme="dark"] .portal-price-official {
+  color: var(--muted);
+}
   border-color: var(--line) !important;
 }
 html[data-theme="dark"] .portal-fbtn {

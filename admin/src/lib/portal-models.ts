@@ -1,10 +1,13 @@
-export type PortalModel = {
-  id: string;
-  model: string;
-  rewriteModel?: string | null;
+export type PriceQuote = {
   inputPer1m: number;
   outputPer1m: number;
   cacheHitPer1m: number;
+};
+
+export type PortalModel = PriceQuote & {
+  id: string;
+  model: string;
+  rewriteModel?: string | null;
   latencyMs?: number;
   callCount?: number;
   createdAt?: string | number | Date | null;
@@ -28,7 +31,7 @@ export function formatLatency(ms: number) {
 }
 
 export function estimateCostUsd(
-  model: PortalModel,
+  quote: PriceQuote,
   promptTokens: number,
   completionTokens: number,
   cacheTokens = 0,
@@ -38,9 +41,9 @@ export function estimateCostUsd(
   const cacheTok = Math.max(0, Math.min(cacheTokens, inTok));
   const fresh = inTok - cacheTok;
   return (
-    (fresh / 1_000_000) * (model.inputPer1m || 0) +
-    (cacheTok / 1_000_000) * (model.cacheHitPer1m || 0) +
-    (outTok / 1_000_000) * (model.outputPer1m || 0)
+    (fresh / 1_000_000) * (quote.inputPer1m || 0) +
+    (cacheTok / 1_000_000) * (quote.cacheHitPer1m || 0) +
+    (outTok / 1_000_000) * (quote.outputPer1m || 0)
   );
 }
 

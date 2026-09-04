@@ -8,6 +8,7 @@ import {
   matchesFamily,
   matchesModality,
   detectCapabilities,
+  detectModelFamily,
   hasCapability,
   modelBlurb,
   MODEL_CAPABILITIES,
@@ -20,6 +21,12 @@ import {
   formatPerMillion,
   type PortalModel,
 } from "../../lib/portal-models";
+import {
+  cardSavings,
+  formatSavePct,
+  matchOfficialQuote,
+  vendorLabel,
+} from "../../lib/official-pricing";
 
 function modelInitial(name: string): string {
   const part = name.split(/[-_/]/).find(Boolean) || name;
@@ -64,6 +71,29 @@ export default function PortalModelsPage() {
     );
   }
 
+  const plazaStats = useMemo(() => {
+    const series = new Set(live.map((m) => detectModelFamily(m.model)));
+    let compared = 0;
+    let cheaper = 0;
+    let pctSum = 0;
+    for (const m of live) {
+      const official = matchOfficialQuote(m.model);
+      if (!official) continue;
+      compared += 1;
+      const cmp = cardSavings(m, official);
+      if (cmp.cheaper) {
+        cheaper += 1;
+        pctSum += cmp.pct;
+      }
+    }
+    return {
+      series: series.size,
+      compared,
+      cheaper,
+      avgPct: cheaper ? pctSum / cheaper : 0,
+    };
+  }, [live]);
+
   const filteredLive = useMemo(() => live.filter(passFilters), [live, q, family, modality, cap]);
   const filteredRetired = useMemo(
     () => retired.filter(passFilters),
@@ -77,18 +107,48 @@ export default function PortalModelsPage() {
           <h1>模型广场</h1>
           <p>
             {live.length
-              ? `共 ${live.length} 个可买模型 · 充值后按 token 扣费`
+              ? `共 ${live.length} 个可买模型 · 充值后按 token 扣费 · 标价对照厂商官方公开价`
               : "暂无上架模型 · 需管理员在模型管理中同步给用户"}
           </p>
         </div>
+        <div className="portal-hero-actions">
+          <Link className="portal-btn ghost" to="/app/estimate">
+            对比官方价
+          </Link>
+        </div>
       </div>
-      <div className="portal-toolbar">
+      {live.length ? (
+        <div className="portal-plaza-stats">
+          <div className="portal-stat">
+            <span className="label">可买模型</span>
+            <div className="value">{live.length}</div>
+          </div>
+          <div className="portal-stat">
+            <span className="label">模型系列</span>
+            <div className="value">{plazaStats.series}</div>
+          </div>
+          <div className="portal-stat">
+            <span className="label">已对照官方</span>
+            <div className="value">{plazaStats.compared}</div>
+          </div>
+          <div className="portal-stat">
+            <span className="label">平均可省</span>
+            <div className="value">
+              {plazaStats.cheaper ? formatSavePct(plazaStats.avgPct) : "—"}
+            </div>
+          </div>
+        </div>
+      ) : null}
+      <div className="portal-toolbar plaza-toolbar">
         <input
           className="portal-search"
           placeholder="搜索模型名称 / ID / 描述"
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
+        <Link className="portal-btn ghost" to="/app/estimate">
+          计费预估
+        </Link>
       </div>
       <ModelCatalogFilters
         models={live}
@@ -167,25 +227,9 @@ export default function PortalModelsPage() {
               ))}
             </div>
             <div className="portal-price-grid" style={{ marginTop: 12 }}>
-              <div className="portal-price-cell">
-                <span className="portal-price-label">输入</span>
-                <strong className="portal-price-value">
-                  {formatPerMillion(detail.inputPer1m ?? 0)}
-                </strong>
-              </div>
-              <div className="portal-price-cell">
-                <span className="portal-price-label">输出</span>
-                <strong className="portal-price-value">
-                  {formatPerMillion(detail.outputPer1m ?? 0)}
-                </strong>
-              </div>
-              <div className="portal-price-cell cache">
-                <span className="portal-price-label">缓存命中</span>
-                <strong className="portal-price-value">
-                  {formatPerMillion(detail.cacheHitPer1m ?? 0)}
-                </strong>
-              </div>
+              <PriceTriple m={detail} />
             </div>
+            <SaveBar m={detail} />
             <p className="muted" style={{ marginTop: 12 }}>
               延迟 {formatLatency(detail.latencyMs ?? 0)}
               {detail.callCount ? ` · 近 7 日 ${detail.callCount} 次调用` : ""}
@@ -198,7 +242,7 @@ export default function PortalModelsPage() {
               {!detail.retired ? (
                 <>
                   <Link className="btn ghost" to={`/app/estimate?model=${encodeURIComponent(detail.model)}`}>
-                    估费用
+                    对比官方价
                   </Link>
                   <Link className="btn" to={`/app/chat?model=${encodeURIComponent(detail.model)}`}>
                     去对话
@@ -260,19 +304,9 @@ function ModelCard({
       ) : null}
       <p className="portal-model-desc">{modelBlurb(m.model)}</p>
       <div className="portal-price-grid" aria-label="模型定价">
-        <div className="portal-price-cell">
-          <span className="portal-price-label">输入</span>
-          <strong className="portal-price-value">{formatPerMillion(m.inputPer1m ?? 0)}</strong>
-        </div>
-        <div className="portal-price-cell">
-          <span className="portal-price-label">输出</span>
-          <strong className="portal-price-value">{formatPerMillion(m.outputPer1m ?? 0)}</strong>
-        </div>
-        <div className="portal-price-cell cache">
-          <span className="portal-price-label">缓存命中</span>
-          <strong className="portal-price-value">{formatPerMillion(m.cacheHitPer1m ?? 0)}</strong>
-        </div>
+        <PriceTriple m={m} />
       </div>
+      <SaveBar m={m} />
       <div className="portal-model-meta">
         <span className="portal-model-latency">
           <IconBolt size={14} />
@@ -283,8 +317,8 @@ function ModelCard({
             <button type="button" className="portal-link-btn" onClick={onDetail}>
               详情
             </button>
+            <Link to={`/app/estimate?model=${encodeURIComponent(m.model)}`}>估费用</Link>
             <Link to={`/app/chat?model=${encodeURIComponent(m.model)}`}>对话</Link>
-            <Link to={`/app/chat?compare=${encodeURIComponent(m.model)}`}>比较</Link>
           </span>
         ) : (
           <button type="button" className="portal-link-btn" onClick={onDetail}>
@@ -293,5 +327,58 @@ function ModelCard({
         )}
       </div>
     </article>
+  );
+}
+
+function compactUsd(n: number) {
+  const v = Number.isFinite(n) ? n : 0;
+  if (v >= 100) return `$${v.toFixed(0)}`;
+  return `$${v.toFixed(2)}`;
+}
+
+function PriceTriple({ m }: { m: PortalModel }) {
+  const official = matchOfficialQuote(m.model);
+  const rows: Array<{
+    key: string;
+    label: string;
+    ours: number;
+    official?: number;
+    cache?: boolean;
+  }> = [
+    { key: "in", label: "输入", ours: m.inputPer1m ?? 0, official: official?.inputPer1m },
+    { key: "out", label: "输出", ours: m.outputPer1m ?? 0, official: official?.outputPer1m },
+    {
+      key: "cache",
+      label: "缓存命中",
+      ours: m.cacheHitPer1m ?? 0,
+      official: official?.cacheHitPer1m,
+      cache: true,
+    },
+  ];
+  return (
+    <>
+      {rows.map((row) => {
+        const showOff = row.official != null && row.official > row.ours + 0.0001;
+        return (
+          <div key={row.key} className={`portal-price-cell${row.cache ? " cache" : ""}`}>
+            <span className="portal-price-label">{row.label}</span>
+            <strong className="portal-price-value">{formatPerMillion(row.ours)}</strong>
+            {showOff ? <s className="portal-price-official">官方 {compactUsd(row.official!)}</s> : null}
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+function SaveBar({ m }: { m: PortalModel }) {
+  const official = matchOfficialQuote(m.model);
+  if (!official) return null;
+  const cmp = cardSavings(m, official);
+  if (!cmp.cheaper) return null;
+  return (
+    <div className="portal-save-bar">
+      比 {vendorLabel(official.vendor)} 少 {formatSavePct(cmp.pct)}
+    </div>
   );
 }
