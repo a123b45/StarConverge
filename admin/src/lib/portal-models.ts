@@ -4,6 +4,13 @@ export type PriceQuote = {
   cacheHitPer1m: number;
 };
 
+export type OfficialPriceRef = PriceQuote & {
+  id: string;
+  vendor: "openai" | "anthropic" | "google" | "deepseek" | "qwen";
+  vendorLabel?: string;
+  model: string;
+};
+
 export type PortalModel = PriceQuote & {
   id: string;
   model: string;
@@ -12,6 +19,7 @@ export type PortalModel = PriceQuote & {
   callCount?: number;
   createdAt?: string | number | Date | null;
   retired?: boolean;
+  official?: OfficialPriceRef | null;
 };
 
 export function formatPerMillion(n: number) {

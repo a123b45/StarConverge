@@ -4776,6 +4776,9 @@ html[data-theme="dark"] .portal-user-dropdown button:hover {
   text-decoration: line-through;
   text-decoration-color: color-mix(in srgb, var(--muted) 70%, transparent);
 }
+.portal-price-official.is-ref {
+  text-decoration: none;
+}
 .portal-save-bar {
   margin: 0 0 12px;
   padding: 6px 8px;

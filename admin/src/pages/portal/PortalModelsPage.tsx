@@ -23,7 +23,6 @@ import {
 import {
   cardSavings,
   formatSavePct,
-  matchOfficialQuote,
   vendorLabel,
 } from "../../lib/official-pricing";
 
@@ -85,6 +84,9 @@ export default function PortalModelsPage() {
             {live.length
               ? `共 ${live.length} 个可买模型 · 充值后按 token 扣费`
               : "暂无上架模型 · 需管理员在模型管理中同步给用户"}
+          </p>
+          <p className="muted" style={{ marginTop: 6 }}>
+            官方对照价按 OpenAI / Anthropic / Google / DeepSeek / 通义公开价目同步；对不上的型号不展示对照。
           </p>
         </div>
       </div>
@@ -291,7 +293,7 @@ function compactUsd(n: number) {
 }
 
 function PriceTriple({ m }: { m: PortalModel }) {
-  const official = matchOfficialQuote(m.model);
+  const official = m.official;
   const rows: Array<{
     key: string;
     label: string;
@@ -312,12 +314,22 @@ function PriceTriple({ m }: { m: PortalModel }) {
   return (
     <>
       {rows.map((row) => {
-        const showOff = row.official != null && row.official > row.ours + 0.0001;
+        if (row.official == null) {
+          return (
+            <div key={row.key} className={`portal-price-cell${row.cache ? " cache" : ""}`}>
+              <span className="portal-price-label">{row.label}</span>
+              <strong className="portal-price-value">{formatPerMillion(row.ours)}</strong>
+            </div>
+          );
+        }
+        const cheaper = row.official > row.ours + 0.0001;
         return (
           <div key={row.key} className={`portal-price-cell${row.cache ? " cache" : ""}`}>
             <span className="portal-price-label">{row.label}</span>
             <strong className="portal-price-value">{formatPerMillion(row.ours)}</strong>
-            {showOff ? <s className="portal-price-official">官方 {compactUsd(row.official!)}</s> : null}
+            <span className={`portal-price-official${cheaper ? "" : " is-ref"}`}>
+              官方 {compactUsd(row.official)}
+            </span>
           </div>
         );
       })}
@@ -326,13 +338,13 @@ function PriceTriple({ m }: { m: PortalModel }) {
 }
 
 function SaveBar({ m }: { m: PortalModel }) {
-  const official = matchOfficialQuote(m.model);
+  const official = m.official;
   if (!official) return null;
   const cmp = cardSavings(m, official);
   if (!cmp.cheaper) return null;
   return (
     <div className="portal-save-bar">
-      比 {vendorLabel(official.vendor)} 少 {formatSavePct(cmp.pct)}
+      比 {vendorLabel(official.vendor, official.vendorLabel)} 少 {formatSavePct(cmp.pct)}
     </div>
   );
 }

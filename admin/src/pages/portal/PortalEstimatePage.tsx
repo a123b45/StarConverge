@@ -6,18 +6,29 @@ import {
   OFFICIAL_VENDORS,
   compareCost,
   defaultVendorForModel,
+  formatOfficialFetchedAt,
   formatSavePct,
   formatUsd,
-  matchOfficialQuote,
-  quotesForVendor,
   vendorLabel,
+  type OfficialQuote,
   type OfficialVendor,
 } from "../../lib/official-pricing";
 import SoftSelect from "../../components/SoftSelect";
 
+type OfficialCatalog = {
+  source?: string;
+  fetchedAt?: string | null;
+  vendors?: Array<{ id: OfficialVendor; label: string }>;
+  data: OfficialQuote[];
+};
+
 export default function PortalEstimatePage() {
   const [params] = useSearchParams();
   const [models, setModels] = useState<PortalModel[]>([]);
+  const [catalog, setCatalog] = useState<OfficialQuote[]>([]);
+  const [vendorLabels, setVendorLabels] = useState(OFFICIAL_VENDORS);
+  const [fetchedAt, setFetchedAt] = useState<string | null>(null);
+  const [source, setSource] = useState<string>("");
   const [modelId, setModelId] = useState(params.get("model") || "");
   const [vendor, setVendor] = useState<OfficialVendor>("anthropic");
   const [officialId, setOfficialId] = useState("");
@@ -27,11 +38,18 @@ export default function PortalEstimatePage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    portalApi<{ data: PortalModel[] }>("/models")
-      .then((r) => {
-        const live = (r.data ?? []).filter((m) => !m.retired);
+    Promise.all([
+      portalApi<{ data: PortalModel[] }>("/models"),
+      portalApi<OfficialCatalog>("/official-prices"),
+    ])
+      .then(([modelsRes, pricesRes]) => {
+        const live = (modelsRes.data ?? []).filter((m) => !m.retired);
         setModels(live);
         setModelId((cur) => cur || live[0]?.model || "");
+        setCatalog(pricesRes.data ?? []);
+        setFetchedAt(pricesRes.fetchedAt ?? null);
+        setSource(pricesRes.source ?? "");
+        if (pricesRes.vendors?.length) setVendorLabels(pricesRes.vendors);
       })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : "加载失败"));
   }, []);
@@ -43,16 +61,18 @@ export default function PortalEstimatePage() {
 
   useEffect(() => {
     if (!model) return;
-    const matched = matchOfficialQuote(model.model);
+    const matched = model.official;
     const nextVendor = matched?.vendor ?? defaultVendorForModel(model.model);
     setVendor(nextVendor);
-    const list = quotesForVendor(nextVendor);
-    const pick = list.find((q) => q.id === matched?.id) ?? list[0];
-    setOfficialId(pick?.id ?? "");
+    setOfficialId(matched?.id ?? "");
   }, [model?.model]);
 
-  const officialOptions = useMemo(() => quotesForVendor(vendor), [vendor]);
-  const official = officialOptions.find((q) => q.id === officialId) ?? officialOptions[0] ?? null;
+  const officialOptions = useMemo(
+    () => catalog.filter((q) => q.vendor === vendor),
+    [catalog, vendor],
+  );
+  const official =
+    officialOptions.find((q) => q.id === officialId) ?? officialOptions[0] ?? null;
 
   useEffect(() => {
     if (!officialOptions.length) return;
@@ -67,6 +87,7 @@ export default function PortalEstimatePage() {
   const ours = model ? estimateCostUsd(model, promptN, completionN, cacheN) : 0;
   const cmp =
     model && official ? compareCost(model, official, promptN, completionN, cacheN) : null;
+  const synced = formatOfficialFetchedAt(fetchedAt);
 
   return (
     <div className="portal-page">
@@ -102,7 +123,7 @@ export default function PortalEstimatePage() {
                 ariaLabel="官方渠道"
                 value={vendor}
                 onChange={(v) => setVendor(v as OfficialVendor)}
-                options={OFFICIAL_VENDORS.map((v) => ({ value: v.id, label: v.label }))}
+                options={vendorLabels.map((v) => ({ value: v.id, label: v.label }))}
               />
             </label>
             <label className="stack-field">
@@ -150,7 +171,7 @@ export default function PortalEstimatePage() {
                 {formatPerMillion(model.outputPer1m)} · 缓存{" "}
                 {formatPerMillion(model.cacheHitPer1m)}
                 {official
-                  ? ` ｜ ${vendorLabel(official.vendor)} ${official.model} 输入 ${formatPerMillion(official.inputPer1m)} · 输出 ${formatPerMillion(official.outputPer1m)}`
+                  ? ` ｜ ${vendorLabel(official.vendor, official.vendorLabel)} ${official.model} 输入 ${formatPerMillion(official.inputPer1m)} · 输出 ${formatPerMillion(official.outputPer1m)}`
                   : ""}
               </p>
               <div className="portal-estimate-compare">
@@ -177,7 +198,9 @@ export default function PortalEstimatePage() {
                 </div>
               </div>
               <p className="muted" style={{ marginTop: 10 }}>
-                官方数字按厂商公开标价估算，方便对照；实际扣费以本站用量为准。
+                官方数字按厂商公开标价同步
+                {synced ? `（最近同步 ${synced}）` : source === "fallback" ? "（暂用离线备份价目）" : ""}
+                ，不是写死在页面里的；实际扣费以本站用量为准。
               </p>
               <div className="portal-empty-actions" style={{ marginTop: 16 }}>
                 <Link

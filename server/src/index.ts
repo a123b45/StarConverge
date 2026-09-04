@@ -15,6 +15,7 @@ import { v1Routes } from "./routes/v1.js";
 import { proxyApp } from "./routes/proxy.js";
 import { payRoutes } from "./routes/pay.js";
 import { startPricingAutoSync } from "./services/pricing-sync.js";
+import { startOfficialPricingSync } from "./services/official-pricing.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -142,4 +143,5 @@ if (fs.existsSync(adminDist)) {
 
 console.log(`StarConverge listening on http://${config.host}:${config.port}`);
 serve({ fetch: app.fetch, port: config.port, hostname: config.host });
+startOfficialPricingSync();
 startPricingAutoSync();

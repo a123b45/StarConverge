@@ -30,6 +30,15 @@ import {
 } from "../services/epay.js";
 import { getRequestClientIp } from "../utils/client-ip.js";
 import { parseIpRules, serializeIpRules, type IpRule } from "../utils/ip-allow.js";
+import {
+  ensureOfficialPricing,
+  listOfficialQuotes,
+  matchOfficialQuote,
+  officialPricingMeta,
+  publicOfficialQuote,
+  vendorLabel,
+  type OfficialVendor,
+} from "../services/official-pricing.js";
 
 export const portalRoutes = new Hono<SessionVars>();
 
@@ -167,6 +176,7 @@ portalRoutes.post("/notifications/read", async (c) => {
 
 portalRoutes.get("/models", async (c) => {
   const auth = c.get("auth");
+  await ensureOfficialPricing();
   // Published models: live (enabled + channel) or retired (published but off)
   const routes = await db
     .select()
@@ -188,6 +198,7 @@ portalRoutes.get("/models", async (c) => {
     latencyMs: number;
     callCount: number;
     createdAt: Date | null;
+    official: ReturnType<typeof publicOfficialQuote>;
   };
 
   function usdFromPriceUnit(units: number) {
@@ -232,6 +243,7 @@ portalRoutes.get("/models", async (c) => {
       latencyMs: 0,
       callCount: 0,
       createdAt: r.createdAt ?? null,
+      official: publicOfficialQuote(matchOfficialQuote(r.model, r.rewriteModel)),
     });
   }
 
@@ -287,6 +299,30 @@ portalRoutes.get("/models", async (c) => {
 
   filtered.sort((a, b) => a.model.localeCompare(b.model));
   return c.json({ data: filtered, total: filtered.length });
+});
+
+const OFFICIAL_VENDORS: OfficialVendor[] = [
+  "openai",
+  "anthropic",
+  "google",
+  "deepseek",
+  "qwen",
+];
+
+portalRoutes.get("/official-prices", async (c) => {
+  await ensureOfficialPricing();
+  const vendorRaw = (c.req.query("vendor") ?? "").trim().toLowerCase();
+  const vendor = OFFICIAL_VENDORS.includes(vendorRaw as OfficialVendor)
+    ? (vendorRaw as OfficialVendor)
+    : undefined;
+  const data = listOfficialQuotes(vendor).map((q) => ({
+    ...publicOfficialQuote(q)!,
+  }));
+  return c.json({
+    ...officialPricingMeta(),
+    vendors: OFFICIAL_VENDORS.map((id) => ({ id, label: vendorLabel(id) })),
+    data,
+  });
 });
 
 portalRoutes.get("/keys", async (c) => {
