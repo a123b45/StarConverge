@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { portalApi } from "../../lib/api";
-import { estimateCostUsd, formatPerMillion, type PortalModel } from "../../lib/portal-models";
+import {
+  estimateCostUsd,
+  formatPerMillion,
+  type PortalModel,
+  type PriceQuote,
+} from "../../lib/portal-models";
 import {
   OFFICIAL_VENDORS,
   compareCost,
@@ -14,6 +19,48 @@ import {
   type OfficialVendor,
 } from "../../lib/official-pricing";
 import SoftSelect from "../../components/SoftSelect";
+
+function rateAmount(n: number) {
+  return formatPerMillion(n).replace(/\s*\/\s*百万$/, "");
+}
+
+function RateBoard({
+  title,
+  hint,
+  quote,
+  kind,
+}: {
+  title: string;
+  hint?: string;
+  quote: PriceQuote;
+  kind: "ours" | "official";
+}) {
+  return (
+    <div className={`portal-estimate-rate ${kind}`}>
+      <div className="portal-estimate-rate-head">
+        <span>{title}</span>
+        {hint ? <em>{hint}</em> : null}
+      </div>
+      <div className="portal-estimate-rate-items">
+        <div className="portal-estimate-rate-item">
+          <span>输入</span>
+          <strong>{rateAmount(quote.inputPer1m)}</strong>
+          <small>/ 百万 tokens</small>
+        </div>
+        <div className="portal-estimate-rate-item">
+          <span>输出</span>
+          <strong>{rateAmount(quote.outputPer1m)}</strong>
+          <small>/ 百万 tokens</small>
+        </div>
+        <div className="portal-estimate-rate-item">
+          <span>缓存</span>
+          <strong>{rateAmount(quote.cacheHitPer1m)}</strong>
+          <small>/ 百万 tokens</small>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 type OfficialCatalog = {
   source?: string;
@@ -166,14 +213,19 @@ export default function PortalEstimatePage() {
 
           {model ? (
             <>
-              <p className="muted" style={{ marginTop: 8 }}>
-                本站 输入 {formatPerMillion(model.inputPer1m)} · 输出{" "}
-                {formatPerMillion(model.outputPer1m)} · 缓存{" "}
-                {formatPerMillion(model.cacheHitPer1m)}
-                {official
-                  ? ` ｜ ${vendorLabel(official.vendor, official.vendorLabel)} ${official.model} 输入 ${formatPerMillion(official.inputPer1m)} · 输出 ${formatPerMillion(official.outputPer1m)}`
-                  : ""}
-              </p>
+              <div
+                className={`portal-estimate-rates${official ? "" : " is-single"}`}
+              >
+                <RateBoard title="本站单价" quote={model} kind="ours" />
+                {official ? (
+                  <RateBoard
+                    title="官方单价"
+                    hint={`${vendorLabel(official.vendor, official.vendorLabel)} · ${official.model}`}
+                    quote={official}
+                    kind="official"
+                  />
+                ) : null}
+              </div>
               <div className="portal-estimate-compare">
                 <div className="portal-estimate-result">
                   <span>本站预估</span>

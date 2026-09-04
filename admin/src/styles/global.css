@@ -5063,6 +5063,75 @@ html[data-theme="dark"] .portal-user-dropdown button:hover {
   font-size: 22px;
   letter-spacing: -0.03em;
 }
+.portal-estimate-rates {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 16px;
+}
+.portal-estimate-rates.is-single {
+  grid-template-columns: 1fr;
+}
+.portal-estimate-rate {
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, #6d5efc 10%, var(--bg-elevated));
+}
+.portal-estimate-rate.official {
+  background: color-mix(in srgb, var(--muted) 10%, var(--bg-elevated));
+}
+.portal-estimate-rate-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.portal-estimate-rate-head span {
+  font-size: 13px;
+  font-weight: 750;
+  color: var(--text);
+}
+.portal-estimate-rate-head em {
+  font-style: normal;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.portal-estimate-rate-items {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.portal-estimate-rate-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.portal-estimate-rate-item span {
+  font-size: 11px;
+  font-weight: 700;
+  color: #5b52d6;
+  letter-spacing: 0.04em;
+}
+.portal-estimate-rate.official .portal-estimate-rate-item span {
+  color: #64748b;
+}
+.portal-estimate-rate-item strong {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  line-height: 1.15;
+}
+.portal-estimate-rate-item small {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 600;
+}
 .portal-jump-link {
   display: inline-flex;
   align-items: center;
@@ -5136,7 +5205,8 @@ html[data-theme="dark"] .portal-user-dropdown button:hover {
 @media (max-width: 900px) {
   .portal-recipe-grid,
   .portal-estimate-grid,
-  .portal-estimate-compare {
+  .portal-estimate-compare,
+  .portal-estimate-rates {
     grid-template-columns: 1fr;
   }
 }
@@ -6353,6 +6423,12 @@ html[data-theme="dark"] .portal-save-bar,
 html[data-theme="dark"] .portal-estimate-result.save.is-win {
   background: color-mix(in srgb, #10b981 16%, var(--bg-elevated));
   color: #6ee7b7;
+}
+html[data-theme="dark"] .portal-estimate-rate-item span {
+  color: #a5b4fc;
+}
+html[data-theme="dark"] .portal-estimate-rate.official .portal-estimate-rate-item span {
+  color: #94a3b8;
 }
 html[data-theme="dark"] .portal-price-official {
   color: var(--muted);
