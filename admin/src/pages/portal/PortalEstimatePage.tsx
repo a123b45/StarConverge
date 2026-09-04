@@ -75,11 +75,6 @@ export default function PortalEstimatePage() {
           <h1>计费预估</h1>
           <p>用同一段 tokens 算本站费用，再对照厂商官方公开价，看这次能少花多少。</p>
         </div>
-        <div className="portal-hero-actions">
-          <Link className="portal-btn ghost" to="/app/models">
-            模型广场
-          </Link>
-        </div>
       </div>
 
       {error ? <div className="alert">{error}</div> : null}

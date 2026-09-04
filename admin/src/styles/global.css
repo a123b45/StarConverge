@@ -2679,18 +2679,6 @@ html[data-theme="dark"] .dash-mline-tip {
   flex-wrap: wrap;
   margin-bottom: 14px;
 }
-.portal-plaza-stats {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-  margin: 0 0 16px;
-}
-.portal-plaza-stats .portal-stat {
-  padding: 12px 14px;
-}
-.portal-plaza-stats .value {
-  font-size: 20px;
-}
 .portal-toolbar .portal-search,
 .portal-toolbar .search {
   flex: 1 1 220px;
@@ -5043,8 +5031,7 @@ html[data-theme="dark"] .portal-user-dropdown button:hover {
 @media (max-width: 900px) {
   .portal-recipe-grid,
   .portal-estimate-grid,
-  .portal-estimate-compare,
-  .portal-plaza-stats {
+  .portal-estimate-compare {
     grid-template-columns: 1fr;
   }
 }
@@ -6077,9 +6064,6 @@ html[data-theme="dark"] .copy-row .portal-btn.ghost:hover {
 @media (max-width: 900px) {
   .portal-shell {
     grid-template-columns: 1fr;
-  }
-  .portal-plaza-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .portal-sider {
     display: none;

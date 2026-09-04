@@ -8,7 +8,6 @@ import {
   matchesFamily,
   matchesModality,
   detectCapabilities,
-  detectModelFamily,
   hasCapability,
   modelBlurb,
   MODEL_CAPABILITIES,
@@ -71,29 +70,6 @@ export default function PortalModelsPage() {
     );
   }
 
-  const plazaStats = useMemo(() => {
-    const series = new Set(live.map((m) => detectModelFamily(m.model)));
-    let compared = 0;
-    let cheaper = 0;
-    let pctSum = 0;
-    for (const m of live) {
-      const official = matchOfficialQuote(m.model);
-      if (!official) continue;
-      compared += 1;
-      const cmp = cardSavings(m, official);
-      if (cmp.cheaper) {
-        cheaper += 1;
-        pctSum += cmp.pct;
-      }
-    }
-    return {
-      series: series.size,
-      compared,
-      cheaper,
-      avgPct: cheaper ? pctSum / cheaper : 0,
-    };
-  }, [live]);
-
   const filteredLive = useMemo(() => live.filter(passFilters), [live, q, family, modality, cap]);
   const filteredRetired = useMemo(
     () => retired.filter(passFilters),
@@ -107,49 +83,27 @@ export default function PortalModelsPage() {
           <h1>模型广场</h1>
           <p>
             {live.length
-              ? `共 ${live.length} 个可买模型 · 充值后按 token 扣费 · 标价对照厂商官方公开价`
+              ? `共 ${live.length} 个可买模型 · 充值后按 token 扣费`
               : "暂无上架模型 · 需管理员在模型管理中同步给用户"}
           </p>
         </div>
-        <div className="portal-hero-actions">
-          <Link className="portal-btn ghost" to="/app/estimate">
-            对比官方价
-          </Link>
-        </div>
       </div>
-      {live.length ? (
-        <div className="portal-plaza-stats">
-          <div className="portal-stat">
-            <span className="label">可买模型</span>
-            <div className="value">{live.length}</div>
-          </div>
-          <div className="portal-stat">
-            <span className="label">模型系列</span>
-            <div className="value">{plazaStats.series}</div>
-          </div>
-          <div className="portal-stat">
-            <span className="label">已对照官方</span>
-            <div className="value">{plazaStats.compared}</div>
-          </div>
-          <div className="portal-stat">
-            <span className="label">平均可省</span>
-            <div className="value">
-              {plazaStats.cheaper ? formatSavePct(plazaStats.avgPct) : "—"}
-            </div>
-          </div>
-        </div>
-      ) : null}
-      <div className="portal-toolbar plaza-toolbar">
+      <form
+        className="portal-toolbar plaza-toolbar"
+        onSubmit={(e) => {
+          e.preventDefault();
+        }}
+      >
         <input
           className="portal-search"
           placeholder="搜索模型名称 / ID / 描述"
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
-        <Link className="portal-btn ghost" to="/app/estimate">
-          计费预估
-        </Link>
-      </div>
+        <button type="submit" className="portal-btn">
+          搜索
+        </button>
+      </form>
       <ModelCatalogFilters
         models={live}
         family={family}
@@ -242,7 +196,7 @@ export default function PortalModelsPage() {
               {!detail.retired ? (
                 <>
                   <Link className="btn ghost" to={`/app/estimate?model=${encodeURIComponent(detail.model)}`}>
-                    对比官方价
+                    估费用
                   </Link>
                   <Link className="btn" to={`/app/chat?model=${encodeURIComponent(detail.model)}`}>
                     去对话
