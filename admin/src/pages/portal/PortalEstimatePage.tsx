@@ -46,7 +46,7 @@ function TrendMark({ dir }: { dir: "down" | "up" | "same" }) {
   );
 }
 
-function ComparePillar({
+function CompareBar({
   label,
   ours,
   official,
@@ -63,31 +63,27 @@ function ComparePillar({
     official > 0 ? Math.round(((official - ours) / official) * 100) : null;
   const fmt = (n: number) => (money ? formatUsd(n) : rateAmount(n));
   return (
-    <div className={`est-pillar${money ? " is-total" : ""}`}>
-      <div
-        className="est-pillar-track"
-        role="img"
-        aria-label={`${label} 本站 ${fmt(ours)}，官方 ${fmt(official)}`}
-      >
-        <div
-          className="est-seg is-official"
-          style={{ flexGrow: share.official }}
-        />
-        <div
-          className="est-seg is-ours"
-          style={{ flexGrow: share.ours }}
-        />
+    <div className={`est-bar${money ? " is-total" : ""}`}>
+      <div className="est-bar-head">
+        <strong>{label}</strong>
+        {money ? null : <small>/ 百万 tokens</small>}
+        <div className={`est-bar-delta is-${dir}`}>
+          <TrendMark dir={dir} />
+          {dir === "down" && pct != null ? <em>低 {Math.abs(pct)}%</em> : null}
+          {dir === "up" && pct != null ? <em>高 {Math.abs(pct)}%</em> : null}
+        </div>
       </div>
-      <strong className="est-pillar-name">{label}</strong>
-      {money ? null : <small className="est-pillar-unit">/ 百万 tokens</small>}
-      <div className="est-pillar-prices">
+      <div className="est-bar-body">
         <span className="is-ours">{fmt(ours)}</span>
+        <div
+          className="est-bar-track"
+          role="img"
+          aria-label={`${label} 本站 ${fmt(ours)}，官方 ${fmt(official)}`}
+        >
+          <div className="est-seg is-ours" style={{ flexGrow: share.ours }} />
+          <div className="est-seg is-official" style={{ flexGrow: share.official }} />
+        </div>
         <span className="is-official">{fmt(official)}</span>
-      </div>
-      <div className={`est-pillar-delta is-${dir}`}>
-        <TrendMark dir={dir} />
-        {dir === "down" && pct != null ? <em>低 {Math.abs(pct)}%</em> : null}
-        {dir === "up" && pct != null ? <em>高 {Math.abs(pct)}%</em> : null}
       </div>
     </div>
   );
@@ -254,23 +250,23 @@ export default function PortalEstimatePage() {
                       官方 · {vendorLabel(official.vendor, official.vendorLabel)} · {official.model}
                     </span>
                   </div>
-                  <div className="est-pillars">
-                    <ComparePillar
+                  <div className="est-bars">
+                    <CompareBar
                       label="输入"
                       ours={model.inputPer1m}
                       official={official.inputPer1m}
                     />
-                    <ComparePillar
+                    <CompareBar
                       label="输出"
                       ours={model.outputPer1m}
                       official={official.outputPer1m}
                     />
-                    <ComparePillar
+                    <CompareBar
                       label="缓存"
                       ours={model.cacheHitPer1m}
                       official={official.cacheHitPer1m}
                     />
-                    <ComparePillar
+                    <CompareBar
                       label="合计"
                       ours={ours}
                       official={cmp?.official ?? 0}
