@@ -5347,11 +5347,12 @@ html[data-theme="dark"] .portal-user-dropdown button:hover {
 .portal-recipe-guide {
   font-size: 13px;
   font-weight: 650;
-  color: var(--muted);
-  text-decoration: none;
+  color: #4f46e5;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 .portal-recipe-guide:hover {
-  color: var(--accent);
+  color: #4338ca;
 }
 .portal-recipe-hint {
   margin: 12px 0 10px;

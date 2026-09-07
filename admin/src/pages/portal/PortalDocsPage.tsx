@@ -271,7 +271,7 @@ function RecipeCard({
               target="_blank"
               rel="noreferrer"
             >
-              教程
+              点我获取教程
             </a>
           ) : null}
           <button className="portal-btn ghost sm" type="button" onClick={onCopy}>
