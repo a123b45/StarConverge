@@ -5896,8 +5896,47 @@ html[data-theme="dark"] .portal-bar-tip::after {
   font-weight: 650;
   word-break: break-all;
 }
+.portal-docs-examples {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+.portal-docs-examples > div {
+  background: var(--bg-soft);
+  border-radius: 10px;
+  padding: 12px;
+}
+.portal-docs-examples strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+.portal-docs-examples p {
+  margin: 0 0 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.portal-docs-examples p em {
+  font-style: normal;
+  font-weight: 700;
+  color: var(--text);
+}
+.portal-docs-examples > div > code {
+  display: block;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #07111f;
+  color: #e2e8f0;
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 @media (max-width: 720px) {
-  .portal-docs-kv {
+  .portal-docs-kv,
+  .portal-docs-examples {
     grid-template-columns: 1fr;
   }
 }

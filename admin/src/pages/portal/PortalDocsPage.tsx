@@ -157,15 +157,44 @@ wire_api = "chat"`;
         </RecipeCard>
       </div>
 
+      <div className="portal-panel">
+        <div className="portal-panel-head">
+          <h3>curl</h3>
+          <button
+            className="portal-btn ghost sm"
+            type="button"
+            onClick={() => void copy(curlExample, "curl")}
+          >
+            {copied === "curl" ? "已复制" : "复制"}
+          </button>
+        </div>
+        <pre className="portal-code">{curlExample}</pre>
+      </div>
+
+      <div className="portal-panel">
+        <div className="portal-panel-head">
+          <h3>Python（OpenAI SDK）</h3>
+          <button
+            className="portal-btn ghost sm"
+            type="button"
+            onClick={() => void copy(pythonExample, "py")}
+          >
+            {copied === "py" ? "已复制" : "复制"}
+          </button>
+        </div>
+        <pre className="portal-code">{pythonExample}</pre>
+      </div>
+
       <div className="portal-panel portal-docs-callout">
-        <h3>两个协议，同一把 KEY</h3>
+        <h3>适配多种接入协议</h3>
+        <p>一把 sk-sc- 密钥两边都能用，差别只在填的地址：有的软件认 Anthropic，有的认 OpenAI。</p>
         <div className="portal-docs-kv">
           <div>
-            <span>OpenAI Compatible</span>
+            <span>OpenAI 兼容地址</span>
             <strong>{openaiBase}</strong>
           </div>
           <div>
-            <span>Anthropic Messages</span>
+            <span>Anthropic 地址</span>
             <strong>{anthropicBase}</strong>
           </div>
           <div>
@@ -179,10 +208,30 @@ wire_api = "chat"`;
             </strong>
           </div>
         </div>
-        <p className="muted" style={{ marginTop: 10 }}>
-          Claude Code / Claude Desktop 用 Anthropic Base URL（站点根地址）。Cursor、Codex、Python
-          OpenAI SDK 用 {openaiBase}。
-        </p>
+        <div className="portal-docs-examples">
+          <div>
+            <strong>例子：Claude Code / Claude Desktop</strong>
+            <p>
+              这类软件走 Anthropic 协议，Base URL 填网站根地址，<em>不要</em>加 <code>/v1</code>。
+            </p>
+            <code>
+              ANTHROPIC_BASE_URL={anthropicBase}
+              {"\n"}
+              ANTHROPIC_AUTH_TOKEN=sk-sc-你的密钥
+            </code>
+          </div>
+          <div>
+            <strong>例子：Cursor / Codex / Python</strong>
+            <p>
+              这类软件走 OpenAI 协议，Base URL 要带 <code>/v1</code>，少写了会连不上。
+            </p>
+            <code>
+              OPENAI_BASE_URL={openaiBase}
+              {"\n"}
+              OPENAI_API_KEY=sk-sc-你的密钥
+            </code>
+          </div>
+        </div>
       </div>
 
       <div className="portal-panel">
@@ -211,34 +260,6 @@ wire_api = "chat"`;
         ) : (
           <p className="muted">暂无已同步模型，请联系管理员在「模型管理」中同步后再试。</p>
         )}
-      </div>
-
-      <div className="portal-panel">
-        <div className="portal-panel-head">
-          <h3>curl</h3>
-          <button
-            className="portal-btn ghost sm"
-            type="button"
-            onClick={() => void copy(curlExample, "curl")}
-          >
-            {copied === "curl" ? "已复制" : "复制"}
-          </button>
-        </div>
-        <pre className="portal-code">{curlExample}</pre>
-      </div>
-
-      <div className="portal-panel">
-        <div className="portal-panel-head">
-          <h3>Python（OpenAI SDK）</h3>
-          <button
-            className="portal-btn ghost sm"
-            type="button"
-            onClick={() => void copy(pythonExample, "py")}
-          >
-            {copied === "py" ? "已复制" : "复制"}
-          </button>
-        </div>
-        <pre className="portal-code">{pythonExample}</pre>
       </div>
     </div>
   );
