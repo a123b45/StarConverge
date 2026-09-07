@@ -48,10 +48,17 @@ function statusLabel(s: CardRow["status"]) {
   return "未使用";
 }
 
+const PAGE_SIZE = 10;
+
 export default function CardKeysPage() {
   const [rows, setRows] = useState<CardRow[]>([]);
   const [users, setUsers] = useState<UserOpt[]>([]);
   const [q, setQ] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "unused" | "used">(
+    "all",
+  );
+  const [amountFilter, setAmountFilter] = useState("all");
+  const [page, setPage] = useState(1);
   const [error, setError] = useState("");
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -80,16 +87,42 @@ export default function CardKeysPage() {
     void load();
   }, []);
 
+  const amountOptions = useMemo(() => {
+    const amounts = [...new Set(rows.map((r) => r.amount))]
+      .filter((n) => Number.isFinite(n))
+      .sort((a, b) => a - b);
+    return [
+      { value: "all", label: "激活余额：全部" },
+      ...amounts.map((n) => ({
+        value: String(n),
+        label: `激活余额：${money(n)}`,
+      })),
+    ];
+  }, [rows]);
+
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
-    if (!s) return rows;
-    return rows.filter(
-      (r) =>
+    const amountN =
+      amountFilter === "all" ? null : Number(amountFilter);
+    return rows.filter((r) => {
+      if (statusFilter === "unused" && r.status !== "unused") return false;
+      if (statusFilter === "used" && r.status !== "used") return false;
+      if (amountN != null && Math.abs(r.amount - amountN) > 0.0005) return false;
+      if (!s) return true;
+      return (
         r.code.toLowerCase().includes(s) ||
         (r.boundUsername ?? "").toLowerCase().includes(s) ||
-        (r.redeemedUsername ?? "").toLowerCase().includes(s),
-    );
-  }, [rows, q]);
+        (r.redeemedUsername ?? "").toLowerCase().includes(s)
+      );
+    });
+  }, [rows, q, statusFilter, amountFilter]);
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageRows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  useEffect(() => {
+    if (page > pageCount) setPage(pageCount);
+  }, [page, pageCount]);
 
   const userOptions = useMemo(
     () => [
@@ -164,12 +197,6 @@ export default function CardKeysPage() {
           <p>门户可兑换卡密。也可拿到发卡站发货，或到客户管理直接加余额</p>
         </div>
         <div className="row-actions">
-          <input
-            className="search"
-            placeholder="搜索卡密或用户…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
           <button
             className="btn"
             onClick={() => {
@@ -180,6 +207,42 @@ export default function CardKeysPage() {
             + 创建卡密
           </button>
         </div>
+      </div>
+
+      <div className="toolbar km-filters">
+        <SoftSelect
+          className="soft-select-filter soft-select-sm"
+          ariaLabel="激活状态"
+          value={statusFilter}
+          onChange={(v) => {
+            setStatusFilter(v as "all" | "unused" | "used");
+            setPage(1);
+          }}
+          options={[
+            { value: "all", label: "激活状态：全部" },
+            { value: "unused", label: "激活状态：未使用" },
+            { value: "used", label: "激活状态：已使用" },
+          ]}
+        />
+        <SoftSelect
+          className="soft-select-filter soft-select-sm"
+          ariaLabel="激活余额"
+          value={amountFilter}
+          onChange={(v) => {
+            setAmountFilter(v);
+            setPage(1);
+          }}
+          options={amountOptions}
+        />
+        <input
+          className="search"
+          placeholder="搜索卡密或用户…"
+          value={q}
+          onChange={(e) => {
+            setQ(e.target.value);
+            setPage(1);
+          }}
+        />
       </div>
 
       {error && !open ? <div className="alert">{error}</div> : null}
@@ -200,7 +263,7 @@ export default function CardKeysPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((r) => (
+              {pageRows.map((r) => (
                 <tr key={r.id}>
                   <td className="mono">{r.code}</td>
                   <td>{money(r.amount)}</td>
@@ -254,7 +317,7 @@ export default function CardKeysPage() {
                   </td>
                 </tr>
               ))}
-              {!filtered.length ? (
+              {!pageRows.length ? (
                 <tr>
                   <td colSpan={8} className="empty">
                     暂无卡密
@@ -263,6 +326,32 @@ export default function CardKeysPage() {
               ) : null}
             </tbody>
           </table>
+        </div>
+        <div className="pricing-footer">
+          <span>
+            共 {filtered.length} 条 · 每页 {PAGE_SIZE} 条
+          </span>
+          <div className="row-actions">
+            <span>
+              当前页码 {page}/{pageCount}
+            </span>
+            <button
+              type="button"
+              className="btn ghost sm"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              ‹
+            </button>
+            <button
+              type="button"
+              className="btn ghost sm"
+              disabled={page >= pageCount}
+              onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+            >
+              ›
+            </button>
+          </div>
         </div>
       </div>
 
