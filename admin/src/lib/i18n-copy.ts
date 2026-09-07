@@ -99,9 +99,9 @@ export const ZH = {
   "bills.lead": "查看本账户的卡密兑换记录",
 
   "login.heroTitle": "API 中转。",
-  "login.heroSub": "按量卖 Token。",
+  "login.heroSub": "低价 Token。",
   "login.heroLead": "充值买 Token，一钥调用多家模型。OpenAI 兼容，即开即用。",
-  "login.f1": "充值买量",
+  "login.f1": "对比官方渠道 70%",
   "login.f1b": "卡密兑换余额，按 token 用量扣费",
   "login.f2": "一钥多模",
   "login.f2b": "一个密钥调用 GPT、Claude、Gemini 等",
@@ -208,9 +208,9 @@ export const EN: Record<MsgKey, string> = {
   "bills.lead": "Card-code redemptions on this account",
 
   "login.heroTitle": "An API relay.",
-  "login.heroSub": "Tokens sold by usage.",
+  "login.heroSub": "Low-price tokens.",
   "login.heroLead": "Top up, then call many models with one key. OpenAI-compatible and ready to use.",
-  "login.f1": "Pay as you go",
+  "login.f1": "About 70% of official list price",
   "login.f1b": "Redeem a card into balance, then pay per token",
   "login.f2": "One key, many models",
   "login.f2b": "Call GPT, Claude, Gemini, and more",

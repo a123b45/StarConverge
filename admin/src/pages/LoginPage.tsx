@@ -52,7 +52,7 @@ export default function LoginPage() {
           <h1>
             API 中转。
             <br />
-            <span>按量卖 Token。</span>
+            <span>低价 Token。</span>
           </h1>
           <p className="auth-hero-lead">
             充值买 Token，一钥调用多家模型。OpenAI 兼容，即开即用。
@@ -61,7 +61,7 @@ export default function LoginPage() {
             <li>
               <span className="check" aria-hidden />
               <div>
-                <strong>充值买量</strong>
+                <strong>对比官方渠道 70%</strong>
                 <p>卡密兑换余额，按 token 用量扣费</p>
               </div>
             </li>
