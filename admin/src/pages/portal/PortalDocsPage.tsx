@@ -28,8 +28,6 @@ export default function PortalDocsPage() {
   );
 
   const sampleModel = modelIds[0] || "your-model-id";
-  const claudeModel =
-    modelIds.find((id) => /claude/i.test(id)) || sampleModel;
 
   const curlExample = `curl ${openaiBase}/chat/completions \\
   -H "Authorization: Bearer sk-sc-..." \\
@@ -60,23 +58,15 @@ print(resp.choices[0].message.content)`;
 }`;
 
   const claudeCodeRecipe = `export ANTHROPIC_BASE_URL="${anthropicBase}"
-export ANTHROPIC_AUTH_TOKEN="<YOUR_API_KEY>"
-# Claude Code 会请求 ${anthropicBase}/v1/messages
-# 模型填广场里的 ID，例如 ${claudeModel}`;
+export ANTHROPIC_AUTH_TOKEN="<YOUR_API_KEY>"`;
 
-  const codexRecipe = `# ~/.codex/config.toml
-model = "${sampleModel}"
+  const codexRecipe = `model = "${sampleModel}"
 model_provider = "custom"
 
 [model_providers.custom]
-name = "custom"
 base_url = "${openaiBase}"
 env_key = "OPENAI_API_KEY"
-wire_api = "chat"
-
-# 终端里设置密钥后启动
-# export OPENAI_API_KEY="<YOUR_API_KEY>"
-# codex`;
+wire_api = "chat"`;
 
   const guides = {
     cursor: "https://cursor.com/docs/settings/api-keys",
@@ -140,29 +130,29 @@ wire_api = "chat"
       <div className="portal-recipe-grid">
         <RecipeCard
           title="Cursor"
+          hint="Settings → Models → 填 OpenAI API Key，打开 Override Base URL。"
           copied={copied === "cursor"}
           onCopy={() => void copy(cursorRecipe, "cursor")}
           guideHref={guides.cursor}
         >
-          <p>Settings → Models → OpenAI API Key，打开 Override Base URL。</p>
           <pre className="portal-code">{cursorRecipe}</pre>
         </RecipeCard>
         <RecipeCard
           title="Claude Code"
+          hint="Anthropic 协议走 /v1/messages，Base URL 用站点根地址，不要带 /v1。"
           copied={copied === "claude"}
           onCopy={() => void copy(claudeCodeRecipe, "claude")}
           guideHref={guides.claude}
         >
-          <p>Anthropic 协议走 /v1/messages，Base URL 不要带 /v1。</p>
           <pre className="portal-code">{claudeCodeRecipe}</pre>
         </RecipeCard>
         <RecipeCard
           title="Codex"
+          hint="写入 ~/.codex/config.toml，再 export OPENAI_API_KEY 后运行 codex。"
           copied={copied === "codex"}
           onCopy={() => void copy(codexRecipe, "codex")}
           guideHref={guides.codex}
         >
-          <p>写入 ~/.codex/config.toml，用 OpenAI 兼容接口。模型填广场里的 ID。</p>
           <pre className="portal-code">{codexRecipe}</pre>
         </RecipeCard>
       </div>
@@ -256,25 +246,27 @@ wire_api = "chat"
 
 function RecipeCard({
   title,
+  hint,
   copied,
   onCopy,
   guideHref,
   children,
 }: {
   title: string;
+  hint: string;
   copied: boolean;
   onCopy: () => void;
   guideHref?: string;
   children: ReactNode;
 }) {
   return (
-    <div className="portal-panel portal-recipe">
-      <div className="portal-panel-head">
+    <article className="portal-panel portal-recipe">
+      <header className="portal-recipe-head">
         <h3>{title}</h3>
         <div className="portal-recipe-actions">
           {guideHref ? (
             <a
-              className="portal-btn ghost sm"
+              className="portal-recipe-guide"
               href={guideHref}
               target="_blank"
               rel="noreferrer"
@@ -286,8 +278,9 @@ function RecipeCard({
             {copied ? "已复制" : "复制"}
           </button>
         </div>
-      </div>
+      </header>
+      <p className="portal-recipe-hint">{hint}</p>
       {children}
-    </div>
+    </article>
   );
 }

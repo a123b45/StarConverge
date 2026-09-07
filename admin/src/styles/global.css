@@ -5310,16 +5310,65 @@ html[data-theme="dark"] .portal-user-dropdown button:hover {
 .portal-recipe-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: 16px;
+  margin-bottom: 20px;
+  align-items: stretch;
 }
-.portal-recipe .portal-code {
-  font-size: 12px;
+.portal-recipe {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin-bottom: 0;
+  padding: 16px;
+}
+.portal-recipe-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  margin-bottom: 0;
+  border-bottom: 1px solid var(--line);
+}
+.portal-recipe-head h3 {
+  margin: 0;
+  min-width: 0;
+  font-size: 16px;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
 }
 .portal-recipe-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.portal-recipe-guide {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--muted);
+  text-decoration: none;
+}
+.portal-recipe-guide:hover {
+  color: var(--accent);
+}
+.portal-recipe-hint {
+  margin: 12px 0 10px;
+  min-height: 2.7em;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+.portal-recipe .portal-code {
+  font-size: 12px;
+  line-height: 1.6;
+  padding: 14px 14px 16px;
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  overflow-x: hidden;
 }
 .portal-usage-filters {
   flex-wrap: wrap;
