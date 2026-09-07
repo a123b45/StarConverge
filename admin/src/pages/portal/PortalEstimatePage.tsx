@@ -5,7 +5,6 @@ import {
   estimateCostUsd,
   formatPerMillion,
   type PortalModel,
-  type PriceQuote,
 } from "../../lib/portal-models";
 import {
   OFFICIAL_VENDORS,
@@ -30,75 +29,54 @@ function priceDelta(ours: number, official: number): "down" | "up" | "same" {
   return gap > 0 ? "down" : "up";
 }
 
-function RateItem({
-  label,
-  value,
-  versus,
-}: {
-  label: string;
-  value: number;
-  versus?: number;
-}) {
-  const delta = versus == null ? "same" : priceDelta(value, versus);
+function TrendMark({ dir }: { dir: "down" | "up" | "same" }) {
+  if (dir === "same") return <span className="est-mark is-same">持平</span>;
   return (
-    <div className={`portal-estimate-rate-item${delta !== "same" ? ` is-${delta}` : ""}`}>
-      <span>{label}</span>
-      <strong>
-        {rateAmount(value)}
-        {delta === "down" ? (
-          <IconTrendDown size={12} />
-        ) : delta === "up" ? (
-          <IconTrendUp size={12} />
-        ) : null}
-      </strong>
-      <small>/ 百万 tokens</small>
-    </div>
+    <span className={`est-mark is-${dir}`}>
+      {dir === "down" ? <IconTrendDown size={11} /> : <IconTrendUp size={11} />}
+    </span>
   );
 }
 
-function RateBoard({
-  title,
-  hint,
-  quote,
-  kind,
-  versus,
+function CompareRow({
+  label,
+  ours,
+  official,
+  money,
 }: {
-  title: string;
-  hint?: string;
-  quote: PriceQuote;
-  kind: "ours" | "official";
-  versus?: PriceQuote | null;
+  label: string;
+  ours: number | null;
+  official: number | null;
+  money?: boolean;
 }) {
+  const delta =
+    ours == null || official == null ? "same" : priceDelta(ours, official);
+  const pct =
+    ours != null && official && official > 0
+      ? Math.round(((official - ours) / official) * 100)
+      : null;
+  const fmt = (n: number) => (money ? formatUsd(n) : rateAmount(n));
   return (
-    <div className={`portal-estimate-rate ${kind}`}>
-      <div className="portal-estimate-rate-head">
-        <span>{title}</span>
-        {hint ? <em>{hint}</em> : null}
+    <div className={`est-row${money ? " is-total" : ""}`}>
+      <div className="est-label">{label}</div>
+      <div className="est-cell ours">
+        <strong>{ours == null ? "—" : fmt(ours)}</strong>
+        {money ? null : <small>/ 百万 tokens</small>}
       </div>
-      <div className="portal-estimate-rate-items">
-        <RateItem
-          label="输入"
-          value={quote.inputPer1m}
-          versus={versus?.inputPer1m}
-        />
-        <RateItem
-          label="输出"
-          value={quote.outputPer1m}
-          versus={versus?.outputPer1m}
-        />
-        <RateItem
-          label="缓存"
-          value={quote.cacheHitPer1m}
-          versus={versus?.cacheHitPer1m}
-        />
+      <div className="est-cell official">
+        <strong>{official == null ? "—" : fmt(official)}</strong>
+        {money ? null : <small>/ 百万 tokens</small>}
+      </div>
+      <div className={`est-delta is-${delta}`}>
+        <TrendMark dir={delta} />
+        {delta === "down" && pct != null ? <em>低 {Math.abs(pct)}%</em> : null}
+        {delta === "up" && pct != null ? <em>高 {Math.abs(pct)}%</em> : null}
       </div>
     </div>
   );
 }
 
 type OfficialCatalog = {
-  source?: string;
-  fetchedAt?: string | null;
   vendors?: Array<{ id: OfficialVendor; label: string }>;
   data: OfficialQuote[];
 };
@@ -166,12 +144,10 @@ export default function PortalEstimatePage() {
     model && official ? compareCost(model, official, promptN, completionN, cacheN) : null;
 
   return (
-    <div className="portal-page">
-      <div className="portal-hero">
-        <div>
-          <h1>计费预估</h1>
-          <p>用同一段 tokens 算本站费用，再对照厂商官方公开价，看这次能少花多少。</p>
-        </div>
+    <div className="portal-page est-page">
+      <div className="est-hero">
+        <p className="est-kicker">本站 · 官方公开价</p>
+        <h1>计费预估</h1>
       </div>
 
       {error ? <div className="alert">{error}</div> : null}
@@ -182,8 +158,8 @@ export default function PortalEstimatePage() {
           <p>管理员同步模型后即可在这里试算。</p>
         </div>
       ) : (
-        <div className="portal-panel">
-          <div className="portal-estimate-grid">
+        <div className="est-sheet">
+          <div className="est-controls">
             <label className="stack-field">
               <span>本站模型</span>
               <SoftSelect
@@ -242,44 +218,69 @@ export default function PortalEstimatePage() {
 
           {model ? (
             <>
-              <div
-                className={`portal-estimate-rates${official ? "" : " is-single"}`}
-              >
-                <RateBoard title="本站单价" quote={model} kind="ours" versus={official} />
-                {official ? (
-                  <RateBoard
-                    title="官方单价"
-                    hint={`${vendorLabel(official.vendor, official.vendorLabel)} · ${official.model}`}
-                    quote={official}
-                    kind="official"
-                  />
-                ) : null}
+              <div className="est-board">
+                <div className="est-row est-head">
+                  <div className="est-label" />
+                  <div className="est-cell ours">
+                    <span className="est-col">
+                      <i className="est-dot ours" />
+                      本站
+                    </span>
+                  </div>
+                  <div className="est-cell official">
+                    <span className="est-col">
+                      <i className="est-dot official" />
+                      官方
+                    </span>
+                    {official ? (
+                      <small>
+                        {vendorLabel(official.vendor, official.vendorLabel)} · {official.model}
+                      </small>
+                    ) : null}
+                  </div>
+                  <div className="est-delta">对比</div>
+                </div>
+                <CompareRow
+                  label="输入"
+                  ours={model.inputPer1m}
+                  official={official?.inputPer1m ?? null}
+                />
+                <CompareRow
+                  label="输出"
+                  ours={model.outputPer1m}
+                  official={official?.outputPer1m ?? null}
+                />
+                <CompareRow
+                  label="缓存"
+                  ours={model.cacheHitPer1m}
+                  official={official?.cacheHitPer1m ?? null}
+                />
+                <CompareRow
+                  label="合计"
+                  ours={ours}
+                  official={cmp?.official ?? null}
+                  money
+                />
               </div>
-              <div className="portal-estimate-compare">
-                <div className="portal-estimate-result">
-                  <span>本站预估</span>
-                  <strong>{formatUsd(ours)}</strong>
+
+              {cmp ? (
+                <div className={`est-save${cmp.cheaper ? " is-win" : " is-loss"}`}>
+                  <TrendMark dir={cmp.cheaper ? "down" : "up"} />
+                  <div>
+                    <strong>
+                      {cmp.cheaper ? "这次少花" : "这次多花"}{" "}
+                      {formatUsd(Math.abs(cmp.saved))}
+                    </strong>
+                    <p>
+                      {cmp.cheaper
+                        ? `比官方公开价低 ${formatSavePct(cmp.pct)}`
+                        : "换一个官方模型再比一次"}
+                    </p>
+                  </div>
                 </div>
-                <div className="portal-estimate-result official">
-                  <span>官方预估</span>
-                  <strong>{cmp ? formatUsd(cmp.official) : "—"}</strong>
-                </div>
-                <div className={`portal-estimate-result save${cmp?.cheaper ? " is-win" : cmp ? " is-loss" : ""}`}>
-                  <span>{cmp?.cheaper ? "这次少花" : "差额"}</span>
-                  <strong>
-                    {cmp?.cheaper ? <IconTrendDown size={18} /> : cmp ? <IconTrendUp size={18} /> : null}
-                    {cmp
-                      ? `${cmp.cheaper ? "−" : "+"}${formatUsd(Math.abs(cmp.saved))}`
-                      : "—"}
-                  </strong>
-                  {cmp?.cheaper ? (
-                    <em>比官方少 {formatSavePct(cmp.pct)}</em>
-                  ) : (
-                    <em>换一个官方模型再比一次</em>
-                  )}
-                </div>
-              </div>
-              <div className="portal-empty-actions" style={{ marginTop: 16 }}>
+              ) : null}
+
+              <div className="est-actions">
                 <Link
                   className="portal-btn"
                   to={`/app/chat?model=${encodeURIComponent(model.model)}`}

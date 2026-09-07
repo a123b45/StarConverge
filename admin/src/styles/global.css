@@ -5020,148 +5020,229 @@ html[data-theme="dark"] .portal-user-dropdown button:hover {
 .portal-retired-fold {
   margin-top: 18px;
 }
+.est-page {
+  --est-ink: #16141c;
+  --est-quiet: #5c5866;
+  --est-line: #e7e5ee;
+  --est-ours: #5b4cff;
+  --est-official: #2a3140;
+  --est-down: #0f7a4f;
+  --est-up: #c2412d;
+  --est-ours-bg: #f7f6ff;
+  --est-official-bg: #f4f5f8;
+}
+.est-hero {
+  margin-bottom: 20px;
+}
+.est-kicker {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--est-quiet);
+}
+.est-hero h1 {
+  margin: 0;
+  font-size: 28px;
+  letter-spacing: -0.04em;
+  color: var(--est-ink);
+  line-height: 1.15;
+}
+.est-sheet {
+  background: var(--bg-elevated);
+  border: 1px solid var(--est-line);
+  border-radius: 16px;
+  padding: 22px 22px 20px;
+}
+.est-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px 16px;
+}
+.est-controls .stack-field {
+  margin-bottom: 0;
+}
+.est-controls .stack-field > span {
+  color: var(--est-ink);
+  font-size: 12px;
+  font-weight: 700;
+}
+.est-board {
+  margin-top: 22px;
+  border: 1px solid var(--est-line);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.est-row {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) minmax(0, 1fr) 108px;
+  align-items: center;
+  min-height: 72px;
+  border-top: 1px solid var(--est-line);
+}
+.est-row:first-child {
+  border-top: 0;
+}
+.est-head {
+  min-height: 56px;
+  background: #fafafa;
+}
+.est-row.is-total {
+  background: #fafafa;
+  min-height: 80px;
+}
+.est-label {
+  padding: 0 14px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--est-quiet);
+  letter-spacing: 0.04em;
+}
+.est-cell {
+  padding: 12px 16px;
+  min-width: 0;
+}
+.est-cell.ours {
+  background: var(--est-ours-bg);
+}
+.est-cell.official {
+  background: var(--est-official-bg);
+}
+.est-cell strong {
+  display: block;
+  font-size: 22px;
+  font-weight: 750;
+  letter-spacing: -0.045em;
+  font-variant-numeric: tabular-nums;
+  color: var(--est-ink);
+  line-height: 1.15;
+}
+.est-row.is-total .est-cell strong {
+  font-size: 26px;
+}
+.est-cell small,
+.est-head .est-cell.official small {
+  display: block;
+  margin-top: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--est-quiet);
+  line-height: 1.35;
+}
+.est-col {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 750;
+  color: var(--est-ink);
+}
+.est-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--est-official);
+}
+.est-dot.ours {
+  background: var(--est-ours);
+}
+.est-delta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 12px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--est-quiet);
+}
+.est-delta em {
+  font-style: normal;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+.est-delta.is-down em {
+  color: var(--est-down);
+}
+.est-delta.is-up em {
+  color: var(--est-up);
+}
+.est-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 750;
+}
+.est-mark.is-down {
+  background: #e8f6ee;
+  color: var(--est-down);
+}
+.est-mark.is-up {
+  background: #fdeceb;
+  color: var(--est-up);
+}
+.est-mark.is-same {
+  width: auto;
+  height: auto;
+  padding: 2px 8px;
+  background: #eeeef2;
+  color: var(--est-quiet);
+}
+.est-save {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--est-line);
+}
+.est-save strong {
+  display: block;
+  font-size: 16px;
+  letter-spacing: -0.03em;
+  color: var(--est-ink);
+}
+.est-save p {
+  margin: 3px 0 0;
+  font-size: 13px;
+  color: var(--est-quiet);
+}
+.est-save.is-win {
+  background: #f1faf5;
+  border-color: #cdead9;
+}
+.est-save.is-win strong {
+  color: var(--est-down);
+}
+.est-save.is-loss {
+  background: #fdf4f3;
+  border-color: #f3d4d0;
+}
+.est-save.is-loss strong {
+  color: var(--est-up);
+}
+.est-save .est-mark {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+}
+.est-actions {
+  display: flex;
+  justify-content: flex-start;
+  gap: 10px;
+  margin-top: 18px;
+  flex-wrap: wrap;
+}
 .portal-estimate-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
-}
-.portal-estimate-compare {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 16px;
-}
-.portal-estimate-result {
-  margin-top: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-  padding: 14px 16px;
-  border-radius: 12px;
-  border: 1px solid var(--line);
-  background: color-mix(in srgb, #6d5efc 8%, var(--bg-elevated));
-}
-.portal-estimate-result.official {
-  background: color-mix(in srgb, #f59e0b 14%, var(--bg-elevated));
-  border-color: color-mix(in srgb, #d97706 35%, var(--line));
-}
-.portal-estimate-result.official > span {
-  color: #9a3412;
-  font-weight: 750;
-}
-.portal-estimate-result.save.is-win {
-  background: color-mix(in srgb, #10b981 12%, var(--bg-elevated));
-  border-color: color-mix(in srgb, #10b981 28%, var(--line));
-  color: #047857;
-}
-.portal-estimate-result.save.is-loss {
-  background: color-mix(in srgb, #ef4444 10%, var(--bg-elevated));
-  border-color: color-mix(in srgb, #ef4444 28%, var(--line));
-  color: #b91c1c;
-}
-.portal-estimate-result em {
-  font-style: normal;
-  font-size: 12px;
-  color: var(--muted);
-  font-weight: 550;
-}
-.portal-estimate-result.save.is-win em {
-  color: #047857;
-}
-.portal-estimate-result.save.is-loss em {
-  color: #b91c1c;
-}
-.portal-estimate-result.save strong {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-.portal-estimate-result strong {
-  font-size: 22px;
-  letter-spacing: -0.03em;
-}
-.portal-estimate-rates {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-top: 16px;
-}
-.portal-estimate-rates.is-single {
-  grid-template-columns: 1fr;
-}
-.portal-estimate-rate {
-  padding: 14px 16px;
-  border-radius: 12px;
-  border: 1px solid var(--line);
-  background: color-mix(in srgb, #6d5efc 10%, var(--bg-elevated));
-}
-.portal-estimate-rate.official {
-  background: color-mix(in srgb, #f59e0b 14%, var(--bg-elevated));
-  border-color: color-mix(in srgb, #d97706 35%, var(--line));
-}
-.portal-estimate-rate.official .portal-estimate-rate-head span {
-  color: #9a3412;
-}
-.portal-estimate-rate-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-.portal-estimate-rate-head span {
-  font-size: 13px;
-  font-weight: 750;
-  color: var(--text);
-}
-.portal-estimate-rate-head em {
-  font-style: normal;
-  font-size: 12px;
-  color: var(--muted);
-  font-weight: 600;
-}
-.portal-estimate-rate-items {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-.portal-estimate-rate-item {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-.portal-estimate-rate-item span {
-  font-size: 11px;
-  font-weight: 700;
-  color: #5b52d6;
-  letter-spacing: 0.04em;
-}
-.portal-estimate-rate.official .portal-estimate-rate-item span {
-  color: #c2410c;
-}
-.portal-estimate-rate-item strong {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 20px;
-  font-weight: 800;
-  letter-spacing: -0.04em;
-  font-variant-numeric: tabular-nums;
-  color: var(--text);
-  line-height: 1.15;
-}
-.portal-estimate-rate-item.is-down strong {
-  color: #047857;
-}
-.portal-estimate-rate-item.is-up strong {
-  color: #b91c1c;
-}
-.portal-estimate-rate-item small {
-  font-size: 11px;
-  color: var(--muted);
-  font-weight: 600;
 }
 .portal-jump-link {
   display: inline-flex;
@@ -5236,9 +5317,14 @@ html[data-theme="dark"] .portal-user-dropdown button:hover {
 @media (max-width: 900px) {
   .portal-recipe-grid,
   .portal-estimate-grid,
-  .portal-estimate-compare,
-  .portal-estimate-rates {
+  .est-controls {
     grid-template-columns: 1fr;
+  }
+  .est-board {
+    overflow-x: auto;
+  }
+  .est-row {
+    min-width: 560px;
   }
 }
 
@@ -6450,33 +6536,37 @@ html[data-theme="dark"] .alert.ok {
   background: var(--ok-soft) !important;
   color: var(--ok) !important;
 }
-html[data-theme="dark"] .portal-save-bar,
-html[data-theme="dark"] .portal-estimate-result.save.is-win {
+html[data-theme="dark"] .portal-save-bar {
   background: color-mix(in srgb, #10b981 16%, var(--bg-elevated));
   color: #6ee7b7;
 }
-html[data-theme="dark"] .portal-estimate-result.save.is-loss {
-  background: color-mix(in srgb, #ef4444 18%, var(--bg-elevated));
-  color: #fca5a5;
+html[data-theme="dark"] .est-page {
+  --est-ink: #eceef4;
+  --est-quiet: #a8b0c0;
+  --est-line: var(--line);
+  --est-ours-bg: color-mix(in srgb, #5b4cff 16%, var(--bg-elevated));
+  --est-official-bg: var(--bg-soft);
 }
-html[data-theme="dark"] .portal-estimate-rate.official,
-html[data-theme="dark"] .portal-estimate-result.official {
-  background: color-mix(in srgb, #f59e0b 18%, var(--bg-elevated));
-  border-color: color-mix(in srgb, #f59e0b 40%, var(--line));
+html[data-theme="dark"] .est-head,
+html[data-theme="dark"] .est-row.is-total {
+  background: var(--bg-soft);
 }
-html[data-theme="dark"] .portal-estimate-rate.official .portal-estimate-rate-head span,
-html[data-theme="dark"] .portal-estimate-result.official > span,
-html[data-theme="dark"] .portal-estimate-rate.official .portal-estimate-rate-item span {
-  color: #fbbf24;
+html[data-theme="dark"] .est-save.is-win {
+  background: var(--ok-soft);
+  border-color: color-mix(in srgb, var(--ok) 35%, var(--line));
 }
-html[data-theme="dark"] .portal-estimate-rate-item span {
-  color: #a5b4fc;
+html[data-theme="dark"] .est-save.is-loss {
+  background: var(--danger-soft);
+  border-color: color-mix(in srgb, var(--danger) 35%, var(--line));
 }
-html[data-theme="dark"] .portal-estimate-rate-item.is-down strong {
-  color: #6ee7b7;
+html[data-theme="dark"] .est-mark.is-down {
+  background: var(--ok-soft);
 }
-html[data-theme="dark"] .portal-estimate-rate-item.is-up strong {
-  color: #fca5a5;
+html[data-theme="dark"] .est-mark.is-up {
+  background: var(--danger-soft);
+}
+html[data-theme="dark"] .est-mark.is-same {
+  background: var(--bg-soft);
 }
 html[data-theme="dark"] .portal-price-official {
   color: var(--muted);
