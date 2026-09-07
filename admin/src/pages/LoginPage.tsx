@@ -76,7 +76,7 @@ export default function LoginPage() {
               <span className="check" aria-hidden />
               <div>
                 <strong>即开即用</strong>
-                <p>填 Base URL，Cursor、ChatBox 直接接入</p>
+                <p>填 Base URL，Cursor、Claude Code、Codex 直接接入</p>
               </div>
             </li>
           </ul>
