@@ -8,9 +8,11 @@ import { db } from "../db/index.js";
 import { upstreamAccounts } from "../db/schema.js";
 import { config } from "../config.js";
 
-/** NewAPI: $1 remaining == 500_000 quota points. */
+/** NewAPI: 1 currency unit remaining == 500_000 quota points. */
 export const UPSTREAM_QUOTA_PER_USD = 500_000;
 export const UPSTREAM_POLL_MS = 5 * 60 * 1000;
+
+export type UpstreamCurrency = "cny" | "usd";
 
 export type UpstreamAccount = typeof upstreamAccounts.$inferSelect;
 
@@ -19,10 +21,19 @@ export type UpstreamAlert = {
   name: string;
   username: string;
   baseUrl: string;
+  balanceCurrency: UpstreamCurrency;
   balanceUsd: number;
   thresholdUsd: number;
   lastCheckedAt: string | null;
 };
+
+export function normalizeUpstreamCurrency(raw: unknown): UpstreamCurrency {
+  const v = String(raw ?? "")
+    .trim()
+    .toLowerCase();
+  if (v === "usd" || v === "dollar" || v === "$" || v === "美元") return "usd";
+  return "cny";
+}
 
 export function normalizeUpstreamOrigin(raw: string): string {
   const trimmed = raw.trim();
@@ -51,8 +62,13 @@ function maskPassword(value: string): string {
 }
 
 export function publicUpstreamAccount(row: UpstreamAccount) {
+  const balanceCurrency = normalizeUpstreamCurrency(row.balanceCurrency);
   const balanceUsd = milliToUsd(row.lastBalanceUsdMilli);
   const thresholdUsd = milliToUsd(row.alertThresholdUsdMilli);
+  const convertToCny = balanceCurrency !== "cny";
+  const balanceCny = convertToCny
+    ? Math.round(balanceUsd * config.epayCnyPerUsd * 10000) / 10000
+    : balanceUsd;
   const low =
     row.alertEnabled &&
     row.enabled &&
@@ -69,8 +85,10 @@ export function publicUpstreamAccount(row: UpstreamAccount) {
     alertEnabled: row.alertEnabled,
     alertThresholdUsd: thresholdUsd,
     lastQuota: row.lastQuota,
+    balanceCurrency,
+    convertToCny,
     balanceUsd,
-    balanceCny: Math.round(balanceUsd * config.epayCnyPerUsd * 10000) / 10000,
+    balanceCny,
     lastCheckedAt: row.lastCheckedAt ? new Date(row.lastCheckedAt).toISOString() : null,
     lastError: row.lastError || "",
     low,
@@ -235,6 +253,7 @@ export async function listUpstreamAlerts(): Promise<UpstreamAlert[]> {
       name: r.name,
       username: r.username,
       baseUrl: r.baseUrl,
+      balanceCurrency: normalizeUpstreamCurrency(r.balanceCurrency),
       balanceUsd: milliToUsd(r.lastBalanceUsdMilli),
       thresholdUsd: milliToUsd(r.alertThresholdUsdMilli),
       lastCheckedAt: r.lastCheckedAt ? new Date(r.lastCheckedAt).toISOString() : null,

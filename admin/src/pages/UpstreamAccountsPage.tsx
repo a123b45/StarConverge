@@ -14,6 +14,8 @@ type UpstreamRow = {
   alertEnabled: boolean;
   alertThresholdUsd: number;
   lastQuota: number | null;
+  balanceCurrency: "cny" | "usd";
+  convertToCny: boolean;
   balanceUsd: number;
   balanceCny: number;
   lastCheckedAt: string | null;
@@ -29,6 +31,7 @@ type FormState = {
   enabled: boolean;
   alertEnabled: boolean;
   alertThresholdUsd: string;
+  balanceCurrency: "cny" | "usd";
 };
 
 const emptyForm = (): FormState => ({
@@ -39,11 +42,12 @@ const emptyForm = (): FormState => ({
   enabled: true,
   alertEnabled: true,
   alertThresholdUsd: "1",
+  balanceCurrency: "cny",
 });
 
-function moneyUsd(n: number) {
+function moneyAmount(n: number, currency: "cny" | "usd") {
   const v = Number.isFinite(n) ? n : 0;
-  return `$${v.toFixed(4)}`;
+  return currency === "cny" ? `¥${v.toFixed(4)}` : `$${v.toFixed(4)}`;
 }
 
 function fmtTime(iso: string | null) {
@@ -88,6 +92,7 @@ export default function UpstreamAccountsPage() {
       enabled: row.enabled,
       alertEnabled: row.alertEnabled,
       alertThresholdUsd: String(row.alertThresholdUsd),
+      balanceCurrency: row.balanceCurrency === "usd" ? "usd" : "cny",
     });
     setError("");
     setOpen(true);
@@ -106,6 +111,7 @@ export default function UpstreamAccountsPage() {
         enabled: form.enabled,
         alertEnabled: form.alertEnabled,
         alertThresholdUsd: Number(form.alertThresholdUsd),
+        balanceCurrency: form.balanceCurrency,
       };
       if (editing) {
         await api(`/upstream-accounts/${editing.id}`, {
@@ -222,11 +228,13 @@ export default function UpstreamAccountsPage() {
                     ) : (
                       <div>
                         <strong className={r.low ? "up-balance-low" : ""}>
-                          {moneyUsd(r.balanceUsd)}
+                          {moneyAmount(r.balanceUsd, r.balanceCurrency === "usd" ? "usd" : "cny")}
                         </strong>
-                        <div className="muted" style={{ fontSize: 12 }}>
-                          约 ¥{r.balanceCny.toFixed(2)}
-                        </div>
+                        {r.convertToCny ? (
+                          <div className="muted" style={{ fontSize: 12 }}>
+                            约 ¥{r.balanceCny.toFixed(2)}
+                          </div>
+                        ) : null}
                       </div>
                     )}
                     {r.lastError ? (
@@ -239,8 +247,8 @@ export default function UpstreamAccountsPage() {
                     {r.alertEnabled ? (
                       <span className={`badge ${r.low ? "off" : "on"}`}>
                         {r.low
-                          ? `已低于 ${moneyUsd(r.alertThresholdUsd)}`
-                          : `阈值 ${moneyUsd(r.alertThresholdUsd)}`}
+                          ? `已低于 ${moneyAmount(r.alertThresholdUsd, r.balanceCurrency === "usd" ? "usd" : "cny")}`
+                          : `阈值 ${moneyAmount(r.alertThresholdUsd, r.balanceCurrency === "usd" ? "usd" : "cny")}`}
                       </span>
                     ) : (
                       <span className="badge off">未开启</span>
@@ -321,8 +329,22 @@ export default function UpstreamAccountsPage() {
                   autoComplete="new-password"
                 />
               </label>
+              <div className="stack-field">
+                <span>余额币种</span>
+                <SoftSelect
+                  ariaLabel="余额币种"
+                  value={form.balanceCurrency}
+                  onChange={(v) =>
+                    setForm({ ...form, balanceCurrency: v === "usd" ? "usd" : "cny" })
+                  }
+                  options={[
+                    { value: "cny", label: "人民币（按原值，不换算）" },
+                    { value: "usd", label: "美元（显示约合人民币）" },
+                  ]}
+                />
+              </div>
               <label>
-                告警阈值（美元）
+                {form.balanceCurrency === "usd" ? "告警阈值（美元）" : "告警阈值（人民币）"}
                 <input
                   inputMode="decimal"
                   value={form.alertThresholdUsd}

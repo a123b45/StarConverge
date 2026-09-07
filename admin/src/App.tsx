@@ -107,7 +107,13 @@ function AdminShell() {
   const [menuPerms, setMenuPerms] = useState<string[] | null>(null);
   const [roleLabel, setRoleLabel] = useState("管理员");
   const [stockAlerts, setStockAlerts] = useState<
-    Array<{ id: string; name: string; balanceUsd: number; thresholdUsd: number }>
+    Array<{
+      id: string;
+      name: string;
+      balanceUsd: number;
+      thresholdUsd: number;
+      balanceCurrency?: "cny" | "usd";
+    }>
   >([]);
   const [alertHiddenUntil, setAlertHiddenUntil] = useState(0);
 
@@ -137,6 +143,7 @@ function AdminShell() {
             name: string;
             balanceUsd: number;
             thresholdUsd: number;
+            balanceCurrency?: "cny" | "usd";
           }>;
         }>("/upstream-accounts/alerts");
         if (!cancelled) setStockAlerts(res.data ?? []);
@@ -324,10 +331,10 @@ function AdminShell() {
             <strong>上游余额不足</strong>
             <span>
               {stockAlerts
-                .map(
-                  (a) =>
-                    `「${a.name}」现有 $${a.balanceUsd.toFixed(4)}，低于 $${a.thresholdUsd.toFixed(2)}`,
-                )
+                .map((a) => {
+                  const unit = a.balanceCurrency === "usd" ? "$" : "¥";
+                  return `「${a.name}」现有 ${unit}${a.balanceUsd.toFixed(4)}，低于 ${unit}${a.thresholdUsd.toFixed(2)}`;
+                })
                 .join("；")}
               。每 5 分钟检查一次。
             </span>

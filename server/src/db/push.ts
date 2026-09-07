@@ -330,9 +330,18 @@ export function migrate() {
     last_balance_usd_milli INTEGER,
     last_checked_at INTEGER,
     last_error TEXT DEFAULT '',
+    balance_currency TEXT NOT NULL DEFAULT 'cny',
     created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000),
     updated_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
   )`);
+  const upstreamCols = sqlite.prepare(`PRAGMA table_info(upstream_accounts)`).all() as Array<{
+    name: string;
+  }>;
+  if (!upstreamCols.some((c) => c.name === "balance_currency")) {
+    sqlite.exec(
+      `ALTER TABLE upstream_accounts ADD COLUMN balance_currency TEXT NOT NULL DEFAULT 'cny'`,
+    );
+  }
   sqlite.exec(`CREATE TABLE IF NOT EXISTS user_notifications (
     id TEXT PRIMARY KEY,
     type TEXT NOT NULL,

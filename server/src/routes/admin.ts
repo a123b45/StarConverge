@@ -58,6 +58,7 @@ import { buildExcelXml } from "../utils/excel-xml.js";
 import { cardStatus, createCardKeys } from "../services/card-keys.js";
 import {
   listUpstreamAlerts,
+  normalizeUpstreamCurrency,
   normalizeUpstreamOrigin,
   publicUpstreamAccount,
   refreshAllUpstreamAccounts,
@@ -1001,6 +1002,7 @@ adminRoutes.post("/upstream-accounts", async (c) => {
     enabled: z.boolean().optional(),
     alertEnabled: z.boolean().optional(),
     alertThresholdUsd: z.number().min(0).max(1_000_000).optional(),
+    balanceCurrency: z.enum(["cny", "usd"]).optional(),
   });
   const parsed = schema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "参数无效" }, 400);
@@ -1019,6 +1021,7 @@ adminRoutes.post("/upstream-accounts", async (c) => {
     password: v.password,
     enabled: v.enabled ?? true,
     alertEnabled: v.alertEnabled ?? true,
+    balanceCurrency: normalizeUpstreamCurrency(v.balanceCurrency ?? "cny"),
     alertThresholdUsdMilli: usdToMilli(v.alertThresholdUsd ?? 1),
     lastQuota: null as number | null,
     lastBalanceUsdMilli: null as number | null,
@@ -1055,6 +1058,9 @@ adminRoutes.put("/upstream-accounts/:id", async (c) => {
   }
   if (body.enabled != null) patch.enabled = Boolean(body.enabled);
   if (body.alertEnabled != null) patch.alertEnabled = Boolean(body.alertEnabled);
+  if (body.balanceCurrency != null) {
+    patch.balanceCurrency = normalizeUpstreamCurrency(body.balanceCurrency);
+  }
   if (body.alertThresholdUsd != null) {
     patch.alertThresholdUsdMilli = usdToMilli(Number(body.alertThresholdUsd));
   }

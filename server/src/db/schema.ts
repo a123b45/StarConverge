@@ -289,7 +289,9 @@ export const upstreamAccounts = sqliteTable("upstream_accounts", {
   password: text("password").notNull().default(""),
   enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
   alertEnabled: integer("alert_enabled", { mode: "boolean" }).notNull().default(true),
-  /** USD * 1000; default $1.00 */
+  /** Wallet display currency: cny | usd. Only usd is converted to 约 ¥. */
+  balanceCurrency: text("balance_currency").notNull().default("cny"),
+  /** Native currency * 1000; default 1.00 */
   alertThresholdUsdMilli: integer("alert_threshold_usd_milli").notNull().default(1000),
   lastQuota: integer("last_quota"),
   lastBalanceUsdMilli: integer("last_balance_usd_milli"),
