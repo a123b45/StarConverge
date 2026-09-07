@@ -5354,6 +5354,12 @@ html[data-theme="dark"] .portal-user-dropdown button:hover {
 .portal-recipe-guide:hover {
   color: #4338ca;
 }
+html[data-theme="dark"] .portal-recipe-guide {
+  color: #b8a9ff;
+}
+html[data-theme="dark"] .portal-recipe-guide:hover {
+  color: #d4ccff;
+}
 .portal-recipe-hint {
   margin: 12px 0 10px;
   min-height: 2.7em;
