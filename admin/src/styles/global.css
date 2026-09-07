@@ -571,6 +571,34 @@ html[data-theme="dark"] .admin-stock-alert-dismiss {
   color: var(--muted);
   font-size: 0.85rem;
 }
+.card-keys-pager {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.card-keys-page-jump {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+  font-size: 13px;
+}
+.card-keys-page-jump input {
+  width: 56px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 13px;
+  text-align: center;
+  background: var(--bg-elevated);
+  color: var(--text);
+}
+.card-keys-page-jump input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
 
 .pricing-empty {
   padding: 48px 24px !important;

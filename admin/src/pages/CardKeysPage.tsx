@@ -59,6 +59,7 @@ export default function CardKeysPage() {
   );
   const [amountFilter, setAmountFilter] = useState("all");
   const [page, setPage] = useState(1);
+  const [pageInput, setPageInput] = useState("1");
   const [error, setError] = useState("");
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -123,6 +124,21 @@ export default function CardKeysPage() {
   useEffect(() => {
     if (page > pageCount) setPage(pageCount);
   }, [page, pageCount]);
+
+  useEffect(() => {
+    setPageInput(String(page));
+  }, [page]);
+
+  function goToPage(raw: string) {
+    const n = Math.floor(Number(raw));
+    if (!Number.isFinite(n)) {
+      setPageInput(String(page));
+      return;
+    }
+    const next = Math.min(pageCount, Math.max(1, n));
+    setPage(next);
+    setPageInput(String(next));
+  }
 
   const userOptions = useMemo(
     () => [
@@ -331,17 +347,44 @@ export default function CardKeysPage() {
           <span>
             共 {filtered.length} 条 · 每页 {PAGE_SIZE} 条
           </span>
-          <div className="row-actions">
+          <div className="row-actions card-keys-pager">
             <span>
               当前页码 {page}/{pageCount}
             </span>
+            <label className="card-keys-page-jump">
+              <span>跳至</span>
+              <input
+                type="number"
+                min={1}
+                max={pageCount}
+                inputMode="numeric"
+                value={pageInput}
+                aria-label="跳转页码"
+                onChange={(e) => setPageInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    goToPage(pageInput);
+                  }
+                }}
+                onBlur={() => goToPage(pageInput)}
+              />
+              <span>页</span>
+            </label>
+            <button
+              type="button"
+              className="btn ghost sm"
+              onClick={() => goToPage(pageInput)}
+            >
+              跳转
+            </button>
             <button
               type="button"
               className="btn ghost sm"
               disabled={page <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
             >
-              ‹
+              上一页
             </button>
             <button
               type="button"
@@ -349,7 +392,7 @@ export default function CardKeysPage() {
               disabled={page >= pageCount}
               onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
             >
-              ›
+              下一页
             </button>
           </div>
         </div>
