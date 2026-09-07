@@ -11,7 +11,6 @@ import {
   OFFICIAL_VENDORS,
   compareCost,
   defaultVendorForModel,
-  formatOfficialFetchedAt,
   formatSavePct,
   formatUsd,
   vendorLabel,
@@ -19,9 +18,42 @@ import {
   type OfficialVendor,
 } from "../../lib/official-pricing";
 import SoftSelect from "../../components/SoftSelect";
+import { IconTrendDown, IconTrendUp } from "../../components/icons";
 
 function rateAmount(n: number) {
   return formatPerMillion(n).replace(/\s*\/\s*百万$/, "");
+}
+
+function priceDelta(ours: number, official: number): "down" | "up" | "same" {
+  const gap = official - ours;
+  if (!Number.isFinite(gap) || Math.abs(gap) < 0.00005) return "same";
+  return gap > 0 ? "down" : "up";
+}
+
+function RateItem({
+  label,
+  value,
+  versus,
+}: {
+  label: string;
+  value: number;
+  versus?: number;
+}) {
+  const delta = versus == null ? "same" : priceDelta(value, versus);
+  return (
+    <div className={`portal-estimate-rate-item${delta !== "same" ? ` is-${delta}` : ""}`}>
+      <span>{label}</span>
+      <strong>
+        {rateAmount(value)}
+        {delta === "down" ? (
+          <IconTrendDown size={12} />
+        ) : delta === "up" ? (
+          <IconTrendUp size={12} />
+        ) : null}
+      </strong>
+      <small>/ 百万 tokens</small>
+    </div>
+  );
 }
 
 function RateBoard({
@@ -29,11 +61,13 @@ function RateBoard({
   hint,
   quote,
   kind,
+  versus,
 }: {
   title: string;
   hint?: string;
   quote: PriceQuote;
   kind: "ours" | "official";
+  versus?: PriceQuote | null;
 }) {
   return (
     <div className={`portal-estimate-rate ${kind}`}>
@@ -42,21 +76,21 @@ function RateBoard({
         {hint ? <em>{hint}</em> : null}
       </div>
       <div className="portal-estimate-rate-items">
-        <div className="portal-estimate-rate-item">
-          <span>输入</span>
-          <strong>{rateAmount(quote.inputPer1m)}</strong>
-          <small>/ 百万 tokens</small>
-        </div>
-        <div className="portal-estimate-rate-item">
-          <span>输出</span>
-          <strong>{rateAmount(quote.outputPer1m)}</strong>
-          <small>/ 百万 tokens</small>
-        </div>
-        <div className="portal-estimate-rate-item">
-          <span>缓存</span>
-          <strong>{rateAmount(quote.cacheHitPer1m)}</strong>
-          <small>/ 百万 tokens</small>
-        </div>
+        <RateItem
+          label="输入"
+          value={quote.inputPer1m}
+          versus={versus?.inputPer1m}
+        />
+        <RateItem
+          label="输出"
+          value={quote.outputPer1m}
+          versus={versus?.outputPer1m}
+        />
+        <RateItem
+          label="缓存"
+          value={quote.cacheHitPer1m}
+          versus={versus?.cacheHitPer1m}
+        />
       </div>
     </div>
   );
@@ -74,8 +108,6 @@ export default function PortalEstimatePage() {
   const [models, setModels] = useState<PortalModel[]>([]);
   const [catalog, setCatalog] = useState<OfficialQuote[]>([]);
   const [vendorLabels, setVendorLabels] = useState(OFFICIAL_VENDORS);
-  const [fetchedAt, setFetchedAt] = useState<string | null>(null);
-  const [source, setSource] = useState<string>("");
   const [modelId, setModelId] = useState(params.get("model") || "");
   const [vendor, setVendor] = useState<OfficialVendor>("anthropic");
   const [officialId, setOfficialId] = useState("");
@@ -94,8 +126,6 @@ export default function PortalEstimatePage() {
         setModels(live);
         setModelId((cur) => cur || live[0]?.model || "");
         setCatalog(pricesRes.data ?? []);
-        setFetchedAt(pricesRes.fetchedAt ?? null);
-        setSource(pricesRes.source ?? "");
         if (pricesRes.vendors?.length) setVendorLabels(pricesRes.vendors);
       })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : "加载失败"));
@@ -134,7 +164,6 @@ export default function PortalEstimatePage() {
   const ours = model ? estimateCostUsd(model, promptN, completionN, cacheN) : 0;
   const cmp =
     model && official ? compareCost(model, official, promptN, completionN, cacheN) : null;
-  const synced = formatOfficialFetchedAt(fetchedAt);
 
   return (
     <div className="portal-page">
@@ -216,7 +245,7 @@ export default function PortalEstimatePage() {
               <div
                 className={`portal-estimate-rates${official ? "" : " is-single"}`}
               >
-                <RateBoard title="本站单价" quote={model} kind="ours" />
+                <RateBoard title="本站单价" quote={model} kind="ours" versus={official} />
                 {official ? (
                   <RateBoard
                     title="官方单价"
@@ -235,9 +264,10 @@ export default function PortalEstimatePage() {
                   <span>官方预估</span>
                   <strong>{cmp ? formatUsd(cmp.official) : "—"}</strong>
                 </div>
-                <div className={`portal-estimate-result save${cmp?.cheaper ? " is-win" : ""}`}>
+                <div className={`portal-estimate-result save${cmp?.cheaper ? " is-win" : cmp ? " is-loss" : ""}`}>
                   <span>{cmp?.cheaper ? "这次少花" : "差额"}</span>
                   <strong>
+                    {cmp?.cheaper ? <IconTrendDown size={18} /> : cmp ? <IconTrendUp size={18} /> : null}
                     {cmp
                       ? `${cmp.cheaper ? "−" : "+"}${formatUsd(Math.abs(cmp.saved))}`
                       : "—"}
@@ -249,11 +279,6 @@ export default function PortalEstimatePage() {
                   )}
                 </div>
               </div>
-              <p className="muted" style={{ marginTop: 10 }}>
-                官方数字按厂商公开标价同步
-                {synced ? `（最近同步 ${synced}）` : source === "fallback" ? "（暂用离线备份价目）" : ""}
-                ，不是写死在页面里的；实际扣费以本站用量为准。
-              </p>
               <div className="portal-empty-actions" style={{ marginTop: 16 }}>
                 <Link
                   className="portal-btn"

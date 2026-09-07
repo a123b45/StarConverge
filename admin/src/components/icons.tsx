@@ -94,6 +94,22 @@ export function IconArrows({ size = 16 }: SizeProps) {
   );
 }
 
+export function IconTrendDown({ size = 16 }: SizeProps) {
+  return (
+    <Svg size={size} fill="currentColor" stroke="none">
+      <path d="M12 17.5 5.2 7.5h13.6L12 17.5Z" />
+    </Svg>
+  );
+}
+
+export function IconTrendUp({ size = 16 }: SizeProps) {
+  return (
+    <Svg size={size} fill="currentColor" stroke="none">
+      <path d="M12 6.5 18.8 16.5H5.2L12 6.5Z" />
+    </Svg>
+  );
+}
+
 export function IconArrowUpRight({ size = 16 }: SizeProps) {
   return (
     <Svg size={size}>
