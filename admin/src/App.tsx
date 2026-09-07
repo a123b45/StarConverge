@@ -37,6 +37,8 @@ import PortalBillsPage from "./pages/portal/PortalBillsPage";
 import PortalEstimatePage from "./pages/portal/PortalEstimatePage";
 import TopTools from "./components/TopTools";
 import { applyChromePrefs } from "./lib/chrome";
+import { useI18n } from "./lib/i18n";
+import type { MsgKey } from "./lib/i18n-copy";
 import {
   IconChart,
   IconFile,
@@ -70,16 +72,16 @@ import { SoftDialogHost } from "./components/SoftDialog";
 
 applyChromePrefs();
 
-const PORTAL_TITLES: Record<string, string> = {
-  "/app/models": "模型广场",
-  "/app/keys": "API 密钥",
-  "/app/usage": "用量",
-  "/app/chat": "对话测试",
-  "/app/estimate": "计费预估",
-  "/app/docs": "API 文档",
-  "/app/recharge": "充值",
-  "/app/bills": "账单",
-  "/app": "服务",
+const PORTAL_TITLE_KEYS: Record<string, MsgKey> = {
+  "/app/models": "nav.models",
+  "/app/keys": "nav.keys",
+  "/app/usage": "nav.usage",
+  "/app/chat": "nav.chat",
+  "/app/estimate": "nav.estimate",
+  "/app/docs": "nav.docs",
+  "/app/recharge": "nav.recharge",
+  "/app/bills": "nav.bills",
+  "/app": "nav.service",
 };
 
 const ADMIN_TITLES: Record<string, string> = {
@@ -359,6 +361,7 @@ function AdminShell() {
 function PortalShell() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useI18n();
   const [me, setMe] = useState<{
     username: string;
     displayName?: string | null;
@@ -421,12 +424,13 @@ function PortalShell() {
     }
   }, [menuPerms, hasAnyPortal, navigate]);
 
-  const pageTitle =
-    PORTAL_TITLES[location.pathname] ||
-    Object.entries(PORTAL_TITLES).find(([k]) =>
+  const titleKey =
+    PORTAL_TITLE_KEYS[location.pathname] ||
+    Object.entries(PORTAL_TITLE_KEYS).find(([k]) =>
       location.pathname.startsWith(k),
     )?.[1] ||
-    "服务";
+    "nav.service";
+  const pageTitle = t(titleKey);
 
   return (
     <div className={`portal-shell${siderCollapsed ? " sider-collapsed" : ""}`}>
@@ -437,67 +441,69 @@ function PortalShell() {
         </div>
         <nav className="portal-sider-nav">
           <div className="portal-sider-group">
-            <div className="portal-sider-label">服务</div>
+            <div className="portal-sider-label">{t("nav.service")}</div>
             {can("menu.portal.models") ? (
               <NavLink to="/app/models">
                 <NavIconOverview />
-                模型广场
+                {t("nav.models")}
               </NavLink>
             ) : null}
             {can("menu.portal.keys") ? (
               <NavLink to="/app/keys">
                 <NavIconKey />
-                API 密钥
+                {t("nav.keys")}
               </NavLink>
             ) : null}
             {can("menu.portal.usage") ? (
               <NavLink to="/app/usage">
                 <NavIconUsage />
-                用量
+                {t("nav.usage")}
               </NavLink>
             ) : null}
             {can("menu.portal.chat") ? (
               <NavLink to="/app/chat">
                 <NavIconChat />
-                对话测试
+                {t("nav.chat")}
               </NavLink>
             ) : null}
             {can("menu.portal.estimate") ? (
               <NavLink to="/app/estimate">
                 <NavIconEstimate />
-                计费预估
+                {t("nav.estimate")}
               </NavLink>
             ) : null}
             {can("menu.portal.recharge") ? (
               <NavLink to="/app/recharge">
                 <NavIconRecharge />
-                充值
+                {t("nav.recharge")}
               </NavLink>
             ) : null}
             {can("menu.portal.bills") ? (
               <NavLink to="/app/bills">
                 <NavIconBills />
-                账单
+                {t("nav.bills")}
               </NavLink>
             ) : null}
             {can("menu.portal.docs") ? (
               <NavLink to="/app/docs">
                 <NavIconDocs />
-                API 文档
+                {t("nav.docs")}
               </NavLink>
             ) : null}
           </div>
         </nav>
         <div className="portal-sider-foot">
           <div className="portal-balance">
-            <span>剩余余额</span>
+            <span>{t("nav.balance")}</span>
             <strong>
               {me ? `$${(me.balance ?? 0).toFixed(2)}` : "—"}
             </strong>
             <em>
               {me
-                ? `累计充值 $${(me.totalRecharged ?? 0).toFixed(2)}`
-                : "加载中…"}
+                ? t("nav.recharged", {
+                    amount: (me.totalRecharged ?? 0).toFixed(2),
+                  })
+                : t("nav.loading")}
             </em>
           </div>
         </div>
@@ -509,27 +515,27 @@ function PortalShell() {
             <button
               type="button"
               className="portal-tool-btn"
-              title={siderCollapsed ? "展开侧栏" : "收起侧栏"}
+              title={siderCollapsed ? t("nav.expand") : t("nav.collapse")}
               onClick={() => setSiderCollapsed((v) => !v)}
             >
               <IconSidebar />
             </button>
             <div className="portal-crumb">
-              <span>服务</span>
+              <span>{t("nav.service")}</span>
               <i>/</i>
               <strong>{pageTitle}</strong>
             </div>
           </div>
           <TopTools
             leading={
-              <span className="portal-quota-pill" title="账户余额">
+              <span className="portal-quota-pill" title={t("nav.balance")}>
                 <span className="ok-dot" />
                 {me ? `$${(me.balance ?? 0).toFixed(2)}` : "—"}
               </span>
             }
             user={{
               username: me?.username || "user",
-              displayName: me?.displayName || me?.username || "用户",
+              displayName: me?.displayName || me?.username || t("nav.user"),
             }}
             editable
             notificationsEnabled

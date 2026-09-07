@@ -10,14 +10,12 @@ import {
   applyChromePrefs,
   chromeCopy,
   formatUserNotification,
-  getLang,
   getTheme,
   LANG_OPTIONS,
-  setLang as persistLang,
   setTheme as persistTheme,
-  type LangMode,
   type ThemeMode,
 } from "../lib/chrome";
+import { useI18n } from "../lib/i18n";
 import { portalApi } from "../lib/api";
 import ModalBackdrop from "./ModalBackdrop";
 
@@ -56,11 +54,9 @@ export default function TopTools({
   onUserUpdated,
 }: Props) {
   const navigate = useNavigate();
+  const { lang, setLang } = useI18n();
   const [theme, setTheme] = useState<ThemeMode>(() =>
     typeof window !== "undefined" ? getTheme() : "light",
-  );
-  const [lang, setLang] = useState<LangMode>(() =>
-    typeof window !== "undefined" ? getLang() : "zh",
   );
   const [userOpen, setUserOpen] = useState(false);
   const [notifyOpen, setNotifyOpen] = useState(false);
@@ -194,7 +190,7 @@ export default function TopTools({
                   type="button"
                   className={lang === opt.id ? "is-active" : undefined}
                   onClick={() => {
-                    setLang(persistLang(opt.id));
+                    setLang(opt.id);
                     setLangOpen(false);
                   }}
                 >

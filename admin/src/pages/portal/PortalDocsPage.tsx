@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { portalApi } from "../../lib/api";
+import { useI18n } from "../../lib/i18n";
 import type { ReactNode } from "react";
 
 type ModelItem = { id: string; model: string; retired?: boolean };
 
 export default function PortalDocsPage() {
+  const { t, lang } = useI18n();
   const origin =
     typeof window !== "undefined" ? window.location.origin : "https://your-host";
   const openaiBase = `${origin}/v1`;
@@ -28,6 +30,7 @@ export default function PortalDocsPage() {
   );
 
   const sampleModel = modelIds[0] || "your-model-id";
+  const yourKey = t("docs.yourKey");
 
   const curlExample = `curl ${openaiBase}/chat/completions \\
   -H "Authorization: Bearer sk-sc-..." \\
@@ -88,8 +91,8 @@ wire_api = "chat"`;
     <div className="portal-page">
       <div className="portal-hero">
         <div>
-          <h1>接入指南</h1>
-          <p>充值买量 → 创建密钥 → 填 Base URL。OpenAI 和 Anthropic 协议都能用同一把 KEY。</p>
+          <h1>{t("docs.title")}</h1>
+          <p>{t("docs.lead")}</p>
         </div>
       </div>
 
@@ -98,31 +101,31 @@ wire_api = "chat"`;
           <span className="n">1</span>
           <div>
             <h3>
-              充值{" "}
+              {t("docs.step1")}{" "}
               <Link to="/app/recharge" className="inline-link">
-                去充值 →
+                {t("docs.step1Go")}
               </Link>
             </h3>
-            <p className="muted">卡密兑换余额后按 token 扣费，余额为 0 无法调用。</p>
+            <p className="muted">{t("docs.step1Body")}</p>
           </div>
         </div>
         <div className="portal-step">
           <span className="n">2</span>
           <div>
             <h3>
-              创建 KEY{" "}
+              {t("docs.step2")}{" "}
               <Link to="/app/keys" className="inline-link">
-                创建密钥 →
+                {t("docs.step2Go")}
               </Link>
             </h3>
-            <p className="muted">一把 sk-sc- 密钥同时用于 OpenAI 兼容和 Anthropic Messages。</p>
+            <p className="muted">{t("docs.step2Body")}</p>
           </div>
         </div>
         <div className="portal-step">
           <span className="n">3</span>
           <div>
-            <h3>填进客户端</h3>
-            <p className="muted">下面三张配方卡可直接复制，卡片上有官方教程。模型 ID 用广场里的名字，不要改成官方名。</p>
+            <h3>{t("docs.step3")}</h3>
+            <p className="muted">{t("docs.step3Body")}</p>
           </div>
         </div>
       </div>
@@ -130,8 +133,9 @@ wire_api = "chat"`;
       <div className="portal-recipe-grid">
         <RecipeCard
           title="Cursor"
-          hint="Settings → Models → 填 OpenAI API Key，打开 Override Base URL。"
-          copied={copied === "cursor"}
+          hint={t("docs.cursorHint")}
+          guideLabel={t("docs.guide")}
+          copyLabel={copied === "cursor" ? t("common.copied") : t("common.copy")}
           onCopy={() => void copy(cursorRecipe, "cursor")}
           guideHref={guides.cursor}
         >
@@ -139,8 +143,9 @@ wire_api = "chat"`;
         </RecipeCard>
         <RecipeCard
           title="Claude Code"
-          hint="Anthropic 协议走 /v1/messages，Base URL 用站点根地址，不要带 /v1。"
-          copied={copied === "claude"}
+          hint={t("docs.claudeHint")}
+          guideLabel={t("docs.guide")}
+          copyLabel={copied === "claude" ? t("common.copied") : t("common.copy")}
           onCopy={() => void copy(claudeCodeRecipe, "claude")}
           guideHref={guides.claude}
         >
@@ -148,8 +153,9 @@ wire_api = "chat"`;
         </RecipeCard>
         <RecipeCard
           title="Codex"
-          hint="写入 ~/.codex/config.toml，再 export OPENAI_API_KEY 后运行 codex。"
-          copied={copied === "codex"}
+          hint={t("docs.codexHint")}
+          guideLabel={t("docs.guide")}
+          copyLabel={copied === "codex" ? t("common.copied") : t("common.copy")}
           onCopy={() => void copy(codexRecipe, "codex")}
           guideHref={guides.codex}
         >
@@ -165,7 +171,7 @@ wire_api = "chat"`;
             type="button"
             onClick={() => void copy(curlExample, "curl")}
           >
-            {copied === "curl" ? "已复制" : "复制"}
+            {copied === "curl" ? t("common.copied") : t("common.copy")}
           </button>
         </div>
         <pre className="portal-code">{curlExample}</pre>
@@ -173,62 +179,66 @@ wire_api = "chat"`;
 
       <div className="portal-panel">
         <div className="portal-panel-head">
-          <h3>Python（OpenAI SDK）</h3>
+          <h3>{t("docs.pythonTitle")}</h3>
           <button
             className="portal-btn ghost sm"
             type="button"
             onClick={() => void copy(pythonExample, "py")}
           >
-            {copied === "py" ? "已复制" : "复制"}
+            {copied === "py" ? t("common.copied") : t("common.copy")}
           </button>
         </div>
         <pre className="portal-code">{pythonExample}</pre>
       </div>
 
       <div className="portal-panel portal-docs-callout">
-        <h3>适配多种接入协议</h3>
-        <p>一把 sk-sc- 密钥两边都能用，差别只在填的地址：有的软件认 Anthropic，有的认 OpenAI。</p>
+        <h3>{t("docs.protocolTitle")}</h3>
+        <p>{t("docs.protocolLead")}</p>
         <div className="portal-docs-kv">
           <div>
-            <span>OpenAI 兼容地址</span>
+            <span>{t("docs.kvOpenai")}</span>
             <strong>{openaiBase}</strong>
           </div>
           <div>
-            <span>Anthropic 地址</span>
+            <span>{t("docs.kvAnthropic")}</span>
             <strong>{anthropicBase}</strong>
           </div>
           <div>
-            <span>API Key</span>
-            <strong>sk-sc- 密钥，或 x-api-key</strong>
+            <span>{t("docs.kvKey")}</span>
+            <strong>{t("docs.kvKeyVal")}</strong>
           </div>
           <div>
-            <span>模型名</span>
+            <span>{t("docs.kvModel")}</span>
             <strong>
-              <Link to="/app/models">模型广场</Link> 里的 ID
+              {lang === "en" ? (
+                <>
+                  the ID from <Link to="/app/models">{t("nav.models")}</Link>
+                </>
+              ) : (
+                <>
+                  <Link to="/app/models">{t("nav.models")}</Link> 里的 ID
+                </>
+              )}
             </strong>
           </div>
         </div>
         <div className="portal-docs-examples">
           <div>
-            <strong>例子：Claude Code / Claude Desktop</strong>
-            <p>
-              这类软件走 Anthropic 协议，Base URL 填网站根地址，<em>不要</em>加 <code>/v1</code>。
-            </p>
+            <strong>{t("docs.exAnthropicTitle")}</strong>
+            <p>{t("docs.exAnthropicBody")}</p>
             <code>
               ANTHROPIC_BASE_URL={anthropicBase}
               {"\n"}
-              ANTHROPIC_AUTH_TOKEN=sk-sc-你的密钥
+              ANTHROPIC_AUTH_TOKEN={yourKey}
             </code>
           </div>
           <div>
-            <strong>例子：Cursor / Codex / Python</strong>
-            <p>
-              这类软件走 OpenAI 协议，Base URL 要带 <code>/v1</code>，少写了会连不上。
-            </p>
+            <strong>{t("docs.exOpenaiTitle")}</strong>
+            <p>{t("docs.exOpenaiBody")}</p>
             <code>
               OPENAI_BASE_URL={openaiBase}
               {"\n"}
-              OPENAI_API_KEY=sk-sc-你的密钥
+              OPENAI_API_KEY={yourKey}
             </code>
           </div>
         </div>
@@ -237,9 +247,9 @@ wire_api = "chat"`;
       <div className="portal-panel">
         <div className="portal-panel-head">
           <h3>
-            模型 ID{" "}
+            {t("docs.modelIds")}{" "}
             <Link to="/app/models" className="inline-link">
-              全部模型 →
+              {t("docs.allModels")}
             </Link>
           </h3>
         </div>
@@ -250,15 +260,15 @@ wire_api = "chat"`;
                 key={id}
                 type="button"
                 className="portal-model-id-tag"
-                title={`复制 ${id}`}
+                title={`${t("common.copy")} ${id}`}
                 onClick={() => void copy(id, `m-${id}`)}
               >
-                {copied === `m-${id}` ? "已复制" : id}
+                {copied === `m-${id}` ? t("common.copied") : id}
               </button>
             ))}
           </div>
         ) : (
-          <p className="muted">暂无已同步模型，请联系管理员在「模型管理」中同步后再试。</p>
+          <p className="muted">{t("docs.noModels")}</p>
         )}
       </div>
     </div>
@@ -268,14 +278,16 @@ wire_api = "chat"`;
 function RecipeCard({
   title,
   hint,
-  copied,
+  guideLabel,
+  copyLabel,
   onCopy,
   guideHref,
   children,
 }: {
   title: string;
   hint: string;
-  copied: boolean;
+  guideLabel: string;
+  copyLabel: string;
   onCopy: () => void;
   guideHref?: string;
   children: ReactNode;
@@ -292,11 +304,11 @@ function RecipeCard({
               target="_blank"
               rel="noreferrer"
             >
-              点我获取教程
+              {guideLabel}
             </a>
           ) : null}
           <button className="portal-btn ghost sm" type="button" onClick={onCopy}>
-            {copied ? "已复制" : "复制"}
+            {copyLabel}
           </button>
         </div>
       </header>

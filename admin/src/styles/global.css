@@ -4479,12 +4479,20 @@ html[data-theme="dark"] .portal-user-dropdown button:hover {
 }
 .chrome-lang-menu {
   width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.chrome-lang-menu .portal-user-meta {
+  margin-bottom: 2px;
 }
 .chrome-lang-menu button {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  background: transparent;
+  color: var(--text);
 }
 .chrome-lang-menu button em {
   font-style: normal;
@@ -4492,12 +4500,23 @@ html[data-theme="dark"] .portal-user-dropdown button:hover {
   color: var(--muted);
 }
 .chrome-lang-menu button.is-active {
-  background: var(--accent-soft);
-  color: var(--accent);
+  background: var(--accent-soft) !important;
+  color: var(--accent) !important;
   font-weight: 600;
 }
 .chrome-lang-menu button.is-active em {
-  color: var(--accent);
+  color: var(--accent) !important;
+}
+.chrome-lang-menu button:hover:not(.is-active) {
+  background: var(--bg-soft) !important;
+  color: var(--text) !important;
+}
+.chrome-lang-menu button:hover:not(.is-active) em {
+  color: var(--muted) !important;
+}
+html[data-theme="dark"] .chrome-lang-menu button:hover:not(.is-active) {
+  background: var(--sidebar-hover) !important;
+  color: var(--text) !important;
 }
 
 .ds-chat.side-collapsed {
@@ -5959,13 +5978,30 @@ html[data-theme="dark"] .portal-bar-tip::after {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: var(--p-ink);
+  background: #6d5efc;
   color: #fff;
   display: grid;
   place-items: center;
   font-size: 13px;
   font-weight: 700;
   flex-shrink: 0;
+}
+html[data-theme="dark"] .portal-step .n {
+  background: #8b7cff;
+  color: #fff;
+}
+html[data-theme="dark"] .portal-docs-kv > div,
+html[data-theme="dark"] .portal-docs-examples > div {
+  background: var(--bg-soft);
+}
+html[data-theme="dark"] .portal-recipe-head {
+  border-bottom-color: var(--line);
+}
+html[data-theme="dark"] .portal-recipe-hint {
+  color: var(--muted);
+}
+html[data-theme="dark"] .inline-link {
+  color: #a78bfa;
 }
 .portal-step h3 {
   margin: 0 0 8px;
@@ -6651,6 +6687,20 @@ html[data-theme="dark"] .portal-user-dropdown button {
 html[data-theme="dark"] .portal-user-dropdown button:hover {
   background: var(--accent-soft) !important;
   color: var(--accent) !important;
+}
+html[data-theme="dark"] .chrome-lang-menu button.is-active {
+  background: var(--accent-soft) !important;
+  color: var(--accent) !important;
+}
+html[data-theme="dark"] .chrome-lang-menu button.is-active em {
+  color: var(--accent) !important;
+}
+html[data-theme="dark"] .chrome-lang-menu button:hover:not(.is-active) {
+  background: var(--sidebar-hover) !important;
+  color: var(--text) !important;
+}
+html[data-theme="dark"] .chrome-lang-menu button:hover:not(.is-active) em {
+  color: var(--muted) !important;
 }
 html[data-theme="dark"] .ds-session-item:hover {
   background: var(--sidebar-hover) !important;

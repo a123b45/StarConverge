@@ -1,5 +1,5 @@
 export type ThemeMode = "light" | "dark";
-export type LangMode = "zh" | "en" | "ja" | "ko";
+export type LangMode = "zh" | "en";
 
 const THEME_KEY = "sc_theme";
 const LANG_KEY = "sc_lang";
@@ -7,8 +7,6 @@ const LANG_KEY = "sc_lang";
 export const LANG_OPTIONS: Array<{ id: LangMode; label: string; native: string }> = [
   { id: "zh", label: "简体中文", native: "中文" },
   { id: "en", label: "English", native: "EN" },
-  { id: "ja", label: "日本語", native: "日本語" },
-  { id: "ko", label: "한국어", native: "한국어" },
 ];
 
 export function getTheme(): ThemeMode {
@@ -28,15 +26,16 @@ export function toggleTheme(): ThemeMode {
 
 export function getLang(): LangMode {
   const v = localStorage.getItem(LANG_KEY);
-  if (v === "en" || v === "ja" || v === "ko" || v === "zh") return v;
-  return "zh";
+  return v === "en" ? "en" : "zh";
 }
 
 export function setLang(lang: LangMode): LangMode {
-  localStorage.setItem(LANG_KEY, lang);
-  document.documentElement.setAttribute("data-lang", lang);
-  window.dispatchEvent(new CustomEvent("sc-lang", { detail: lang }));
-  return lang;
+  const next: LangMode = lang === "en" ? "en" : "zh";
+  localStorage.setItem(LANG_KEY, next);
+  document.documentElement.setAttribute("data-lang", next);
+  document.documentElement.lang = next === "en" ? "en" : "zh-CN";
+  window.dispatchEvent(new CustomEvent("sc-lang", { detail: next }));
+  return next;
 }
 
 export function applyChromePrefs() {
@@ -101,45 +100,7 @@ const en: Copy = {
   notifyTypePricing: "Pricing",
 };
 
-const ja: Copy = {
-  lang: "言語",
-  themeLight: "ダークモードに切替",
-  themeDark: "ライトモードに切替",
-  notify: "通知",
-  account: "アカウント設定",
-  logout: "ログアウト",
-  profile: "プロフィール",
-  displayName: "表示名",
-  password: "新しいパスワード（任意）",
-  save: "保存",
-  cancel: "キャンセル",
-  noNotify: "新しい通知はありません",
-  notifyModels: "がモデル一覧に同期されました。確認してみましょう！",
-  notifyPricing: "の価格が更新されました。確認してみましょう！",
-  notifyTypeModels: "モデル",
-  notifyTypePricing: "価格",
-};
-
-const ko: Copy = {
-  lang: "언어",
-  themeLight: "다크 모드로 전환",
-  themeDark: "라이트 모드로 전환",
-  notify: "알림",
-  account: "계정 설정",
-  logout: "로그아웃",
-  profile: "프로필",
-  displayName: "표시 이름",
-  password: "새 비밀번호 (선택)",
-  save: "저장",
-  cancel: "취소",
-  noNotify: "새 알림 없음",
-  notifyModels: "이 모델 목록에 동기화되었습니다. 확인해 보세요!",
-  notifyPricing: "의 가격이 변경되었습니다. 확인해 보세요!",
-  notifyTypeModels: "모델",
-  notifyTypePricing: "가격",
-};
-
-export const chromeCopy: Record<LangMode, Copy> = { zh, en, ja, ko };
+export const chromeCopy: Record<LangMode, Copy> = { zh, en };
 
 export function formatUserNotification(
   lang: LangMode,
@@ -163,6 +124,5 @@ export function formatUserNotification(
       : `${preview} 等 ${n} 个模型新同步到模型列表，快去看看吧！`;
   }
   if (n <= 1) return `${preview} ${type === "pricing" ? t.notifyPricing : t.notifyModels}`;
-  const more = lang === "en" ? ` and ${n} models ` : ` 等 ${n} 个模型 `;
-  return `${preview}${more}${type === "pricing" ? t.notifyPricing : t.notifyModels}`;
+  return `${preview} and ${n} models ${type === "pricing" ? t.notifyPricing : t.notifyModels}`;
 }
