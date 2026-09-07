@@ -63,7 +63,6 @@ type FormState = {
   name: string;
   remark: string;
   enabled: boolean;
-  quotaUnlimited: boolean;
   quota: string;
   dailyQuota: string;
   monthlyQuota: string;
@@ -76,7 +75,6 @@ const emptyForm: FormState = {
   name: "",
   remark: "",
   enabled: true,
-  quotaUnlimited: true,
   quota: "",
   dailyQuota: "",
   monthlyQuota: "",
@@ -147,27 +145,27 @@ export default function PortalKeysPage() {
   }
 
   function startEdit(row: KeyRow) {
-    const unlimited = row.quota == null || row.quota < 0;
+    const models = row.allowedModels ?? [];
+    const ipText = (row.ipRules ?? [])
+      .filter((r) => r.action === "ALLOW")
+      .map((r) => r.ip)
+      .join("\n");
     setEditing(row);
     setForm({
       name: row.name,
       remark: row.remark || "",
       enabled: row.enabled !== false,
-      quotaUnlimited: unlimited,
-      quota: unlimited ? "" : String(row.quota),
+      quota: row.quota != null && row.quota >= 0 ? String(row.quota) : "",
       dailyQuota: row.dailyQuota != null && row.dailyQuota >= 0 ? String(row.dailyQuota) : "",
       monthlyQuota:
         row.monthlyQuota != null && row.monthlyQuota >= 0 ? String(row.monthlyQuota) : "",
       rateLimit: String(row.rateLimit ?? 60),
-      allowedModels: row.allowedModels ?? [],
-      ipText: (row.ipRules ?? [])
-        .filter((r) => r.action === "ALLOW")
-        .map((r) => r.ip)
-        .join("\n"),
+      allowedModels: models,
+      ipText,
     });
     setCreatedKey(null);
     setError("");
-    setAdvOpen(Boolean((row.ipRules ?? []).some((r) => r.action === "ALLOW")));
+    setAdvOpen(models.length > 0 || Boolean(ipText.trim()));
     setOpen(true);
   }
 
@@ -182,7 +180,7 @@ export default function PortalKeysPage() {
       name: form.name.trim(),
       remark: form.remark.trim(),
       enabled: form.enabled,
-      quota: form.quotaUnlimited ? -1 : parseQuota(form.quota),
+      quota: parseQuota(form.quota),
       dailyQuota: parseQuota(form.dailyQuota),
       monthlyQuota: parseQuota(form.monthlyQuota),
       rateLimit: Math.max(0, Number(form.rateLimit) || 0),
@@ -495,35 +493,11 @@ export default function PortalKeysPage() {
                 <div className="portal-estimate-grid">
                   <label className="stack-field">
                     <span>总额度（tokens）</span>
-                    <div className="rate-row">
-                      <label className="check-inline">
-                        <input
-                          type="checkbox"
-                          checked={form.quotaUnlimited}
-                          onChange={(e) =>
-                            setForm({
-                              ...form,
-                              quotaUnlimited: e.target.checked,
-                              quota: e.target.checked ? "" : form.quota || "",
-                            })
-                          }
-                        />
-                        不限
-                      </label>
-                      <input
-                        inputMode="numeric"
-                        disabled={form.quotaUnlimited}
-                        value={form.quotaUnlimited ? "" : form.quota}
-                        onChange={(e) =>
-                          setForm({
-                            ...form,
-                            quotaUnlimited: false,
-                            quota: e.target.value,
-                          })
-                        }
-                        placeholder="不限"
-                      />
-                    </div>
+                    <input
+                      value={form.quota}
+                      onChange={(e) => setForm({ ...form, quota: e.target.value })}
+                      placeholder="不限"
+                    />
                   </label>
                   <label className="stack-field">
                     <span>日额度</span>
@@ -549,14 +523,6 @@ export default function PortalKeysPage() {
                     />
                   </label>
                 </div>
-                <label className="stack-field">
-                  <span>可用模型（空 = 全部）</span>
-                  <ModelPicker
-                    options={models}
-                    value={form.allowedModels}
-                    onChange={(allowedModels) => setForm({ ...form, allowedModels })}
-                  />
-                </label>
                 <div className={`portal-adv ${advOpen ? "is-open" : ""}`}>
                   <button
                     type="button"
@@ -585,6 +551,15 @@ export default function PortalKeysPage() {
                   </button>
                   {advOpen ? (
                     <div className="portal-adv-body">
+                      <label className="stack-field">
+                        <span>可用模型（空 = 全部）</span>
+                        <ModelPicker
+                          options={models}
+                          value={form.allowedModels}
+                          onChange={(allowedModels) => setForm({ ...form, allowedModels })}
+                        />
+                        <p className="muted portal-adv-hint">限制此密钥可使用的模型</p>
+                      </label>
                       <label className="stack-field">
                         <span>IP 白名单（支持 CIDR）</span>
                         <textarea
