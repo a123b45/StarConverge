@@ -64,10 +64,25 @@ export ANTHROPIC_AUTH_TOKEN="<YOUR_API_KEY>"
 # Claude Code 会请求 ${anthropicBase}/v1/messages
 # 模型填广场里的 ID，例如 ${claudeModel}`;
 
-  const cherryRecipe = `提供商：OpenAI 兼容
-接口地址：${openaiBase}
-API Key：控制台创建的 sk-sc- 密钥
-模型：${sampleModel}`;
+  const codexRecipe = `# ~/.codex/config.toml
+model = "${sampleModel}"
+model_provider = "custom"
+
+[model_providers.custom]
+name = "custom"
+base_url = "${openaiBase}"
+env_key = "OPENAI_API_KEY"
+wire_api = "chat"
+
+# 终端里设置密钥后启动
+# export OPENAI_API_KEY="<YOUR_API_KEY>"
+# codex`;
+
+  const guides = {
+    cursor: "https://cursor.com/docs/settings/api-keys",
+    claude: "https://code.claude.com/docs/en/llm-gateway-connect",
+    codex: "https://github.com/openai/codex",
+  };
 
   async function copy(text: string, key: string) {
     try {
@@ -117,7 +132,7 @@ API Key：控制台创建的 sk-sc- 密钥
           <span className="n">3</span>
           <div>
             <h3>填进客户端</h3>
-            <p className="muted">下面三张配方卡可直接复制。模型 ID 用广场里的名字，不要改成官方名。</p>
+            <p className="muted">下面三张配方卡可直接复制，卡片上有官方教程。模型 ID 用广场里的名字，不要改成官方名。</p>
           </div>
         </div>
       </div>
@@ -127,6 +142,7 @@ API Key：控制台创建的 sk-sc- 密钥
           title="Cursor"
           copied={copied === "cursor"}
           onCopy={() => void copy(cursorRecipe, "cursor")}
+          guideHref={guides.cursor}
         >
           <p>Settings → Models → OpenAI API Key，打开 Override Base URL。</p>
           <pre className="portal-code">{cursorRecipe}</pre>
@@ -135,17 +151,19 @@ API Key：控制台创建的 sk-sc- 密钥
           title="Claude Code"
           copied={copied === "claude"}
           onCopy={() => void copy(claudeCodeRecipe, "claude")}
+          guideHref={guides.claude}
         >
           <p>Anthropic 协议走 /v1/messages，Base URL 不要带 /v1。</p>
           <pre className="portal-code">{claudeCodeRecipe}</pre>
         </RecipeCard>
         <RecipeCard
-          title="Cherry Studio"
-          copied={copied === "cherry"}
-          onCopy={() => void copy(cherryRecipe, "cherry")}
+          title="Codex"
+          copied={copied === "codex"}
+          onCopy={() => void copy(codexRecipe, "codex")}
+          guideHref={guides.codex}
         >
-          <p>添加服务商时选 OpenAI 兼容即可。</p>
-          <pre className="portal-code">{cherryRecipe}</pre>
+          <p>写入 ~/.codex/config.toml，用 OpenAI 兼容接口。模型填广场里的 ID。</p>
+          <pre className="portal-code">{codexRecipe}</pre>
         </RecipeCard>
       </div>
 
@@ -172,7 +190,7 @@ API Key：控制台创建的 sk-sc- 密钥
           </div>
         </div>
         <p className="muted" style={{ marginTop: 10 }}>
-          Claude Code / Claude Desktop 用 Anthropic Base URL（站点根地址）。Cursor、ChatBox、Python
+          Claude Code / Claude Desktop 用 Anthropic Base URL（站点根地址）。Cursor、Codex、Python
           OpenAI SDK 用 {openaiBase}。
         </p>
       </div>
@@ -240,20 +258,34 @@ function RecipeCard({
   title,
   copied,
   onCopy,
+  guideHref,
   children,
 }: {
   title: string;
   copied: boolean;
   onCopy: () => void;
+  guideHref?: string;
   children: ReactNode;
 }) {
   return (
     <div className="portal-panel portal-recipe">
       <div className="portal-panel-head">
         <h3>{title}</h3>
-        <button className="portal-btn ghost sm" type="button" onClick={onCopy}>
-          {copied ? "已复制" : "复制"}
-        </button>
+        <div className="portal-recipe-actions">
+          {guideHref ? (
+            <a
+              className="portal-btn ghost sm"
+              href={guideHref}
+              target="_blank"
+              rel="noreferrer"
+            >
+              教程
+            </a>
+          ) : null}
+          <button className="portal-btn ghost sm" type="button" onClick={onCopy}>
+            {copied ? "已复制" : "复制"}
+          </button>
+        </div>
       </div>
       {children}
     </div>

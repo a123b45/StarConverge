@@ -5316,6 +5316,11 @@ html[data-theme="dark"] .portal-user-dropdown button:hover {
 .portal-recipe .portal-code {
   font-size: 12px;
 }
+.portal-recipe-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .portal-usage-filters {
   flex-wrap: wrap;
 }
