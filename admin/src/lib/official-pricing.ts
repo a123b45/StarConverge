@@ -27,6 +27,60 @@ export function vendorLabel(id: OfficialVendor, fallback?: string): string {
   return fallback || OFFICIAL_VENDORS.find((v) => v.id === id)?.label || id;
 }
 
+/** Align with server `normalizeModelId` — compare on the leaf id, not the vendor prefix. */
+export function normalizeModelId(raw: string): string {
+  let n = raw.trim().toLowerCase();
+  if (!n) return "";
+  if (n.includes("/")) n = n.slice(n.lastIndexOf("/") + 1);
+  n = n.replace(/^(us|eu|global|au|apac)\./, "");
+  n = n.replace(/^(anthropic|openai|google|gemini|amazon)\./, "");
+  n = n.replace(/_/g, "-");
+  n = n.replace(/@\d{8}$/, "");
+  n = n.replace(/-v\d+:\d+$/, "");
+  n = n.replace(/:\d+$/, "");
+  return n;
+}
+
+/** `claude-haiku-4-5-20251001` → `claude-haiku-4-5`. */
+export function stripDatedSuffix(id: string): string {
+  return id
+    .replace(/-\d{8}(?:-v\d+)?$/, "")
+    .replace(/-\d{4}-\d{2}-\d{2}$/, "")
+    .replace(/-v\d+$/, "");
+}
+
+function modelKeys(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  const n = normalizeModelId(raw);
+  if (!n) return [];
+  const s = stripDatedSuffix(n);
+  return s && s !== n ? [n, s] : [n];
+}
+
+/**
+ * Official quotes for the same model id only.
+ * DeepSeek 官方没有 Claude，就不会出现在对照渠道里。
+ */
+export function quotesForSameModel(
+  catalog: OfficialQuote[],
+  model: string,
+  extra: Array<string | null | undefined> = [],
+): OfficialQuote[] {
+  const keys = new Set([...modelKeys(model), ...extra.flatMap(modelKeys)]);
+  if (!keys.size) return [];
+  const hits: OfficialQuote[] = [];
+  const seen = new Set<string>();
+  for (const q of catalog) {
+    const qKeys = [...modelKeys(q.id), ...modelKeys(q.model)];
+    if (!qKeys.some((k) => keys.has(k))) continue;
+    const sig = `${q.vendor}:${q.id}`;
+    if (seen.has(sig)) continue;
+    seen.add(sig);
+    hits.push(q);
+  }
+  return hits;
+}
+
 export function defaultVendorForModel(model: string): OfficialVendor {
   const family = detectModelFamily(model);
   if (family === "gpt") return "openai";

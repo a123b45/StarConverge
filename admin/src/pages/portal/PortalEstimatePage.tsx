@@ -9,9 +9,9 @@ import {
 import {
   OFFICIAL_VENDORS,
   compareCost,
-  defaultVendorForModel,
   formatSavePct,
   formatUsd,
+  quotesForSameModel,
   vendorLabel,
   type OfficialQuote,
   type OfficialVendor,
@@ -29,6 +29,14 @@ function priceDelta(ours: number, official: number): "down" | "up" | "same" {
   return gap > 0 ? "down" : "up";
 }
 
+function barShare(ours: number, official: number): { ours: number; official: number } {
+  const a = Math.max(0, ours);
+  const b = Math.max(0, official);
+  const sum = a + b;
+  if (sum <= 0) return { ours: 50, official: 50 };
+  return { ours: (a / sum) * 100, official: (b / sum) * 100 };
+}
+
 function TrendMark({ dir }: { dir: "down" | "up" | "same" }) {
   if (dir === "same") return <span className="est-mark is-same">持平</span>;
   return (
@@ -38,39 +46,48 @@ function TrendMark({ dir }: { dir: "down" | "up" | "same" }) {
   );
 }
 
-function CompareRow({
+function ComparePillar({
   label,
   ours,
   official,
   money,
 }: {
   label: string;
-  ours: number | null;
-  official: number | null;
+  ours: number;
+  official: number;
   money?: boolean;
 }) {
-  const delta =
-    ours == null || official == null ? "same" : priceDelta(ours, official);
+  const share = barShare(ours, official);
+  const dir = priceDelta(ours, official);
   const pct =
-    ours != null && official && official > 0
-      ? Math.round(((official - ours) / official) * 100)
-      : null;
+    official > 0 ? Math.round(((official - ours) / official) * 100) : null;
   const fmt = (n: number) => (money ? formatUsd(n) : rateAmount(n));
   return (
-    <div className={`est-row${money ? " is-total" : ""}`}>
-      <div className="est-label">{label}</div>
-      <div className="est-cell ours">
-        <strong>{ours == null ? "—" : fmt(ours)}</strong>
-        {money ? null : <small>/ 百万 tokens</small>}
+    <div className={`est-pillar${money ? " is-total" : ""}`}>
+      <div
+        className="est-pillar-track"
+        role="img"
+        aria-label={`${label} 本站 ${fmt(ours)}，官方 ${fmt(official)}`}
+      >
+        <div
+          className="est-seg is-official"
+          style={{ flexGrow: share.official }}
+        />
+        <div
+          className="est-seg is-ours"
+          style={{ flexGrow: share.ours }}
+        />
       </div>
-      <div className="est-cell official">
-        <strong>{official == null ? "—" : fmt(official)}</strong>
-        {money ? null : <small>/ 百万 tokens</small>}
+      <strong className="est-pillar-name">{label}</strong>
+      {money ? null : <small className="est-pillar-unit">/ 百万 tokens</small>}
+      <div className="est-pillar-prices">
+        <span className="is-ours">{fmt(ours)}</span>
+        <span className="is-official">{fmt(official)}</span>
       </div>
-      <div className={`est-delta is-${delta}`}>
-        <TrendMark dir={delta} />
-        {delta === "down" && pct != null ? <em>低 {Math.abs(pct)}%</em> : null}
-        {delta === "up" && pct != null ? <em>高 {Math.abs(pct)}%</em> : null}
+      <div className={`est-pillar-delta is-${dir}`}>
+        <TrendMark dir={dir} />
+        {dir === "down" && pct != null ? <em>低 {Math.abs(pct)}%</em> : null}
+        {dir === "up" && pct != null ? <em>高 {Math.abs(pct)}%</em> : null}
       </div>
     </div>
   );
@@ -87,8 +104,7 @@ export default function PortalEstimatePage() {
   const [catalog, setCatalog] = useState<OfficialQuote[]>([]);
   const [vendorLabels, setVendorLabels] = useState(OFFICIAL_VENDORS);
   const [modelId, setModelId] = useState(params.get("model") || "");
-  const [vendor, setVendor] = useState<OfficialVendor>("anthropic");
-  const [officialId, setOfficialId] = useState("");
+  const [vendor, setVendor] = useState<OfficialVendor | "">("");
   const [prompt, setPrompt] = useState("1000");
   const [completion, setCompletion] = useState("1000");
   const [cache, setCache] = useState("0");
@@ -114,27 +130,44 @@ export default function PortalEstimatePage() {
     [models, modelId],
   );
 
-  useEffect(() => {
-    if (!model) return;
-    const matched = model.official;
-    const nextVendor = matched?.vendor ?? defaultVendorForModel(model.model);
-    setVendor(nextVendor);
-    setOfficialId(matched?.id ?? "");
-  }, [model?.model]);
+  const matchedQuotes = useMemo(() => {
+    if (!model) return [];
+    return quotesForSameModel(catalog, model.model, [
+      model.rewriteModel,
+      model.official?.id,
+      model.official?.model,
+    ]);
+  }, [catalog, model]);
 
-  const officialOptions = useMemo(
-    () => catalog.filter((q) => q.vendor === vendor),
-    [catalog, vendor],
-  );
-  const official =
-    officialOptions.find((q) => q.id === officialId) ?? officialOptions[0] ?? null;
-
-  useEffect(() => {
-    if (!officialOptions.length) return;
-    if (!officialOptions.some((q) => q.id === officialId)) {
-      setOfficialId(officialOptions[0]!.id);
+  const vendorOptions = useMemo(() => {
+    const seen = new Set<OfficialVendor>();
+    const rows: Array<{ id: OfficialVendor; label: string }> = [];
+    for (const q of matchedQuotes) {
+      if (seen.has(q.vendor)) continue;
+      seen.add(q.vendor);
+      rows.push({
+        id: q.vendor,
+        label: vendorLabel(
+          q.vendor,
+          q.vendorLabel || vendorLabels.find((v) => v.id === q.vendor)?.label,
+        ),
+      });
     }
-  }, [vendor, officialId, officialOptions]);
+    return rows;
+  }, [matchedQuotes, vendorLabels]);
+
+  const resolvedVendor: OfficialVendor | "" =
+    vendorOptions.some((v) => v.id === vendor)
+      ? vendor
+      : model?.official?.vendor &&
+          vendorOptions.some((v) => v.id === model.official!.vendor)
+        ? model.official.vendor
+        : (vendorOptions[0]?.id ?? "");
+
+  const official =
+    matchedQuotes.find((q) => q.vendor === resolvedVendor) ??
+    matchedQuotes[0] ??
+    null;
 
   const promptN = Math.max(0, Number(prompt) || 0);
   const completionN = Math.max(0, Number(completion) || 0);
@@ -142,11 +175,12 @@ export default function PortalEstimatePage() {
   const ours = model ? estimateCostUsd(model, promptN, completionN, cacheN) : 0;
   const cmp =
     model && official ? compareCost(model, official, promptN, completionN, cacheN) : null;
+  const tied = Boolean(cmp && Math.abs(cmp.saved) <= 0.0000005);
 
   return (
     <div className="portal-page est-page">
       <div className="est-hero">
-        <p className="est-kicker">本站 · 官方公开价</p>
+        <p className="est-kicker">同模型 · 官方公开价</p>
         <h1>计费预估</h1>
       </div>
 
@@ -173,21 +207,11 @@ export default function PortalEstimatePage() {
               <span>对照官方渠道</span>
               <SoftSelect
                 ariaLabel="官方渠道"
-                value={vendor}
+                value={resolvedVendor}
                 onChange={(v) => setVendor(v as OfficialVendor)}
-                options={vendorLabels.map((v) => ({ value: v.id, label: v.label }))}
-              />
-            </label>
-            <label className="stack-field">
-              <span>官方模型标价</span>
-              <SoftSelect
-                ariaLabel="官方模型"
-                value={official?.id ?? ""}
-                onChange={setOfficialId}
-                options={officialOptions.map((q) => ({
-                  value: q.id,
-                  label: `${q.model} · ${formatPerMillion(q.inputPer1m)}`,
-                }))}
+                disabled={!vendorOptions.length}
+                placeholder="官方没有此模型"
+                options={vendorOptions.map((v) => ({ value: v.id, label: v.label }))}
               />
             </label>
             <label className="stack-field">
@@ -218,52 +242,60 @@ export default function PortalEstimatePage() {
 
           {model ? (
             <>
-              <div className="est-board">
-                <div className="est-row est-head">
-                  <div className="est-label" />
-                  <div className="est-cell ours">
-                    <span className="est-col">
+              {official ? (
+                <div className="est-arena">
+                  <div className="est-legend">
+                    <span>
                       <i className="est-dot ours" />
                       本站
                     </span>
-                  </div>
-                  <div className="est-cell official">
-                    <span className="est-col">
+                    <span>
                       <i className="est-dot official" />
-                      官方
+                      官方 · {vendorLabel(official.vendor, official.vendorLabel)} · {official.model}
                     </span>
-                    {official ? (
-                      <small>
-                        {vendorLabel(official.vendor, official.vendorLabel)} · {official.model}
-                      </small>
-                    ) : null}
                   </div>
-                  <div className="est-delta">对比</div>
+                  <div className="est-pillars">
+                    <ComparePillar
+                      label="输入"
+                      ours={model.inputPer1m}
+                      official={official.inputPer1m}
+                    />
+                    <ComparePillar
+                      label="输出"
+                      ours={model.outputPer1m}
+                      official={official.outputPer1m}
+                    />
+                    <ComparePillar
+                      label="缓存"
+                      ours={model.cacheHitPer1m}
+                      official={official.cacheHitPer1m}
+                    />
+                    <ComparePillar
+                      label="合计"
+                      ours={ours}
+                      official={cmp?.official ?? 0}
+                      money
+                    />
+                  </div>
                 </div>
-                <CompareRow
-                  label="输入"
-                  ours={model.inputPer1m}
-                  official={official?.inputPer1m ?? null}
-                />
-                <CompareRow
-                  label="输出"
-                  ours={model.outputPer1m}
-                  official={official?.outputPer1m ?? null}
-                />
-                <CompareRow
-                  label="缓存"
-                  ours={model.cacheHitPer1m}
-                  official={official?.cacheHitPer1m ?? null}
-                />
-                <CompareRow
-                  label="合计"
-                  ours={ours}
-                  official={cmp?.official ?? null}
-                  money
-                />
-              </div>
+              ) : (
+                <div className="est-miss">
+                  <strong>官方公开价里没有 {model.model}</strong>
+                  <p>同模型才有对照必要，DeepSeek 官方不会出现 Claude 的标价。</p>
+                </div>
+              )}
 
-              {cmp ? (
+              {cmp && tied ? (
+                <div className="est-save is-tie">
+                  <TrendMark dir="same" />
+                  <div>
+                    <strong>这次持平 {formatUsd(ours)}</strong>
+                    <p>与官方同模型公开价相同</p>
+                  </div>
+                </div>
+              ) : null}
+
+              {cmp && !tied ? (
                 <div className={`est-save${cmp.cheaper ? " is-win" : " is-loss"}`}>
                   <TrendMark dir={cmp.cheaper ? "down" : "up"} />
                   <div>
@@ -274,7 +306,7 @@ export default function PortalEstimatePage() {
                     <p>
                       {cmp.cheaper
                         ? `比官方公开价低 ${formatSavePct(cmp.pct)}`
-                        : "换一个官方模型再比一次"}
+                        : `比官方公开价高 ${formatSavePct(-cmp.pct)}`}
                     </p>
                   </div>
                 </div>
