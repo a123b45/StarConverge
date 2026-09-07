@@ -46,6 +46,44 @@ function saveSessions(list: Session[]) {
   localStorage.setItem(STORE, JSON.stringify(list));
 }
 
+function toApiContent(text: string, imgs: string[]) {
+  if (!imgs.length) return text;
+  return [
+    { type: "text" as const, text },
+    ...imgs.map((url) => ({ type: "image_url" as const, image_url: { url } })),
+  ];
+}
+
+/** Successful turns only. Failed / aborted user+assistant pairs stay on screen but are not billed or sent upstream. */
+function historyForApi(messages: Msg[]): Array<{ role: string; content: unknown }> {
+  const out: Array<{ role: string; content: unknown }> = [];
+  let i = 0;
+  while (i < messages.length) {
+    const m = messages[i];
+    if (m.role !== "user") {
+      i += 1;
+      continue;
+    }
+    const following: Msg[] = [];
+    let j = i + 1;
+    while (j < messages.length && messages[j]!.role === "assistant") {
+      following.push(messages[j]!);
+      j += 1;
+    }
+    const succeeded = following.filter((a) => !a.variant);
+    const isCurrentSend =
+      j === messages.length && following.length === 0 && !m.variant;
+    if (!m.variant && (isCurrentSend || succeeded.length > 0)) {
+      out.push({ role: "user", content: toApiContent(m.content, m.images ?? []) });
+      for (const a of succeeded) {
+        out.push({ role: "assistant", content: a.content });
+      }
+    }
+    i = j;
+  }
+  return out;
+}
+
 export default function PortalChatPage() {
   const [params] = useSearchParams();
   const [sessions, setSessions] = useState<Session[]>(() => loadSessions());
@@ -286,14 +324,6 @@ export default function PortalChatPage() {
     return full;
   }
 
-  function toApiContent(text: string, imgs: string[]) {
-    if (!imgs.length) return text;
-    return [
-      { type: "text" as const, text },
-      ...imgs.map((url) => ({ type: "image_url" as const, image_url: { url } })),
-    ];
-  }
-
   async function completeOne(
     modelId: string,
     messages: Array<{ role: string; content: unknown }>,
@@ -364,12 +394,7 @@ export default function PortalChatPage() {
     setInput("");
     setImages([]);
 
-    const history = withUser.messages
-      .filter((m) => !m.variant)
-      .map((m) => ({
-        role: m.role,
-        content: toApiContent(m.content, m.images ?? []),
-      }));
+    const history = historyForApi(withUser.messages);
     const targets = compareOn && compareModel && compareModel !== model
       ? [model, compareModel]
       : [model];
@@ -432,9 +457,14 @@ export default function PortalChatPage() {
                 model: r.mid,
               },
         );
+        const allFailed = extras.length > 0 && extras.every((m) => m.variant);
         upsertSession({
           ...withUser,
-          messages: [...withUser.messages, ...extras],
+          messages: [
+            ...withUser.messages.slice(0, -1),
+            allFailed ? { ...userMsg, variant: extras[0]!.variant } : userMsg,
+            ...extras,
+          ],
           updatedAt: Date.now(),
         });
       }
@@ -444,22 +474,24 @@ export default function PortalChatPage() {
         (err instanceof DOMException && err.name === "AbortError") ||
         (err instanceof Error && err.name === "AbortError");
       const status = (err as Error & { status?: number }).status ?? 0;
+      const assistant = aborted
+        ? {
+            role: "assistant" as const,
+            content: "已停止生成",
+            at: Date.now(),
+            model,
+            variant: "aborted" as const,
+          }
+        : assistantFromError(
+            status,
+            err instanceof Error ? err.message : "发送失败",
+          );
       upsertSession({
         ...withUser,
         messages: [
-          ...withUser.messages,
-          aborted
-            ? {
-                role: "assistant",
-                content: "已停止生成",
-                at: Date.now(),
-                model,
-                variant: "aborted" as const,
-              }
-            : assistantFromError(
-                status,
-                err instanceof Error ? err.message : "发送失败",
-              ),
+          ...withUser.messages.slice(0, -1),
+          { ...userMsg, variant: assistant.variant },
+          assistant,
         ],
         updatedAt: Date.now(),
       });
