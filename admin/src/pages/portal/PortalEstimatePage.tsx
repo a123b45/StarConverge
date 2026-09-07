@@ -64,26 +64,24 @@ function CompareBar({
   const fmt = (n: number) => (money ? formatUsd(n) : rateAmount(n));
   return (
     <div className={`est-bar${money ? " is-total" : ""}`}>
-      <div className="est-bar-head">
+      <div className="est-bar-label">
         <strong>{label}</strong>
         {money ? null : <small>/ 百万 tokens</small>}
-        <div className={`est-bar-delta is-${dir}`}>
-          <TrendMark dir={dir} />
-          {dir === "down" && pct != null ? <em>低 {Math.abs(pct)}%</em> : null}
-          {dir === "up" && pct != null ? <em>高 {Math.abs(pct)}%</em> : null}
-        </div>
       </div>
-      <div className="est-bar-body">
-        <span className="is-ours">{fmt(ours)}</span>
-        <div
-          className="est-bar-track"
-          role="img"
-          aria-label={`${label} 本站 ${fmt(ours)}，官方 ${fmt(official)}`}
-        >
-          <div className="est-seg is-ours" style={{ flexGrow: share.ours }} />
-          <div className="est-seg is-official" style={{ flexGrow: share.official }} />
-        </div>
-        <span className="is-official">{fmt(official)}</span>
+      <div
+        className="est-bar-track"
+        role="img"
+        aria-label={`${label} 本站 ${fmt(ours)}，官方 ${fmt(official)}`}
+      >
+        <div className="est-seg is-ours" style={{ flexGrow: share.ours }} />
+        <div className="est-seg is-official" style={{ flexGrow: share.official }} />
+        <span className="est-bar-val is-ours">{fmt(ours)}</span>
+        <span className="est-bar-val is-official">{fmt(official)}</span>
+      </div>
+      <div className={`est-bar-delta is-${dir}`}>
+        <TrendMark dir={dir} />
+        {dir === "down" && pct != null ? <em>低 {Math.abs(pct)}%</em> : null}
+        {dir === "up" && pct != null ? <em>高 {Math.abs(pct)}%</em> : null}
       </div>
     </div>
   );
