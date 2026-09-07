@@ -11,6 +11,7 @@ import {
   IconEye,
   IconEyeOff,
   IconPencil,
+  IconSettings,
   IconTrash,
 } from "../../components/icons";
 import { normalizeIpRules, type IpRule } from "../../lib/ip-rules";
@@ -62,6 +63,7 @@ type FormState = {
   name: string;
   remark: string;
   enabled: boolean;
+  quotaUnlimited: boolean;
   quota: string;
   dailyQuota: string;
   monthlyQuota: string;
@@ -74,6 +76,7 @@ const emptyForm: FormState = {
   name: "",
   remark: "",
   enabled: true,
+  quotaUnlimited: true,
   quota: "",
   dailyQuota: "",
   monthlyQuota: "",
@@ -84,7 +87,7 @@ const emptyForm: FormState = {
 
 function parseQuota(raw: string): number {
   const t = raw.trim();
-  if (!t) return -1;
+  if (!t || t === "不限") return -1;
   const n = Number(t);
   return Number.isFinite(n) ? Math.trunc(n) : -1;
 }
@@ -102,6 +105,7 @@ export default function PortalKeysPage() {
   const [toast, setToast] = useState<string | null>(null);
   const [toastTone, setToastTone] = useState<"ok" | "err">("ok");
   const [createdKey, setCreatedKey] = useState<string | null>(null);
+  const [advOpen, setAdvOpen] = useState(false);
 
   async function load() {
     const res = await portalApi<{ data: KeyRow[] }>("/keys");
@@ -138,16 +142,19 @@ export default function PortalKeysPage() {
     setForm(emptyForm);
     setCreatedKey(null);
     setError("");
+    setAdvOpen(false);
     setOpen(true);
   }
 
   function startEdit(row: KeyRow) {
+    const unlimited = row.quota == null || row.quota < 0;
     setEditing(row);
     setForm({
       name: row.name,
       remark: row.remark || "",
       enabled: row.enabled !== false,
-      quota: row.quota != null && row.quota >= 0 ? String(row.quota) : "",
+      quotaUnlimited: unlimited,
+      quota: unlimited ? "" : String(row.quota),
       dailyQuota: row.dailyQuota != null && row.dailyQuota >= 0 ? String(row.dailyQuota) : "",
       monthlyQuota:
         row.monthlyQuota != null && row.monthlyQuota >= 0 ? String(row.monthlyQuota) : "",
@@ -160,6 +167,7 @@ export default function PortalKeysPage() {
     });
     setCreatedKey(null);
     setError("");
+    setAdvOpen(Boolean((row.ipRules ?? []).some((r) => r.action === "ALLOW")));
     setOpen(true);
   }
 
@@ -174,7 +182,7 @@ export default function PortalKeysPage() {
       name: form.name.trim(),
       remark: form.remark.trim(),
       enabled: form.enabled,
-      quota: parseQuota(form.quota),
+      quota: form.quotaUnlimited ? -1 : parseQuota(form.quota),
       dailyQuota: parseQuota(form.dailyQuota),
       monthlyQuota: parseQuota(form.monthlyQuota),
       rateLimit: Math.max(0, Number(form.rateLimit) || 0),
@@ -487,11 +495,35 @@ export default function PortalKeysPage() {
                 <div className="portal-estimate-grid">
                   <label className="stack-field">
                     <span>总额度（tokens）</span>
-                    <input
-                      value={form.quota}
-                      onChange={(e) => setForm({ ...form, quota: e.target.value })}
-                      placeholder="不限"
-                    />
+                    <div className="rate-row">
+                      <label className="check-inline">
+                        <input
+                          type="checkbox"
+                          checked={form.quotaUnlimited}
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              quotaUnlimited: e.target.checked,
+                              quota: e.target.checked ? "" : form.quota || "",
+                            })
+                          }
+                        />
+                        不限
+                      </label>
+                      <input
+                        inputMode="numeric"
+                        disabled={form.quotaUnlimited}
+                        value={form.quotaUnlimited ? "" : form.quota}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            quotaUnlimited: false,
+                            quota: e.target.value,
+                          })
+                        }
+                        placeholder="不限"
+                      />
+                    </div>
                   </label>
                   <label className="stack-field">
                     <span>日额度</span>
@@ -525,15 +557,50 @@ export default function PortalKeysPage() {
                     onChange={(allowedModels) => setForm({ ...form, allowedModels })}
                   />
                 </label>
-                <label className="stack-field">
-                  <span>IP 白名单（每行一个，空 = 不限）</span>
-                  <textarea
-                    rows={3}
-                    value={form.ipText}
-                    onChange={(e) => setForm({ ...form, ipText: e.target.value })}
-                    placeholder="例如 1.2.3.4 或 10.0.0.0/24"
-                  />
-                </label>
+                <div className={`portal-adv ${advOpen ? "is-open" : ""}`}>
+                  <button
+                    type="button"
+                    className="portal-adv-toggle"
+                    aria-expanded={advOpen}
+                    onClick={() => setAdvOpen((v) => !v)}
+                  >
+                    <span className="portal-adv-icon" aria-hidden>
+                      <IconSettings size={16} />
+                    </span>
+                    <span className="portal-adv-copy">
+                      <strong>高级设置</strong>
+                      <small>设置令牌的访问限制</small>
+                    </span>
+                    <span className="portal-adv-chevron" aria-hidden>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                        <path
+                          d="M6 9l6 6 6-6"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </span>
+                  </button>
+                  {advOpen ? (
+                    <div className="portal-adv-body">
+                      <label className="stack-field">
+                        <span>IP 白名单（支持 CIDR）</span>
+                        <textarea
+                          className="portal-ip-area mono"
+                          rows={4}
+                          value={form.ipText}
+                          onChange={(e) => setForm({ ...form, ipText: e.target.value })}
+                          placeholder="每行一个 IP（留空表示无限制）"
+                        />
+                        <p className="muted portal-adv-hint">
+                          请勿过度信任此功能，IP 可能被伪造，请配合 nginx 和 CDN 等网关使用
+                        </p>
+                      </label>
+                    </div>
+                  ) : null}
+                </div>
               </>
             )}
             <div className="modal-actions">
