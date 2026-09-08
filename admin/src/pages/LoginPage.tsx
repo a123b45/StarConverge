@@ -61,8 +61,8 @@ export default function LoginPage() {
             <li>
               <span className="check" aria-hidden />
               <div>
-                <strong>对比官方渠道 70%</strong>
-                <p>卡密兑换余额，按 token 用量扣费</p>
+                <strong>对比官方渠道优惠 70%</strong>
+                <p>不掺水，支持模型测试</p>
               </div>
             </li>
             <li>
