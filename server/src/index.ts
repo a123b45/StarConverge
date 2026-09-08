@@ -56,6 +56,27 @@ app.route("/api/pay", payRoutes);
 app.route("/v1", v1Routes);
 app.route("/proxy", proxyApp);
 
+/**
+ * NewAPI / mid-station detectors often set base_url to the site root and call
+ * /models or /chat/completions (without /v1). Mirror the common paths so both
+ * https://host and https://host/v1 work as Base URL.
+ */
+const openaiRootAliases = [
+  "/models",
+  "/chat/completions",
+  "/completions",
+  "/embeddings",
+  "/messages",
+] as const;
+
+for (const alias of openaiRootAliases) {
+  app.all(alias, (c) => {
+    const url = new URL(c.req.url);
+    url.pathname = `/v1${alias}`;
+    return app.fetch(new Request(url, c.req.raw));
+  });
+}
+
 // Serve admin SPA in production if built.
 // Use absolute paths — serveStatic's relative root breaks when cwd ≠ repo root,
 // and a blind SPA fallback would return index.html for missing /assets/*.css.
@@ -116,7 +137,12 @@ if (fs.existsSync(adminDist)) {
       p.startsWith("/v1/") ||
       p.startsWith("/proxy/") ||
       p.startsWith("/assets/") ||
-      p === "/health"
+      p === "/health" ||
+      p === "/models" ||
+      p === "/chat/completions" ||
+      p === "/completions" ||
+      p === "/embeddings" ||
+      p === "/messages"
     ) {
       return c.text("Not found", 404);
     }
