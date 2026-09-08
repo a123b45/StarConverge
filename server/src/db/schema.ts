@@ -129,6 +129,8 @@ export const tokens = sqliteTable(
     /** Token cap per UTC month; -1 = unlimited */
     monthlyQuota: integer("monthly_quota").notNull().default(-1),
     remark: text("remark").default(""),
+    /** Soft-delete timestamp; null = active key visible in portal */
+    deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
     createdAt: integer("created_at", { mode: "timestamp_ms" })
       .notNull()
       .default(sql`(unixepoch() * 1000)`),
@@ -174,6 +176,8 @@ export const requestLogs = sqliteTable(
   {
     id: text("id").primaryKey(),
     tokenId: text("token_id"),
+    /** Owning portal user; kept even after the key is soft-deleted */
+    userId: text("user_id"),
     channelId: text("channel_id"),
     model: text("model"),
     /** Upstream model actually sent to provider (bound-route / rewrite); null = same as model */
@@ -200,6 +204,7 @@ export const requestLogs = sqliteTable(
     index("logs_created_at_idx").on(t.createdAt),
     index("logs_token_id_idx").on(t.tokenId),
     index("logs_model_idx").on(t.model),
+    index("logs_user_id_idx").on(t.userId),
   ],
 );
 

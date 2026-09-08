@@ -318,7 +318,7 @@ authRoutes.get("/me", async (c) => {
   const userTokens = await db
     .select()
     .from(tokens)
-    .where(eq(tokens.userId, user.id));
+    .where(and(eq(tokens.userId, user.id), isNull(tokens.deletedAt)));
   let usedQuota = 0;
   let quota = 0;
   let unlimited = false;

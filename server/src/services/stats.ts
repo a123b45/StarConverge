@@ -7,6 +7,7 @@ import { debitPortalUsage } from "./billing.js";
 
 export async function writeLog(input: {
   tokenId?: string | null;
+  userId?: string | null;
   channelId?: string | null;
   model?: string | null;
   upstreamModel?: string | null;
@@ -23,9 +24,19 @@ export async function writeLog(input: {
   responsePreview?: string | null;
   messageCount?: number;
 }) {
+  let userId = input.userId ?? null;
+  if (!userId && input.tokenId) {
+    const tok = await db.query.tokens.findFirst({
+      where: eq(tokens.id, input.tokenId),
+      columns: { userId: true },
+    });
+    userId = tok?.userId ?? null;
+  }
+
   await db.insert(requestLogs).values({
     id: id("log"),
     tokenId: input.tokenId ?? null,
+    userId,
     channelId: input.channelId ?? null,
     model: input.model ?? null,
     upstreamModel: input.upstreamModel ?? null,

@@ -56,7 +56,7 @@ export const requireApiToken = createMiddleware<AuthVars>(async (c, next) => {
   const row = await db.query.tokens.findFirst({
     where: eq(tokens.keyHash, hashKey(raw)),
   });
-  if (!row || !row.enabled) {
+  if (!row || !row.enabled || row.deletedAt) {
     return c.json(
       { error: { message: "Invalid API key", type: "auth_error" } },
       401,

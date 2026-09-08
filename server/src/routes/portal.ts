@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { and, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db/index.js";
 import {
@@ -75,7 +75,7 @@ portalRoutes.get("/me", async (c) => {
   const userTokens = await db
     .select()
     .from(tokens)
-    .where(eq(tokens.userId, user.id));
+    .where(and(eq(tokens.userId, user.id), isNull(tokens.deletedAt)));
   let usedQuota = 0;
   let quota = 0;
   let unlimited = false;
@@ -250,7 +250,7 @@ portalRoutes.get("/models", async (c) => {
   const userTokens = await db
     .select({ allowedModels: tokens.allowedModels, enabled: tokens.enabled })
     .from(tokens)
-    .where(eq(tokens.userId, auth.userId!));
+    .where(and(eq(tokens.userId, auth.userId!), isNull(tokens.deletedAt)));
   const allowSets = userTokens
     .filter((t) => t.enabled)
     .map((t) => parseJsonArray(t.allowedModels));
@@ -330,7 +330,7 @@ portalRoutes.get("/keys", async (c) => {
   const rows = await db
     .select()
     .from(tokens)
-    .where(eq(tokens.userId, auth.userId!))
+    .where(and(eq(tokens.userId, auth.userId!), isNull(tokens.deletedAt)))
     .orderBy(desc(tokens.createdAt));
   return c.json({
     data: rows.map((r) => ({
@@ -384,6 +384,7 @@ portalRoutes.post("/keys", async (c) => {
     lastUsedAt: null,
     expiresAt: v.expiresAt ? new Date(v.expiresAt) : null,
     remark: v.remark ?? "",
+    deletedAt: null,
   };
   await db.insert(tokens).values(row);
   return c.json(
@@ -398,7 +399,11 @@ portalRoutes.post("/keys", async (c) => {
 portalRoutes.get("/keys/:id", async (c) => {
   const auth = c.get("auth");
   const row = await db.query.tokens.findFirst({
-    where: and(eq(tokens.id, c.req.param("id")), eq(tokens.userId, auth.userId!)),
+    where: and(
+      eq(tokens.id, c.req.param("id")),
+      eq(tokens.userId, auth.userId!),
+      isNull(tokens.deletedAt),
+    ),
   });
   if (!row) return c.json({ error: "Not found" }, 404);
   return c.json({ data: publicToken(row), key: row.keyPlain });
@@ -407,7 +412,11 @@ portalRoutes.get("/keys/:id", async (c) => {
 portalRoutes.patch("/keys/:id", async (c) => {
   const auth = c.get("auth");
   const row = await db.query.tokens.findFirst({
-    where: and(eq(tokens.id, c.req.param("id")), eq(tokens.userId, auth.userId!)),
+    where: and(
+      eq(tokens.id, c.req.param("id")),
+      eq(tokens.userId, auth.userId!),
+      isNull(tokens.deletedAt),
+    ),
   });
   if (!row) return c.json({ error: "Not found" }, 404);
   const schema = z.object({
@@ -448,10 +457,24 @@ portalRoutes.patch("/keys/:id", async (c) => {
 portalRoutes.delete("/keys/:id", async (c) => {
   const auth = c.get("auth");
   const row = await db.query.tokens.findFirst({
-    where: and(eq(tokens.id, c.req.param("id")), eq(tokens.userId, auth.userId!)),
+    where: and(
+      eq(tokens.id, c.req.param("id")),
+      eq(tokens.userId, auth.userId!),
+      isNull(tokens.deletedAt),
+    ),
   });
   if (!row) return c.json({ error: "Not found" }, 404);
-  await db.delete(tokens).where(eq(tokens.id, row.id));
+  // Soft-delete: keep row so usage/traces stay attributable to this user.
+  await db
+    .update(tokens)
+    .set({
+      deletedAt: new Date(),
+      enabled: false,
+      keyHash: `deleted:${row.id}:${Date.now()}`,
+      keyPlain: null,
+      updatedAt: new Date(),
+    })
+    .where(eq(tokens.id, row.id));
   return c.json({ ok: true });
 });
 
@@ -569,27 +592,30 @@ portalRoutes.get("/usage", async (c) => {
   const balance = (user?.balanceCents ?? 0) / 100;
   const totalRecharged = (user?.totalRechargedCents ?? 0) / 100;
 
-  const userTokens = await db
+  const allUserTokens = await db
     .select()
     .from(tokens)
     .where(eq(tokens.userId, auth.userId!));
-  const tokenIds = userTokens.map((t) => t.id);
+  const activeTokens = allUserTokens.filter((t) => !t.deletedAt);
+  const tokenIds = allUserTokens.map((t) => t.id);
 
   let usedQuota = 0;
   let quota = 0;
   let unlimited = false;
-  for (const t of userTokens) {
+  for (const t of allUserTokens) {
     usedQuota += t.usedQuota;
+    if (t.deletedAt) continue;
     if (t.quota < 0) unlimited = true;
     else quota += t.quota;
   }
 
+  const spentFromBalance = Math.max(0, totalRecharged - balance);
   const emptySummary = {
     quota: unlimited ? -1 : quota,
     usedQuota,
     balance,
     totalRecharged,
-    totalCost: 0,
+    totalCost: spentFromBalance,
     calls: 0,
     promptTokens: 0,
     completionTokens: 0,
@@ -601,16 +627,16 @@ portalRoutes.get("/usage", async (c) => {
     avgMs: 0,
   };
 
-  if (tokenIds.length === 0) {
-    return c.json({
-      summary: emptySummary,
-      byModel: [],
-      daily: [],
-    });
-  }
+  const ownership =
+    tokenIds.length > 0
+      ? or(
+          eq(requestLogs.userId, auth.userId!),
+          inArray(requestLogs.tokenId, tokenIds),
+        )
+      : eq(requestLogs.userId, auth.userId!);
 
   const conditions = [
-    inArray(requestLogs.tokenId, tokenIds),
+    ownership!,
     gte(requestLogs.createdAt, new Date(from)),
   ];
   if (modelFilter) conditions.push(eq(requestLogs.model, modelFilter));
@@ -619,6 +645,14 @@ portalRoutes.get("/usage", async (c) => {
     .select()
     .from(requestLogs)
     .where(and(...conditions));
+
+  if (!logs.length && !activeTokens.length && !tokenIds.length) {
+    return c.json({
+      summary: emptySummary,
+      byModel: [],
+      daily: [],
+    });
+  }
 
   const priceRows = await db.select().from(modelPrices);
   const priceByModel = new Map<string, { inMilli: number; outMilli: number }>();
@@ -765,7 +799,6 @@ portalRoutes.get("/usage", async (c) => {
 
   // Prefer priced usage cost; fall back to recharge minus remaining balance.
   const pricedCost = Math.round(totalCostMilli) / 1000;
-  const spentFromBalance = Math.max(0, totalRecharged - balance);
   const totalCost = pricedCost > 0 ? pricedCost : spentFromBalance;
 
   return c.json({
@@ -802,23 +835,29 @@ portalRoutes.get("/usage/requests", async (c) => {
   const statusFilter = c.req.query("status"); // ok | error
 
   const userTokens = await db
-    .select({ id: tokens.id })
+    .select({ id: tokens.id, deletedAt: tokens.deletedAt })
     .from(tokens)
     .where(eq(tokens.userId, auth.userId!));
   const tokenIds = userTokens.map((t) => t.id);
-  if (tokenIds.length === 0) {
-    return c.json({ data: [], page, pageSize, total: 0, totalPages: 1 });
-  }
+  const activeTokenIds = userTokens.filter((t) => !t.deletedAt).map((t) => t.id);
+
+  const ownership =
+    tokenIds.length > 0
+      ? or(
+          eq(requestLogs.userId, auth.userId!),
+          inArray(requestLogs.tokenId, tokenIds),
+        )
+      : eq(requestLogs.userId, auth.userId!);
 
   const conditions = [
-    inArray(requestLogs.tokenId, tokenIds),
+    ownership!,
     gte(requestLogs.createdAt, new Date(from)),
   ];
   if (to && Number.isFinite(to)) {
     conditions.push(lte(requestLogs.createdAt, new Date(to)));
   }
   if (modelFilter) conditions.push(eq(requestLogs.model, modelFilter));
-  if (tokenFilter && tokenIds.includes(tokenFilter)) {
+  if (tokenFilter && activeTokenIds.includes(tokenFilter)) {
     conditions.push(eq(requestLogs.tokenId, tokenFilter));
   }
   if (statusFilter === "ok") {
@@ -853,7 +892,7 @@ portalRoutes.get("/usage/requests", async (c) => {
     data: rows.map(({ log: r, tokenName }) => ({
       id: r.id,
       model: r.model,
-      keyName: tokenName || "—",
+      keyName: tokenName || (r.tokenId ? "已删除密钥" : "—"),
       path: r.path,
       promptTokens: r.promptTokens ?? 0,
       completionTokens: r.completionTokens ?? 0,
@@ -880,13 +919,17 @@ portalRoutes.get("/usage/requests/:id", async (c) => {
     .from(tokens)
     .where(eq(tokens.userId, auth.userId!));
   const tokenIds = userTokens.map((t) => t.id);
-  if (!tokenIds.length) return c.json({ error: "Not found" }, 404);
+
+  const ownership =
+    tokenIds.length > 0
+      ? or(
+          eq(requestLogs.userId, auth.userId!),
+          inArray(requestLogs.tokenId, tokenIds),
+        )
+      : eq(requestLogs.userId, auth.userId!);
 
   const row = await db.query.requestLogs.findFirst({
-    where: and(
-      eq(requestLogs.id, c.req.param("id")),
-      inArray(requestLogs.tokenId, tokenIds),
-    ),
+    where: and(eq(requestLogs.id, c.req.param("id")), ownership!),
   });
   if (!row) return c.json({ error: "Not found" }, 404);
 

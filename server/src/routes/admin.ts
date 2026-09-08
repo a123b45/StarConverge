@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { and, desc, eq, gte, inArray, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db/index.js";
 import {
@@ -1800,7 +1800,11 @@ adminRoutes.get("/system", (c) => {
 
 // ---- Tokens ----
 adminRoutes.get("/tokens", async (c) => {
-  const rows = await db.select().from(tokens).orderBy(desc(tokens.createdAt));
+  const rows = await db
+    .select()
+    .from(tokens)
+    .where(isNull(tokens.deletedAt))
+    .orderBy(desc(tokens.createdAt));
   return c.json({ data: rows.map(publicToken) });
 });
 
@@ -1847,6 +1851,7 @@ adminRoutes.post("/tokens", async (c) => {
     remark: v.remark ?? "",
     dailyQuota: -1,
     monthlyQuota: -1,
+    deletedAt: null,
   };
   await db.insert(tokens).values(row);
   return c.json(
@@ -1916,7 +1921,20 @@ adminRoutes.put("/tokens/:id", async (c) => {
 });
 
 adminRoutes.delete("/tokens/:id", async (c) => {
-  await db.delete(tokens).where(eq(tokens.id, c.req.param("id")));
+  const id = c.req.param("id");
+  const row = await db.query.tokens.findFirst({ where: eq(tokens.id, id) });
+  if (!row) return c.json({ error: "Not found" }, 404);
+  // Soft-delete so portal usage/traces remain attributable via token_id / user_id.
+  await db
+    .update(tokens)
+    .set({
+      deletedAt: new Date(),
+      enabled: false,
+      keyHash: `deleted:${row.id}:${Date.now()}`,
+      keyPlain: null,
+      updatedAt: new Date(),
+    })
+    .where(eq(tokens.id, id));
   return c.json({ ok: true });
 });
 

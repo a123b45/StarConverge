@@ -194,6 +194,9 @@ export function migrate() {
   if (!tokenCols.some((c) => c.name === "monthly_quota")) {
     sqlite.exec(`ALTER TABLE tokens ADD COLUMN monthly_quota INTEGER NOT NULL DEFAULT -1`);
   }
+  if (!tokenCols.some((c) => c.name === "deleted_at")) {
+    sqlite.exec(`ALTER TABLE tokens ADD COLUMN deleted_at INTEGER`);
+  }
 
   const logCols = sqlite.prepare(`PRAGMA table_info(request_logs)`).all() as Array<{
     name: string;
@@ -212,7 +215,23 @@ export function migrate() {
   if (!logCols.some((c) => c.name === "upstream_model")) {
     sqlite.exec(`ALTER TABLE request_logs ADD COLUMN upstream_model TEXT`);
   }
+  if (!logCols.some((c) => c.name === "user_id")) {
+    sqlite.exec(`ALTER TABLE request_logs ADD COLUMN user_id TEXT`);
+  }
   sqlite.exec(`CREATE INDEX IF NOT EXISTS logs_model_idx ON request_logs(model)`);
+  sqlite.exec(`CREATE INDEX IF NOT EXISTS logs_user_id_idx ON request_logs(user_id)`);
+  // Backfill user_id from still-existing tokens (soft-deleted keys keep history)
+  try {
+    sqlite.exec(`
+      UPDATE request_logs
+      SET user_id = (
+        SELECT user_id FROM tokens WHERE tokens.id = request_logs.token_id
+      )
+      WHERE user_id IS NULL AND token_id IS NOT NULL
+    `);
+  } catch {
+    /* ignore backfill errors on fresh DBs */
+  }
 
   const userCols = sqlite.prepare(`PRAGMA table_info(users)`).all() as Array<{
     name: string;
