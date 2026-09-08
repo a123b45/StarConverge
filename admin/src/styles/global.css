@@ -5375,6 +5375,61 @@ html[data-theme="dark"] .chrome-lang-menu button:hover:not(.is-active) {
   margin-bottom: 20px;
   align-items: stretch;
 }
+.portal-baseurl-panel .portal-panel-head {
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 6px 16px;
+}
+.portal-baseurl-lead {
+  margin: 0;
+  flex: 1 1 220px;
+  font-size: 13px;
+  line-height: 1.45;
+  text-align: right;
+}
+.portal-baseurl-list {
+  display: grid;
+  gap: 10px;
+}
+.portal-baseurl-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+}
+.portal-baseurl-meta {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.portal-baseurl-meta span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+.portal-baseurl-meta code {
+  font-size: 13px;
+  word-break: break-all;
+  color: var(--text);
+}
+html[data-theme="dark"] .portal-baseurl-row {
+  background: var(--bg-elevated);
+}
+@media (max-width: 640px) {
+  .portal-baseurl-lead {
+    text-align: left;
+  }
+  .portal-baseurl-row {
+    flex-wrap: wrap;
+  }
+  .portal-baseurl-row .portal-btn {
+    margin-left: auto;
+  }
+}
 .portal-recipe {
   display: flex;
   flex-direction: column;

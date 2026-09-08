@@ -163,6 +163,41 @@ wire_api = "chat"`;
         </RecipeCard>
       </div>
 
+      <div className="portal-panel portal-baseurl-panel">
+        <div className="portal-panel-head">
+          <h3>{t("docs.baseUrlTitle")}</h3>
+          <p className="muted portal-baseurl-lead">{t("docs.baseUrlLead")}</p>
+        </div>
+        <div className="portal-baseurl-list">
+          <div className="portal-baseurl-row">
+            <div className="portal-baseurl-meta">
+              <span>{t("docs.baseUrlOpenai")}</span>
+              <code className="mono">{openaiBase}</code>
+            </div>
+            <button
+              className="portal-btn ghost sm"
+              type="button"
+              onClick={() => void copy(openaiBase, "base-openai")}
+            >
+              {copied === "base-openai" ? t("common.copied") : t("common.copy")}
+            </button>
+          </div>
+          <div className="portal-baseurl-row">
+            <div className="portal-baseurl-meta">
+              <span>{t("docs.baseUrlAnthropic")}</span>
+              <code className="mono">{anthropicBase}</code>
+            </div>
+            <button
+              className="portal-btn ghost sm"
+              type="button"
+              onClick={() => void copy(anthropicBase, "base-anthropic")}
+            >
+              {copied === "base-anthropic" ? t("common.copied") : t("common.copy")}
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div className="portal-panel">
         <div className="portal-panel-head">
           <h3>curl</h3>
