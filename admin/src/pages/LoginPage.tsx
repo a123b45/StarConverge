@@ -55,28 +55,35 @@ export default function LoginPage() {
             <span>低价 Token。</span>
           </h1>
           <p className="auth-hero-lead">
-            充值买 Token，一钥调用多家模型。OpenAI 兼容，即开即用。
+            我们不生产 token，我们只是 token 的搬运工。
           </p>
           <ul className="auth-features">
             <li>
               <span className="check" aria-hidden />
               <div>
-                <strong>对比官方渠道优惠 70%</strong>
-                <p>不掺水，支持模型测试</p>
+                <strong>物美价廉</strong>
+                <p>支持模型估价对比，对比官方渠道优惠 70%</p>
               </div>
             </li>
             <li>
               <span className="check" aria-hidden />
               <div>
-                <strong>一钥多模</strong>
-                <p>一个密钥调用 GPT、Claude、Gemini 等</p>
+                <strong>模型可靠</strong>
+                <p>不掺水，支持各种模型测试</p>
               </div>
             </li>
             <li>
               <span className="check" aria-hidden />
               <div>
-                <strong>即开即用</strong>
-                <p>填 Base URL，Cursor、Claude Code、Codex 直接接入</p>
+                <strong>聚合调用</strong>
+                <p>一个密钥畅享 GPT、Claude、Gemini 等 AI 智能大模型</p>
+              </div>
+            </li>
+            <li>
+              <span className="check" aria-hidden />
+              <div>
+                <strong>智能体接入</strong>
+                <p>可直接接入 Cursor、Claude Code、Codex</p>
               </div>
             </li>
           </ul>
@@ -92,7 +99,6 @@ export default function LoginPage() {
               <em>登录 INKSTUDIO</em>
             </div>
             <h2>登录 inkstudio</h2>
-            <p>登录后即可充值买 Token、调用模型</p>
           </div>
 
           {error ? <div className="alert">{error}</div> : null}

@@ -104,13 +104,15 @@ export const ZH = {
 
   "login.heroTitle": "API 中转。",
   "login.heroSub": "低价 Token。",
-  "login.heroLead": "充值买 Token，一钥调用多家模型。OpenAI 兼容，即开即用。",
-  "login.f1": "对比官方渠道优惠 70%",
-  "login.f1b": "不掺水，支持模型测试",
-  "login.f2": "一钥多模",
-  "login.f2b": "一个密钥调用 GPT、Claude、Gemini 等",
-  "login.f3": "即开即用",
-  "login.f3b": "填 Base URL，Cursor、Claude Code、Codex 直接接入",
+  "login.heroLead": "我们不生产 token，我们只是 token 的搬运工。",
+  "login.f1": "物美价廉",
+  "login.f1b": "支持模型估价对比，对比官方渠道优惠 70%",
+  "login.f2": "模型可靠",
+  "login.f2b": "不掺水，支持各种模型测试",
+  "login.f3": "聚合调用",
+  "login.f3b": "一个密钥畅享 GPT、Claude、Gemini 等 AI 智能大模型",
+  "login.f4": "智能体接入",
+  "login.f4b": "可直接接入 Cursor、Claude Code、Codex",
 } as const;
 
 export const EN: Record<MsgKey, string> = {
@@ -217,11 +219,13 @@ export const EN: Record<MsgKey, string> = {
 
   "login.heroTitle": "An API relay.",
   "login.heroSub": "Low-price tokens.",
-  "login.heroLead": "Top up, then call many models with one key. OpenAI-compatible and ready to use.",
-  "login.f1": "Up to 70% off official list price",
-  "login.f1b": "No watered-down models — test before you buy",
-  "login.f2": "One key, many models",
-  "login.f2b": "Call GPT, Claude, Gemini, and more",
-  "login.f3": "Drop into your client",
-  "login.f3b": "Paste the Base URL into Cursor, Claude Code, or Codex",
+  "login.heroLead": "We don't make tokens. We just move them.",
+  "login.f1": "Great value",
+  "login.f1b": "Estimate and compare — up to 70% off official list price",
+  "login.f2": "Reliable models",
+  "login.f2b": "No watered-down models — test before you buy",
+  "login.f3": "One key, many models",
+  "login.f3b": "Call GPT, Claude, Gemini, and more with a single key",
+  "login.f4": "Agent-ready",
+  "login.f4b": "Drop straight into Cursor, Claude Code, or Codex",
 };
