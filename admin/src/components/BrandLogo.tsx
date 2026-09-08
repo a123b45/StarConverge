@@ -1,4 +1,4 @@
-/** Simple line-art sun mark for 辉煌 branding. */
+/** Simple line-art sun mark for 辉煌 branding (8 pointed rays). */
 export default function BrandLogo({
   className = "",
   size = 28,
@@ -8,7 +8,7 @@ export default function BrandLogo({
   size?: number;
   title?: string;
 }) {
-  const rays = Array.from({ length: 12 }, (_, i) => i * 30);
+  const rays = Array.from({ length: 8 }, (_, i) => i * 45);
   return (
     <span
       className={`brand-sun ${className}`.trim()}
@@ -20,7 +20,7 @@ export default function BrandLogo({
         <g
           fill="none"
           stroke="currentColor"
-          strokeWidth="1.55"
+          strokeWidth="1.65"
           strokeLinecap="round"
           strokeLinejoin="round"
         >
@@ -28,12 +28,12 @@ export default function BrandLogo({
             <path
               key={deg}
               transform={`rotate(${deg} 16 16)`}
-              d="M16 3.4c1.15 1.35 1.55 2.85 1.15 4.15-1.35-.35-2.5-.35-3.7 0 .25-1.4.95-2.9 2.55-4.15Z"
+              d="M16 2.8c1.35 1.7 1.7 3.35 1.05 4.85-1.55-.45-2.9-.45-4.45 0C12.3 6.15 13.1 4.5 16 2.8Z"
             />
           ))}
-          <circle cx="16" cy="16" r="5.35" />
+          <circle cx="16" cy="16" r="5.6" />
         </g>
-        <circle cx="16" cy="16" r="2.55" fill="currentColor" stroke="none" />
+        <circle cx="16" cy="16" r="2.35" fill="currentColor" stroke="none" />
       </svg>
     </span>
   );

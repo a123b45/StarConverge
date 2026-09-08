@@ -97,9 +97,8 @@ export default function LoginPage() {
             <div className="auth-panel-brand">
               <BrandLogo className="auth-logo sm" size={30} />
               <strong>辉煌</strong>
-              <em>登录</em>
             </div>
-            <h2>登录辉煌</h2>
+            <h2>登录</h2>
           </div>
 
           {error ? <div className="alert">{error}</div> : null}

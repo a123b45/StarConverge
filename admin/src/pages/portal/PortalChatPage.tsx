@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { portalApi } from "../../lib/api";
 import { IconMore, IconSidebar, IconStop } from "../../components/icons";
 import SoftSelect from "../../components/SoftSelect";
+import BrandLogo from "../../components/BrandLogo";
 import { softConfirm, softPrompt } from "../../components/SoftDialog";
 import { detectModelModality } from "../../lib/model-taxonomy";
 
@@ -647,7 +648,9 @@ export default function PortalChatPage() {
         <div className="ds-messages">
           {!active?.messages.length ? (
             <div className="ds-welcome">
-              <div className="ds-welcome-mark">in</div>
+              <div className="ds-welcome-mark">
+                <BrandLogo size={32} />
+              </div>
               <h2>试一下模型再决定买多少</h2>
               <p>选择模型与密钥后即可对话。对比模式会把同一句发给两个模型。</p>
               {!apiKey ? (
@@ -677,7 +680,9 @@ export default function PortalChatPage() {
             <div className="ds-thread">
               {active.messages.map((m, i) => (
                 <div key={i} className={`ds-msg ${m.role}`}>
-                    <div className="ds-avatar">{m.role === "user" ? "你" : "in"}</div>
+                    <div className="ds-avatar">
+                      {m.role === "user" ? "你" : <BrandLogo size={18} />}
+                    </div>
                   <div className="ds-msg-body">
                     <div
                       className={`ds-msg-text${m.variant === "aborted" ? " muted" : ""}`}
@@ -707,7 +712,9 @@ export default function PortalChatPage() {
               ))}
               {busy && active.messages[active.messages.length - 1]?.role !== "assistant" ? (
                 <div className="ds-msg assistant">
-                  <div className="ds-avatar">in</div>
+                  <div className="ds-avatar">
+                    <BrandLogo size={18} />
+                  </div>
                   <div className="ds-msg-body">
                     <div className="ds-typing">正在生成…</div>
                   </div>
