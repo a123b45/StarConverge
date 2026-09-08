@@ -109,6 +109,26 @@ function safeJoin(root: string, reqPath: string): string | null {
 }
 
 if (fs.existsSync(adminDist)) {
+  // Browsers probe /favicon.ico before parsing HTML; serve the sun mark with
+  // no-store so the old purple mark cannot stick in cache across deploys.
+  const brandIcons: Record<string, string> = {
+    "/favicon.ico": "brand-mark.ico",
+    "/favicon.svg": "brand-mark.svg",
+    "/favicon-16.png": "brand-mark-16.png",
+    "/favicon-32.png": "brand-mark-32.png",
+    "/apple-touch-icon.png": "brand-mark-180.png",
+  };
+  for (const [urlPath, fileName] of Object.entries(brandIcons)) {
+    app.get(urlPath, (c) => {
+      const full = path.join(adminDist, fileName);
+      if (!fs.existsSync(full)) return c.text("Not found", 404);
+      const ext = path.extname(full).toLowerCase();
+      c.header("Content-Type", mimeByExt[ext] ?? "application/octet-stream");
+      c.header("Cache-Control", "no-store, max-age=0");
+      return c.body(fs.readFileSync(full));
+    });
+  }
+
   app.get("/assets/*", async (c) => {
     const rel = c.req.path.replace(/^\/assets\//, "assets/");
     const full = safeJoin(adminDist, rel);
