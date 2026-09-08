@@ -150,8 +150,13 @@ code,
 .brand-name {
   font-size: 16px;
   letter-spacing: -0.03em;
-  color: #1f2937;
+  color: #c9a227;
   font-weight: 700;
+  background: linear-gradient(180deg, #f5d76e 0%, #c9a227 55%, #a67c00 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
 }
 
 .brand h1,
@@ -3737,6 +3742,13 @@ html[data-theme="dark"] .modal-token .stack-field > span {
   color: var(--auth-ink);
   letter-spacing: -0.02em;
 }
+.auth-brand-row > strong {
+  background: linear-gradient(180deg, #f5d76e 0%, #c9a227 55%, #a67c00 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
 .auth-logo,
 .auth-logo.brand-sun {
   width: 40px;
@@ -4486,6 +4498,13 @@ html[data-theme="dark"] .sidebar {
 html[data-theme="dark"] .portal-sider-brand strong,
 html[data-theme="dark"] .brand-name {
   color: var(--text);
+}
+html[data-theme="dark"] .brand-sun,
+html[data-theme="dark"] .brand-mark,
+html[data-theme="dark"] .portal-logo,
+html[data-theme="dark"] .auth-logo {
+  background: color-mix(in srgb, #ea580c 18%, var(--bg-elevated));
+  color: #fb923c;
 }
 html[data-theme="dark"] .portal-user-dropdown {
   background: var(--bg-elevated);
