@@ -121,7 +121,7 @@ export async function fetchDeepSeekPricingHtml(timeoutMs = 20_000): Promise<stri
         Accept: "text/html,application/xhtml+xml",
         "Accept-Language": "en-US,en;q=0.9,zh-CN;q=0.8",
         "User-Agent":
-          "StarConverge/1.0 (pricing-sync; +https://inkstudio.work)",
+          "StarConverge/1.0 (pricing-sync; +https://huihuangapi.online)",
       },
       signal: controller.signal,
     });

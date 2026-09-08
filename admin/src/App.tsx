@@ -9,6 +9,7 @@ import {
   useNavigate,
 } from "react-router-dom";
 import { getRole, getToken, portalApi, setSession, api } from "./lib/api";
+import BrandLogo from "./components/BrandLogo";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
@@ -181,8 +182,8 @@ function AdminShell() {
     <div className={`app-shell${siderCollapsed ? " sider-collapsed" : ""}`}>
       <aside className="sidebar">
         <div className="brand">
-          <span className="brand-mark">in</span>
-          <strong className="brand-name">inkstudio</strong>
+          <BrandLogo className="brand-mark" size={28} />
+          <strong className="brand-name">辉煌</strong>
         </div>
         <nav className="nav">
           <div className="nav-group">
@@ -436,8 +437,8 @@ function PortalShell() {
     <div className={`portal-shell${siderCollapsed ? " sider-collapsed" : ""}`}>
       <aside className="portal-sider">
         <div className="portal-sider-brand">
-          <span className="portal-logo">in</span>
-          <strong>inkstudio</strong>
+          <BrandLogo className="portal-logo" size={28} />
+          <strong>辉煌</strong>
         </div>
         <nav className="portal-sider-nav">
           <div className="portal-sider-group">

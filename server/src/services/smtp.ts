@@ -135,11 +135,11 @@ export async function sendSmtpMail(opts: SmtpOpts): Promise<void> {
   const client = await connect(host, port, implicitTls);
   try {
     await client.read();
-    await client.cmd("EHLO inkstudio.work", 250);
+    await client.cmd("EHLO huihuangapi.online", 250);
     if (!implicitTls && (port === 587 || port === 25)) {
       await client.cmd("STARTTLS", 220);
       await client.upgradeTls(host);
-      await client.cmd("EHLO inkstudio.work", 250);
+      await client.cmd("EHLO huihuangapi.online", 250);
     }
     await client.cmd("AUTH LOGIN", 334);
     await client.cmd(b64(config.smtpUser), 334);

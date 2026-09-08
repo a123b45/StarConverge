@@ -8,6 +8,7 @@ import {
   IconMail,
   IconPerson,
 } from "../components/icons";
+import BrandLogo from "../components/BrandLogo";
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -98,8 +99,8 @@ export default function RegisterPage() {
       <aside className="auth-hero">
         <div className="auth-hero-inner">
           <div className="auth-brand-row">
-            <span className="auth-logo">in</span>
-            <strong>inkstudio</strong>
+            <BrandLogo className="auth-logo" size={40} />
+            <strong>辉煌</strong>
           </div>
           <h1>
             注册即用。
@@ -139,9 +140,9 @@ export default function RegisterPage() {
         <form className="auth-panel" onSubmit={onSubmit}>
           <div className="auth-panel-head">
             <div className="auth-panel-brand">
-              <span className="auth-logo sm">in</span>
-              <strong>inkstudio</strong>
-              <em>注册 INKSTUDIO</em>
+              <BrandLogo className="auth-logo sm" size={30} />
+              <strong>辉煌</strong>
+              <em>注册</em>
             </div>
             <h2>注册用户</h2>
             <p>验证邮箱后即可创建门户账号</p>

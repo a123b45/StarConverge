@@ -2,6 +2,7 @@ import { FormEvent, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { authApi, getRole, getToken, setSession } from "../lib/api";
 import { IconEyeOff, IconEyeOpen, IconLock, IconPerson } from "../components/icons";
+import BrandLogo from "../components/BrandLogo";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -46,8 +47,8 @@ export default function LoginPage() {
       <aside className="auth-hero">
         <div className="auth-hero-inner">
           <div className="auth-brand-row">
-            <span className="auth-logo">in</span>
-            <strong>inkstudio</strong>
+            <BrandLogo className="auth-logo" size={40} />
+            <strong>辉煌</strong>
           </div>
           <h1>
             API 中转。
@@ -94,11 +95,11 @@ export default function LoginPage() {
         <form className="auth-panel" onSubmit={onSubmit}>
           <div className="auth-panel-head">
             <div className="auth-panel-brand">
-              <span className="auth-logo sm">in</span>
-              <strong>inkstudio</strong>
-              <em>登录 INKSTUDIO</em>
+              <BrandLogo className="auth-logo sm" size={30} />
+              <strong>辉煌</strong>
+              <em>登录</em>
             </div>
-            <h2>登录 inkstudio</h2>
+            <h2>登录辉煌</h2>
           </div>
 
           {error ? <div className="alert">{error}</div> : null}

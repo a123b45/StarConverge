@@ -2,6 +2,7 @@ import { FormEvent, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { authApi, getRole, getToken } from "../lib/api";
 import { IconEyeOff, IconEyeOpen, IconLock } from "../components/icons";
+import BrandLogo from "../components/BrandLogo";
 
 export default function ResetPasswordPage() {
   const navigate = useNavigate();
@@ -47,8 +48,8 @@ export default function ResetPasswordPage() {
       <aside className="auth-hero">
         <div className="auth-hero-inner">
           <div className="auth-brand-row">
-            <span className="auth-logo">in</span>
-            <strong>inkstudio</strong>
+            <BrandLogo className="auth-logo" size={40} />
+            <strong>辉煌</strong>
           </div>
           <h1>
             设置新密码。
@@ -63,9 +64,9 @@ export default function ResetPasswordPage() {
         <form className="auth-panel" onSubmit={onSubmit}>
           <div className="auth-panel-head">
             <div className="auth-panel-brand">
-              <span className="auth-logo sm">in</span>
-              <strong>inkstudio</strong>
-              <em>设置新密码 INKSTUDIO</em>
+              <BrandLogo className="auth-logo sm" size={30} />
+              <strong>辉煌</strong>
+              <em>设置新密码</em>
             </div>
             <h2>设置新密码</h2>
             <p>请输入至少 6 位的新密码</p>

@@ -2,6 +2,7 @@ import { FormEvent, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { authApi, getRole, getToken } from "../lib/api";
 import { IconMail } from "../components/icons";
+import BrandLogo from "../components/BrandLogo";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -45,8 +46,8 @@ export default function ForgotPasswordPage() {
       <aside className="auth-hero">
         <div className="auth-hero-inner">
           <div className="auth-brand-row">
-            <span className="auth-logo">in</span>
-            <strong>inkstudio</strong>
+            <BrandLogo className="auth-logo" size={40} />
+            <strong>辉煌</strong>
           </div>
           <h1>
             安全找回。
@@ -63,11 +64,11 @@ export default function ForgotPasswordPage() {
         <form className="auth-panel" onSubmit={onSubmit}>
           <div className="auth-panel-head">
             <div className="auth-panel-brand">
-              <span className="auth-logo sm">in</span>
-              <strong>inkstudio</strong>
-              <em>密码重置 INKSTUDIO</em>
+              <BrandLogo className="auth-logo sm" size={30} />
+              <strong>辉煌</strong>
+              <em>密码重置</em>
             </div>
-            <h2>找回 inkstudio 密码</h2>
+            <h2>找回辉煌密码</h2>
             <p>输入注册邮箱，我们会向您发送重置密码链接</p>
           </div>
 

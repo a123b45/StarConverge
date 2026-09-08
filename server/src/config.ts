@@ -27,7 +27,7 @@ export const config = {
   resendApiKey: process.env.RESEND_API_KEY ?? "",
   mailFrom:
     process.env.MAIL_FROM ??
-    "inkstudio <yanxueliang188@126.com>",
+    "辉煌 <yanxueliang188@126.com>",
   smtpHost: (process.env.SMTP_HOST ?? "").trim(),
   smtpPort: Number(process.env.SMTP_PORT ?? 465),
   smtpSecure: (process.env.SMTP_SECURE ?? "1") !== "0",

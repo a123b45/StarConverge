@@ -130,19 +130,21 @@ code,
   flex-shrink: 0;
 }
 
-.brand-mark {
+.brand-mark,
+.brand-sun {
   display: grid;
   place-items: center;
   width: 28px;
   height: 28px;
   border-radius: 8px;
-  background: #6d5efc;
-  color: #fff;
-  font-weight: 800;
-  font-size: 11px;
-  letter-spacing: -0.04em;
+  background: #fff7ed;
+  color: #ea580c;
   margin: 0;
   box-shadow: none;
+  flex-shrink: 0;
+}
+.brand-sun svg {
+  display: block;
 }
 
 .brand-name {
@@ -3735,27 +3737,25 @@ html[data-theme="dark"] .modal-token .stack-field > span {
   color: var(--auth-ink);
   letter-spacing: -0.02em;
 }
-.auth-logo {
+.auth-logo,
+.auth-logo.brand-sun {
   width: 40px;
   height: 40px;
   border-radius: 12px;
   display: grid;
   place-items: center;
-  background: linear-gradient(145deg, #a78bfa 0%, #7c3aed 55%, #6d28d9 100%);
-  color: #fff;
-  font-size: 14px;
-  font-weight: 800;
-  letter-spacing: -0.03em;
+  background: #fff7ed;
+  color: #ea580c;
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.25) inset,
-    0 10px 22px rgba(124, 58, 237, 0.35);
+    0 1px 0 rgba(255, 255, 255, 0.65) inset,
+    0 8px 18px rgba(234, 88, 12, 0.16);
 }
-.auth-logo.sm {
+.auth-logo.sm,
+.auth-logo.sm.brand-sun {
   width: 30px;
   height: 30px;
-  font-size: 11px;
   border-radius: 9px;
-  box-shadow: 0 6px 14px rgba(124, 58, 237, 0.28);
+  box-shadow: 0 4px 12px rgba(234, 88, 12, 0.14);
 }
 .auth-hero h1 {
   margin: 0 0 18px;
@@ -4160,19 +4160,17 @@ html[data-theme="dark"] .modal-token .stack-field > span {
   color: var(--text);
   font-weight: 700;
 }
-.portal-logo {
+.portal-logo,
+.portal-logo.brand-sun {
   width: 28px;
   height: 28px;
   border-radius: 8px;
-  background: var(--accent);
-  color: #fff;
+  background: #fff7ed;
+  color: #ea580c;
   display: grid;
   place-items: center;
-  font-weight: 800;
-  font-size: 11px;
-  letter-spacing: -0.04em;
   box-shadow: none;
-  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+  flex-shrink: 0;
 }
 .portal-sider-nav {
   flex: 1;

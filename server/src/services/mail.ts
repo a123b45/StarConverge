@@ -60,7 +60,7 @@ export async function sendPasswordResetEmail(
 ): Promise<{ sent: boolean; error?: string }> {
   return sendMail(
     to,
-    "重置 inkstudio 密码",
+    "重置辉煌密码",
     `<p>您好，</p><p>请点击以下链接重置密码（1 小时内有效）：</p><p><a href="${resetUrl}">${resetUrl}</a></p><p>如非本人操作，请忽略此邮件。</p>`,
   );
 }
@@ -71,7 +71,7 @@ export async function sendRegisterCodeEmail(
 ): Promise<{ sent: boolean; error?: string }> {
   return sendMail(
     to,
-    "inkstudio 注册验证码",
-    `<p>您好，</p><p>您正在注册 inkstudio 账号，验证码为：</p><p style="font-size:22px;font-weight:700;letter-spacing:4px">${code}</p><p>10 分钟内有效。如非本人操作，请忽略此邮件。</p>`,
+    "辉煌注册验证码",
+    `<p>您好，</p><p>您正在注册辉煌账号，验证码为：</p><p style="font-size:22px;font-weight:700;letter-spacing:4px">${code}</p><p>10 分钟内有效。如非本人操作，请忽略此邮件。</p>`,
   );
 }
