@@ -274,8 +274,7 @@ export default function PortalEstimatePage() {
                 </div>
               ) : (
                 <div className="est-miss">
-                  <strong>官方公开价里没有 {model.model}</strong>
-                  <p>同模型才有对照必要，DeepSeek 官方不会出现 Claude 的标价。</p>
+                  <strong>该官方渠道内没有 {model.model} 模型</strong>
                 </div>
               )}
 
