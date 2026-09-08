@@ -1791,9 +1791,9 @@ adminRoutes.get("/system", (c) => {
       health: "/health",
     },
     tips: [
-      "客户端 Base URL 填：https://你的域名 或 http://IP:8787/v1",
-      "Authorization: Bearer <访问密钥>",
-      "通道测试会请求上游 /v1/models",
+      "客户端 Base URL 可填 https://你的域名 或 https://你的域名/v1（测活工具两种都能用）",
+      "Authorization: Bearer <门户签发的 sk-sc- 密钥，不是上游 Tao 的 key>",
+      "测活前请确认模型已在「模型管理」同步给用户，且通道已启用",
     ],
   });
 });
