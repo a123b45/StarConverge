@@ -312,7 +312,7 @@ authRoutes.get("/me", async (c) => {
     where: eq(users.id, payload.userId),
   });
   if (!user || !user.enabled) {
-    return c.json({ error: "Account disabled" }, 403);
+    return c.json({ error: "Unauthorized" }, 401);
   }
 
   const userTokens = await db

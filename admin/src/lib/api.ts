@@ -43,16 +43,32 @@ async function request<T = unknown>(
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
   const res = await fetch(`${base}${path}`, { ...options, headers });
-  if (
-    res.status === 401 &&
+  const authFailed =
+    (res.status === 401 || res.status === 403) &&
     !path.includes("/login") &&
     !path.includes("/register") &&
     !path.includes("/captcha") &&
-    !path.includes("/forgot-password")
-  ) {
-    setSession(null);
-    window.location.href = "/login";
-    throw new Error("Unauthorized");
+    !path.includes("/forgot-password");
+  if (authFailed) {
+    // Deleted/disabled accounts used to return 403 and left a stale JWT in localStorage,
+    // which bounced the user back into /app from the login page.
+    const peek = await res.clone().json().catch(() => ({} as { error?: unknown }));
+    const errText =
+      typeof peek.error === "string"
+        ? peek.error
+        : typeof peek.error === "object" &&
+            peek.error &&
+            "message" in peek.error
+          ? String((peek.error as { message?: string }).message ?? "")
+          : "";
+    const forceLogout =
+      res.status === 401 ||
+      /unauthorized|account disabled|账号|禁用|未授权/i.test(errText);
+    if (forceLogout) {
+      setSession(null);
+      window.location.href = "/login";
+      throw new Error("Unauthorized");
+    }
   }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {

@@ -390,10 +390,13 @@ function PortalShell() {
         setMenuPerms(data.menuPerms ?? []);
       })
       .catch(() => {
+        // portalApi already clears session + redirects on 401; keep a local fallback
+        setSession(null);
         setMe(null);
         setMenuPerms([]);
+        navigate("/login", { replace: true });
       });
-  }, []);
+  }, [navigate]);
 
   useEffect(() => {
     function onBalance(e: Event) {
@@ -421,6 +424,7 @@ function PortalShell() {
 
   useEffect(() => {
     if (menuPerms && !hasAnyPortal) {
+      setSession(null);
       navigate("/login", { replace: true });
     }
   }, [menuPerms, hasAnyPortal, navigate]);

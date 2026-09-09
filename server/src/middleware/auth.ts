@@ -188,7 +188,7 @@ export const requireAdmin = createMiddleware<AdminVars>(async (c, next) => {
     where: eq(users.id, payload.userId),
   });
   if (!user || !user.enabled) {
-    return c.json({ error: "Account disabled" }, 403);
+    return c.json({ error: "Unauthorized" }, 401);
   }
   const role = await getRoleById(user.roleId);
   if (!roleAllowsAdmin(role)) {
@@ -227,8 +227,9 @@ export const requireUser = createMiddleware<SessionVars>(async (c, next) => {
   const user = await db.query.users.findFirst({
     where: eq(users.id, payload.userId),
   });
+  // Missing / disabled / deleted → 401 so the portal clears the session and goes to login
   if (!user || !user.enabled) {
-    return c.json({ error: "Account disabled" }, 403);
+    return c.json({ error: "Unauthorized" }, 401);
   }
   const role = await getRoleById(user.roleId);
   if (roleAllowsAdmin(role)) {
