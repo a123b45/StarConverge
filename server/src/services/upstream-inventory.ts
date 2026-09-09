@@ -7,10 +7,13 @@ import { eq } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { upstreamAccounts } from "../db/schema.js";
 import { config } from "../config.js";
+import { mailConfigured, sendMail } from "./mail.js";
 
 /** NewAPI: 1 currency unit remaining == 500_000 quota points. */
 export const UPSTREAM_QUOTA_PER_USD = 500_000;
 export const UPSTREAM_POLL_MS = 5 * 60 * 1000;
+/** Don't re-mail the same low-balance / error condition more often than this. */
+const ALERT_EMAIL_COOLDOWN_MS = 6 * 60 * 60 * 1000;
 
 export type UpstreamCurrency = "cny" | "usd";
 
@@ -210,6 +213,7 @@ export async function refreshUpstreamAccount(id: string): Promise<UpstreamAccoun
         lastBalanceUsdMilli: usdMilli,
         lastCheckedAt: now,
         lastError: "",
+        lastErrorEmailAt: null,
         updatedAt: now,
       })
       .where(eq(upstreamAccounts.id, id));
@@ -228,7 +232,93 @@ export async function refreshUpstreamAccount(id: string): Promise<UpstreamAccoun
     where: eq(upstreamAccounts.id, id),
   });
   if (!next) throw new Error("Not found");
+  await maybeEmailUpstreamAlert(next);
   return next;
+}
+
+function moneyLabel(row: UpstreamAccount, amount: number): string {
+  const cur = normalizeUpstreamCurrency(row.balanceCurrency);
+  if (cur === "usd") return `$${amount.toFixed(3)}`;
+  return `¥${amount.toFixed(3)}`;
+}
+
+function cooledDown(last: Date | null | undefined, now = Date.now()): boolean {
+  if (!last) return true;
+  return now - new Date(last).getTime() >= ALERT_EMAIL_COOLDOWN_MS;
+}
+
+async function maybeEmailUpstreamAlert(row: UpstreamAccount): Promise<void> {
+  if (!row.enabled || !row.alertEnabled) return;
+  if (!mailConfigured() || !config.alertEmail) return;
+
+  const error = (row.lastError || "").trim();
+  if (error) {
+    if (!cooledDown(row.lastErrorEmailAt)) return;
+    const subject = `【辉煌】上游同步失败：${row.name}`;
+    const html = `
+      <p>上游账户同步失败，请尽快检查。</p>
+      <ul>
+        <li>名称：${escapeHtml(row.name)}</li>
+        <li>账户：${escapeHtml(row.username)}</li>
+        <li>网址：${escapeHtml(row.baseUrl)}</li>
+        <li>错误：${escapeHtml(error)}</li>
+      </ul>
+      <p style="color:#888;font-size:12px">同一故障约 6 小时内不会重复发送。</p>
+    `;
+    const res = await sendMail(config.alertEmail, subject, html);
+    if (res.sent) {
+      await db
+        .update(upstreamAccounts)
+        .set({ lastErrorEmailAt: new Date(), updatedAt: new Date() })
+        .where(eq(upstreamAccounts.id, row.id));
+    }
+    return;
+  }
+
+  const low =
+    row.lastBalanceUsdMilli != null &&
+    row.lastBalanceUsdMilli < row.alertThresholdUsdMilli;
+  if (!low) {
+    if (row.lastAlertEmailAt) {
+      await db
+        .update(upstreamAccounts)
+        .set({ lastAlertEmailAt: null, updatedAt: new Date() })
+        .where(eq(upstreamAccounts.id, row.id));
+    }
+    return;
+  }
+
+  if (!cooledDown(row.lastAlertEmailAt)) return;
+
+  const balance = milliToUsd(row.lastBalanceUsdMilli);
+  const threshold = milliToUsd(row.alertThresholdUsdMilli);
+  const subject = `【辉煌】上游余额告警：${row.name}`;
+  const html = `
+    <p>上游预付余额已低于告警阈值，请及时充值。</p>
+    <ul>
+      <li>名称：${escapeHtml(row.name)}</li>
+      <li>账户：${escapeHtml(row.username)}</li>
+      <li>网址：${escapeHtml(row.baseUrl)}</li>
+      <li>当前余额：${escapeHtml(moneyLabel(row, balance))}</li>
+      <li>告警阈值：${escapeHtml(moneyLabel(row, threshold))}</li>
+    </ul>
+    <p style="color:#888;font-size:12px">余额恢复后会重置；持续偏低时约每 6 小时提醒一次。</p>
+  `;
+  const res = await sendMail(config.alertEmail, subject, html);
+  if (res.sent) {
+    await db
+      .update(upstreamAccounts)
+      .set({ lastAlertEmailAt: new Date(), updatedAt: new Date() })
+      .where(eq(upstreamAccounts.id, row.id));
+  }
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 export async function refreshAllUpstreamAccounts(): Promise<void> {

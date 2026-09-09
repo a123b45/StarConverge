@@ -180,7 +180,7 @@ export default function UpstreamAccountsPage() {
         <div className="page-head">
           <h2>上游管理</h2>
           <p>
-            查看中转站预付库存（网址、账户、余额），并设置余额告警。与门户客户余额不是同一本账。
+            查看中转站预付库存（网址、账户、余额），并设置余额告警。低于阈值或同步失败会发邮件到管理员邮箱（默认与发信邮箱相同）。与门户客户余额不是同一本账。
           </p>
         </div>
         <div className="row-actions">

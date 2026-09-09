@@ -302,6 +302,10 @@ export const upstreamAccounts = sqliteTable("upstream_accounts", {
   lastBalanceUsdMilli: integer("last_balance_usd_milli"),
   lastCheckedAt: integer("last_checked_at", { mode: "timestamp_ms" }),
   lastError: text("last_error").default(""),
+  /** Last time a low-balance alert email was sent */
+  lastAlertEmailAt: integer("last_alert_email_at", { mode: "timestamp_ms" }),
+  /** Last time a sync-error alert email was sent */
+  lastErrorEmailAt: integer("last_error_email_at", { mode: "timestamp_ms" }),
   createdAt: integer("created_at", { mode: "timestamp_ms" })
     .notNull()
     .default(sql`(unixepoch() * 1000)`),

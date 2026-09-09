@@ -7,6 +7,11 @@ loadEnv({ path: path.resolve(__dirname, "../.env") });
 
 const root = path.resolve(__dirname, "../..");
 
+function extractMailAddress(raw: string): string {
+  const m = raw.match(/<([^>]+)>/);
+  return (m?.[1] || raw).trim();
+}
+
 export const config = {
   port: Number(process.env.PORT ?? 8787),
   host: process.env.HOST ?? "0.0.0.0",
@@ -27,14 +32,30 @@ export const config = {
   resendApiKey: process.env.RESEND_API_KEY ?? "",
   mailFrom: (() => {
     const raw = (process.env.MAIL_FROM ?? "辉煌 <yanxueliang188@126.com>").trim();
-    // Rewrite legacy "inkstudio <addr>" display name left in older .env files
-    return raw.replace(/^inkstudio(\s*<)/i, "辉煌$1");
+    // Rewrite legacy sender display name left in older .env files
+    return raw
+      .replace(/^"?inkstudio"?(\s*<)/i, "辉煌$1")
+      .replace(/^inkstudio$/i, "辉煌");
   })(),
   smtpHost: (process.env.SMTP_HOST ?? "").trim(),
   smtpPort: Number(process.env.SMTP_PORT ?? 465),
   smtpSecure: (process.env.SMTP_SECURE ?? "1") !== "0",
   smtpUser: (process.env.SMTP_USER ?? "").trim(),
   smtpPass: (process.env.SMTP_PASS ?? "").trim(),
+  /**
+   * Admin inbox for upstream balance / sync alerts.
+   * Same mailbox as SMTP is fine (self-send on 126 works).
+   */
+  alertEmail: (() => {
+    const explicit = (process.env.ALERT_EMAIL ?? "").trim();
+    if (explicit) return explicit;
+    const from = (process.env.MAIL_FROM ?? "辉煌 <yanxueliang188@126.com>").trim();
+    return (
+      extractMailAddress(from) ||
+      (process.env.SMTP_USER ?? "").trim() ||
+      "yanxueliang188@126.com"
+    );
+  })(),
   epayApiUrl: (process.env.EPAY_API_URL ?? "").trim(),
   epayPid: (process.env.EPAY_PID ?? "").trim(),
   epayKey: (process.env.EPAY_KEY ?? "").trim(),

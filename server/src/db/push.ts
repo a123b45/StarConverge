@@ -361,6 +361,12 @@ export function migrate() {
       `ALTER TABLE upstream_accounts ADD COLUMN balance_currency TEXT NOT NULL DEFAULT 'cny'`,
     );
   }
+  if (!upstreamCols.some((c) => c.name === "last_alert_email_at")) {
+    sqlite.exec(`ALTER TABLE upstream_accounts ADD COLUMN last_alert_email_at INTEGER`);
+  }
+  if (!upstreamCols.some((c) => c.name === "last_error_email_at")) {
+    sqlite.exec(`ALTER TABLE upstream_accounts ADD COLUMN last_error_email_at INTEGER`);
+  }
   sqlite.exec(`CREATE TABLE IF NOT EXISTS user_notifications (
     id TEXT PRIMARY KEY,
     type TEXT NOT NULL,
