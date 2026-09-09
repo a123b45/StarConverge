@@ -25,9 +25,11 @@ export const config = {
       ? `https://${String(process.env.PUBLIC_HOST).replace(/^https?:\/\//, "").replace(/\/+$/, "")}`
       : `http://127.0.0.1:${Number(process.env.PORT ?? 8787)}`),
   resendApiKey: process.env.RESEND_API_KEY ?? "",
-  mailFrom:
-    process.env.MAIL_FROM ??
-    "辉煌 <yanxueliang188@126.com>",
+  mailFrom: (() => {
+    const raw = (process.env.MAIL_FROM ?? "辉煌 <yanxueliang188@126.com>").trim();
+    // Rewrite legacy "inkstudio <addr>" display name left in older .env files
+    return raw.replace(/^inkstudio(\s*<)/i, "辉煌$1");
+  })(),
   smtpHost: (process.env.SMTP_HOST ?? "").trim(),
   smtpPort: Number(process.env.SMTP_PORT ?? 465),
   smtpSecure: (process.env.SMTP_SECURE ?? "1") !== "0",
