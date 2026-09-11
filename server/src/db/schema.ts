@@ -302,6 +302,8 @@ export const upstreamAccounts = sqliteTable("upstream_accounts", {
   lastBalanceUsdMilli: integer("last_balance_usd_milli"),
   lastCheckedAt: integer("last_checked_at", { mode: "timestamp_ms" }),
   lastError: text("last_error").default(""),
+  /** JSON string[] of muted sync-error keys (e.g. ["conflict"]); muted classes skip email */
+  mutedErrorKeys: text("muted_error_keys").notNull().default("[]"),
   /** Last time a low-balance alert email was sent */
   lastAlertEmailAt: integer("last_alert_email_at", { mode: "timestamp_ms" }),
   /** Last time a sync-error alert email was sent */

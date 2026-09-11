@@ -367,6 +367,11 @@ export function migrate() {
   if (!upstreamCols.some((c) => c.name === "last_error_email_at")) {
     sqlite.exec(`ALTER TABLE upstream_accounts ADD COLUMN last_error_email_at INTEGER`);
   }
+  if (!upstreamCols.some((c) => c.name === "muted_error_keys")) {
+    sqlite.exec(
+      `ALTER TABLE upstream_accounts ADD COLUMN muted_error_keys TEXT NOT NULL DEFAULT '[]'`,
+    );
+  }
   sqlite.exec(`CREATE TABLE IF NOT EXISTS user_notifications (
     id TEXT PRIMARY KEY,
     type TEXT NOT NULL,

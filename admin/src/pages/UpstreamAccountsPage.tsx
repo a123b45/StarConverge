@@ -20,6 +20,8 @@ type UpstreamRow = {
   balanceCny: number;
   lastCheckedAt: string | null;
   lastError: string;
+  mutedErrorKeys?: string[];
+  errorMuted?: boolean;
   low: boolean;
 };
 
@@ -174,13 +176,33 @@ export default function UpstreamAccountsPage() {
     }
   }
 
+  async function toggleMuteError(row: UpstreamRow) {
+    if (!row.lastError) return;
+    setError("");
+    try {
+      const res = await api<{ data: UpstreamRow }>(
+        `/upstream-accounts/${row.id}/mute-error`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            error: row.lastError,
+            unmute: Boolean(row.errorMuted),
+          }),
+        },
+      );
+      setRows((prev) => prev.map((r) => (r.id === row.id ? res.data : r)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "屏蔽失败");
+    }
+  }
+
   return (
     <>
       <div className="topbar">
         <div className="page-head">
           <h2>上游管理</h2>
           <p>
-            查看中转站预付库存（网址、账户、余额），并设置余额告警。低于阈值或同步失败会发邮件到管理员邮箱（默认与发信邮箱相同）。与门户客户余额不是同一本账。
+            查看中转站预付库存（网址、账户、余额），并设置余额告警。低于阈值或同步失败会发邮件到管理员邮箱。可对同步错误点「屏蔽此类告警」，同类错误将不再发邮件。与门户客户余额不是同一本账。
           </p>
         </div>
         <div className="row-actions">
@@ -238,8 +260,24 @@ export default function UpstreamAccountsPage() {
                       </div>
                     )}
                     {r.lastError ? (
-                      <div className="muted" style={{ color: "#b45309", fontSize: 12 }}>
-                        {r.lastError}
+                      <div style={{ marginTop: 4 }}>
+                        <div
+                          className="muted"
+                          style={{
+                            color: r.errorMuted ? "#71717a" : "#b45309",
+                            fontSize: 12,
+                          }}
+                        >
+                          {r.errorMuted ? `已屏蔽：${r.lastError}` : r.lastError}
+                        </div>
+                        <button
+                          type="button"
+                          className="btn ghost sm"
+                          style={{ marginTop: 4, padding: "2px 8px", fontSize: 12 }}
+                          onClick={() => void toggleMuteError(r)}
+                        >
+                          {r.errorMuted ? "取消屏蔽" : "屏蔽此类告警"}
+                        </button>
                       </div>
                     ) : null}
                   </td>

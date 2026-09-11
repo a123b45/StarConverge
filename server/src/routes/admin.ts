@@ -58,6 +58,7 @@ import { buildExcelXml } from "../utils/excel-xml.js";
 import { cardStatus, createCardKeys } from "../services/card-keys.js";
 import {
   listUpstreamAlerts,
+  muteUpstreamError,
   normalizeUpstreamCurrency,
   normalizeUpstreamOrigin,
   publicUpstreamAccount,
@@ -1027,6 +1028,7 @@ adminRoutes.post("/upstream-accounts", async (c) => {
     lastBalanceUsdMilli: null as number | null,
     lastCheckedAt: null as Date | null,
     lastError: "",
+    mutedErrorKeys: "[]",
   };
   await db.insert(upstreamAccounts).values(row);
   const synced = await refreshUpstreamAccount(row.id);
@@ -1088,6 +1090,23 @@ adminRoutes.post("/upstream-accounts/:id/refresh", async (c) => {
     return c.json({ data: publicUpstreamAccount(row) });
   } catch (e) {
     return c.json({ error: e instanceof Error ? e.message : "同步失败" }, 400);
+  }
+});
+
+adminRoutes.post("/upstream-accounts/:id/mute-error", async (c) => {
+  const auth = c.get("adminAuth");
+  if (!hasApiPerm(auth, "api.upstream.write")) {
+    return c.json({ error: "无权限" }, 403);
+  }
+  const body = await c.req.json().catch(() => ({}));
+  try {
+    const row = await muteUpstreamError(c.req.param("id"), {
+      error: typeof body.error === "string" ? body.error : undefined,
+      unmute: Boolean(body.unmute),
+    });
+    return c.json({ data: publicUpstreamAccount(row) });
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : "操作失败" }, 400);
   }
 });
 

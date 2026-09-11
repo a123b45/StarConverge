@@ -8,6 +8,7 @@ import { db } from "../db/index.js";
 import { upstreamAccounts } from "../db/schema.js";
 import { config } from "../config.js";
 import { mailConfigured, sendMail } from "./mail.js";
+import { parseJsonArray, toJsonArray } from "../utils/crypto.js";
 
 /** NewAPI: 1 currency unit remaining == 500_000 quota points. */
 export const UPSTREAM_QUOTA_PER_USD = 500_000;
@@ -18,6 +19,34 @@ const ALERT_EMAIL_COOLDOWN_MS = 6 * 60 * 60 * 1000;
 export type UpstreamCurrency = "cny" | "usd";
 
 export type UpstreamAccount = typeof upstreamAccounts.$inferSelect;
+
+/**
+ * Collapse upstream error text into a mute key so "Conflict" / "409 Conflict"
+ * are treated as the same class.
+ */
+export function upstreamErrorMuteKey(error: string): string {
+  const t = error.trim().toLowerCase().replace(/\s+/g, " ");
+  if (!t) return "";
+  if (/\bconflict\b/.test(t) || /^409\b/.test(t)) return "conflict";
+  if (/\bunauthorized\b|\b401\b/.test(t)) return "unauthorized";
+  if (/\bforbidden\b|\b403\b/.test(t)) return "forbidden";
+  if (/\btimeout\b|超时/.test(t)) return "timeout";
+  return t.slice(0, 120);
+}
+
+export function mutedErrorKeysOf(row: UpstreamAccount): string[] {
+  return parseJsonArray(row.mutedErrorKeys ?? "[]")
+    .map((k) => k.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+export function isUpstreamErrorMuted(row: UpstreamAccount, error?: string | null): boolean {
+  const err = (error ?? row.lastError ?? "").trim();
+  if (!err) return false;
+  const key = upstreamErrorMuteKey(err);
+  if (!key) return false;
+  return mutedErrorKeysOf(row).includes(key);
+}
 
 export type UpstreamAlert = {
   id: string;
@@ -77,6 +106,9 @@ export function publicUpstreamAccount(row: UpstreamAccount) {
     row.enabled &&
     row.lastBalanceUsdMilli != null &&
     row.lastBalanceUsdMilli < row.alertThresholdUsdMilli;
+  const lastError = row.lastError || "";
+  const mutedErrorKeys = mutedErrorKeysOf(row);
+  const errorMuted = isUpstreamErrorMuted(row, lastError);
   return {
     id: row.id,
     name: row.name,
@@ -93,7 +125,9 @@ export function publicUpstreamAccount(row: UpstreamAccount) {
     balanceUsd,
     balanceCny,
     lastCheckedAt: row.lastCheckedAt ? new Date(row.lastCheckedAt).toISOString() : null,
-    lastError: row.lastError || "",
+    lastError,
+    mutedErrorKeys,
+    errorMuted,
     low,
   };
 }
@@ -253,6 +287,7 @@ async function maybeEmailUpstreamAlert(row: UpstreamAccount): Promise<void> {
 
   const error = (row.lastError || "").trim();
   if (error) {
+    if (isUpstreamErrorMuted(row, error)) return;
     if (!cooledDown(row.lastErrorEmailAt)) return;
     const subject = `【辉煌】上游同步失败：${row.name}`;
     const html = `
@@ -263,7 +298,7 @@ async function maybeEmailUpstreamAlert(row: UpstreamAccount): Promise<void> {
         <li>网址：${escapeHtml(row.baseUrl)}</li>
         <li>错误：${escapeHtml(error)}</li>
       </ul>
-      <p style="color:#888;font-size:12px">同一故障约 6 小时内不会重复发送。</p>
+      <p style="color:#888;font-size:12px">同一故障约 6 小时内不会重复发送。可在上游管理中屏蔽此类告警。</p>
     `;
     const res = await sendMail(config.alertEmail, subject, html);
     if (res.sent) {
@@ -319,6 +354,40 @@ function escapeHtml(s: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+export async function muteUpstreamError(
+  id: string,
+  opts: { error?: string; unmute?: boolean } = {},
+): Promise<UpstreamAccount> {
+  const row = await db.query.upstreamAccounts.findFirst({
+    where: eq(upstreamAccounts.id, id),
+  });
+  if (!row) throw new Error("Not found");
+  const raw = (opts.error ?? row.lastError ?? "").trim();
+  if (!raw && !opts.unmute) throw new Error("没有可屏蔽的错误");
+  const key = upstreamErrorMuteKey(raw || (opts.error ?? ""));
+  let keys = mutedErrorKeysOf(row);
+  if (opts.unmute) {
+    if (key) keys = keys.filter((k) => k !== key);
+    else keys = [];
+  } else {
+    if (!key) throw new Error("没有可屏蔽的错误");
+    if (!keys.includes(key)) keys = [...keys, key];
+  }
+  await db
+    .update(upstreamAccounts)
+    .set({
+      mutedErrorKeys: toJsonArray(keys),
+      lastErrorEmailAt: opts.unmute ? row.lastErrorEmailAt : null,
+      updatedAt: new Date(),
+    })
+    .where(eq(upstreamAccounts.id, id));
+  const next = await db.query.upstreamAccounts.findFirst({
+    where: eq(upstreamAccounts.id, id),
+  });
+  if (!next) throw new Error("Not found");
+  return next;
 }
 
 export async function refreshAllUpstreamAccounts(): Promise<void> {
