@@ -974,7 +974,7 @@ adminRoutes.get("/upstream-accounts/alerts", async (c) => {
     return c.json({ error: "无权限" }, 403);
   }
   const data = await listUpstreamAlerts();
-  return c.json({ data, polledEveryMinutes: 5 });
+  return c.json({ data, polledEveryMinutes: 15 });
 });
 
 adminRoutes.post("/upstream-accounts/refresh", async (c) => {
@@ -1057,6 +1057,10 @@ adminRoutes.put("/upstream-accounts/:id", async (c) => {
   if (body.username != null) patch.username = String(body.username).trim();
   if (body.password != null && String(body.password).trim() && !String(body.password).includes("•")) {
     patch.password = String(body.password);
+    // Password changed — drop cached upstream session so the next sync re-logins once
+    patch.sessionToken = null;
+    patch.sessionUserId = null;
+    patch.sessionAt = null;
   }
   if (body.enabled != null) patch.enabled = Boolean(body.enabled);
   if (body.alertEnabled != null) patch.alertEnabled = Boolean(body.alertEnabled);

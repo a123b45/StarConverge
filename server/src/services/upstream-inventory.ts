@@ -12,7 +12,7 @@ import { parseJsonArray, toJsonArray } from "../utils/crypto.js";
 
 /** NewAPI: 1 currency unit remaining == 500_000 quota points. */
 export const UPSTREAM_QUOTA_PER_USD = 500_000;
-export const UPSTREAM_POLL_MS = 5 * 60 * 1000;
+export const UPSTREAM_POLL_MS = 15 * 60 * 1000;
 /** Don't re-mail the same low-balance / error condition more often than this. */
 const ALERT_EMAIL_COOLDOWN_MS = 6 * 60 * 60 * 1000;
 
@@ -160,15 +160,6 @@ function pickUserId(payload: unknown): string | null {
   return String(user.id);
 }
 
-function cookieHeader(setCookies: string[]): string {
-  const parts: string[] = [];
-  for (const line of setCookies) {
-    const pair = line.split(";")[0]?.trim();
-    if (pair) parts.push(pair);
-  }
-  return parts.join("; ");
-}
-
 async function fetchJson(
   url: string,
   init: RequestInit,
@@ -205,6 +196,30 @@ export async function fetchUpstreamBalance(row: UpstreamAccount): Promise<{
     throw new Error("未填写上游账户或密码");
   }
   const origin = normalizeUpstreamOrigin(row.baseUrl);
+
+  const trySelf = async (token: string, userId: string | null) => {
+    const headers: Record<string, string> = { "content-type": "application/json" };
+    if (token) headers.authorization = `Bearer ${token}`;
+    if (userId) headers["new-api-user"] = userId;
+    const self = await fetchJson(`${origin}/api/user/self`, {
+      method: "GET",
+      headers,
+    });
+    const quota = pickQuota(self.json);
+    if (quota == null) throw new Error("上游未返回额度");
+    return quota;
+  };
+
+  // Prefer cached session — NewAPI counts each /login as an active session.
+  if (row.sessionToken) {
+    try {
+      const quota = await trySelf(row.sessionToken, row.sessionUserId ?? null);
+      return { quota, usdMilli: quotaToUsdMilli(quota) };
+    } catch {
+      // fall through to login
+    }
+  }
+
   const login = await fetchJson(`${origin}/api/user/login`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -212,19 +227,21 @@ export async function fetchUpstreamBalance(row: UpstreamAccount): Promise<{
   });
   const token = pickToken(login.json);
   const userId = pickUserId(login.json);
-  const cookie = cookieHeader(login.cookies);
-  const headers: Record<string, string> = { "content-type": "application/json" };
-  if (token) headers.authorization = `Bearer ${token}`;
-  if (userId) headers["new-api-user"] = userId;
-  if (cookie) headers.cookie = cookie;
+  if (!token) throw new Error("上游登录未返回 token");
+
+  await db
+    .update(upstreamAccounts)
+    .set({
+      sessionToken: token,
+      sessionUserId: userId,
+      sessionAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(eq(upstreamAccounts.id, row.id));
 
   let quota = pickQuota(login.json);
   try {
-    const self = await fetchJson(`${origin}/api/user/self`, {
-      method: "GET",
-      headers,
-    });
-    quota = pickQuota(self.json) ?? quota;
+    quota = (await trySelf(token, userId)) ?? quota;
   } catch {
     // login payload sometimes already includes quota
   }

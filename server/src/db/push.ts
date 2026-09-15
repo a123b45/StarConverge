@@ -372,6 +372,15 @@ export function migrate() {
       `ALTER TABLE upstream_accounts ADD COLUMN muted_error_keys TEXT NOT NULL DEFAULT '[]'`,
     );
   }
+  if (!upstreamCols.some((c) => c.name === "session_token")) {
+    sqlite.exec(`ALTER TABLE upstream_accounts ADD COLUMN session_token TEXT`);
+  }
+  if (!upstreamCols.some((c) => c.name === "session_user_id")) {
+    sqlite.exec(`ALTER TABLE upstream_accounts ADD COLUMN session_user_id TEXT`);
+  }
+  if (!upstreamCols.some((c) => c.name === "session_at")) {
+    sqlite.exec(`ALTER TABLE upstream_accounts ADD COLUMN session_at INTEGER`);
+  }
   sqlite.exec(`CREATE TABLE IF NOT EXISTS user_notifications (
     id TEXT PRIMARY KEY,
     type TEXT NOT NULL,

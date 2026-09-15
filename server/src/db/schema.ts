@@ -308,6 +308,10 @@ export const upstreamAccounts = sqliteTable("upstream_accounts", {
   lastAlertEmailAt: integer("last_alert_email_at", { mode: "timestamp_ms" }),
   /** Last time a sync-error alert email was sent */
   lastErrorEmailAt: integer("last_error_email_at", { mode: "timestamp_ms" }),
+  /** Cached NewAPI access token — reuse so balance polls do not open a new login session every time */
+  sessionToken: text("session_token"),
+  sessionUserId: text("session_user_id"),
+  sessionAt: integer("session_at", { mode: "timestamp_ms" }),
   createdAt: integer("created_at", { mode: "timestamp_ms" })
     .notNull()
     .default(sql`(unixepoch() * 1000)`),
