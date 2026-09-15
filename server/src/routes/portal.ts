@@ -901,7 +901,9 @@ portalRoutes.get("/usage/requests", async (c) => {
       statusCode: r.statusCode,
       ok: (r.statusCode ?? 0) >= 200 && (r.statusCode ?? 0) < 400,
       createdAt: r.createdAt,
-      error: r.error,
+      error: r.error
+        ? "服务暂时不可用，请联系管理员"
+        : null,
       messageCount: r.messageCount ?? 0,
       channelId: r.channelId,
     })),
@@ -933,14 +935,6 @@ portalRoutes.get("/usage/requests/:id", async (c) => {
   });
   if (!row) return c.json({ error: "Not found" }, 404);
 
-  let channelName: string | null = null;
-  if (row.channelId) {
-    const ch = await db.query.channels.findFirst({
-      where: eq(channels.id, row.channelId),
-    });
-    channelName = ch?.name ?? null;
-  }
-
   return c.json({
     data: {
       id: row.id,
@@ -954,12 +948,16 @@ portalRoutes.get("/usage/requests/:id", async (c) => {
       statusCode: row.statusCode,
       ok: (row.statusCode ?? 0) >= 200 && (row.statusCode ?? 0) < 400,
       createdAt: row.createdAt,
-      error: row.error,
+      error: row.error ? "服务暂时不可用，请联系管理员" : null,
       requestPreview: row.requestPreview,
-      responsePreview: row.responsePreview,
+      // Hide raw upstream error payloads from portal users
+      responsePreview:
+        row.error || (row.statusCode ?? 0) >= 400
+          ? null
+          : row.responsePreview,
       messageCount: row.messageCount ?? 0,
-      channelId: row.channelId,
-      channelName,
+      channelId: null,
+      channelName: null,
       ip: row.ip,
     },
   });

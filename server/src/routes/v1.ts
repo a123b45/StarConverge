@@ -212,6 +212,7 @@ async function proxyOpenAI(
   }
 
   let lastError = "all channels failed";
+  let lastChannelId: string | null = null;
   for (const channel of resolved.candidates) {
     const url = joinUrl(channel.baseUrl, upstreamPath);
     const controller = new AbortController();
@@ -377,6 +378,7 @@ async function proxyOpenAI(
 
       if (!upstream.ok) {
         lastError = `channel ${channel.name}: ${upstream.status}`;
+        lastChannelId = channel.id;
         // try next channel on 5xx
         if (upstream.status >= 500) continue;
         await writeLog({
@@ -389,19 +391,13 @@ async function proxyOpenAI(
           statusCode: upstream.status,
           durationMs: Date.now() - started,
           ip,
-          error: respText.slice(0, 500),
+          error: `channel ${channel.name}: ${upstream.status} ${respText.slice(0, 400)}`.trim(),
           requestPreview: reqPreview,
           responsePreview: respText.slice(0, 800),
           messageCount: msgCount,
         });
-        return c.body(
-          encodeClientBody(respText, model, resolved.upstreamModel, opts?.anthropic),
-          upstream.status as 400,
-          {
-          "Content-Type": upstream.headers.get("content-type") ?? "application/json",
-          "X-StarConverge-Channel": channel.name,
-          },
-        );
+        // Never leak upstream/channel details to API clients
+        return c.json(clientUpstreamUnavailableBody(), 502);
       }
 
       await writeLog({
@@ -439,6 +435,7 @@ async function proxyOpenAI(
 
   await writeLog({
     tokenId: token.id,
+    channelId: lastChannelId,
     model,
     upstreamModel: resolved.upstreamModel,
     path: upstreamPath,
@@ -450,10 +447,17 @@ async function proxyOpenAI(
     requestPreview: reqPreview,
     messageCount: msgCount,
   });
-  return c.json(
-    { error: { message: `Upstream failed: ${lastError}`, type: "api_error" } },
-    502,
-  );
+  return c.json(clientUpstreamUnavailableBody(), 502);
+}
+
+/** Client-facing copy — keep channel / upstream details in request logs only. */
+function clientUpstreamUnavailableBody() {
+  return {
+    error: {
+      message: "服务暂时不可用，请联系管理员",
+      type: "api_error",
+    },
+  };
 }
 
 function estimateTokens(text: string): number {

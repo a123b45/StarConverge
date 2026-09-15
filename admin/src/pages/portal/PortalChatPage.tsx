@@ -516,9 +516,14 @@ export default function PortalChatPage() {
         variant: "balance",
       };
     }
+    const upstreamFail =
+      status >= 500 ||
+      /upstream failed|服务暂时不可用|channel\s+.+:\s*\d{3}/i.test(text);
     return {
       role: "assistant",
-      content: text || "发送失败",
+      content: upstreamFail
+        ? "服务暂时不可用，请联系管理员"
+        : text || "发送失败",
       at: Date.now(),
       model: mid,
       variant: "error",

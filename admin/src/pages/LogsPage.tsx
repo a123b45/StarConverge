@@ -103,6 +103,7 @@ export default function LogsPage() {
                 <th>实际上游</th>
                 <th>通道</th>
                 <th>状态</th>
+                <th>调用错误</th>
                 <th>Tokens</th>
                 <th>耗时</th>
                 <th>IP</th>
@@ -117,11 +118,6 @@ export default function LogsPage() {
                   <td>
                     <span className="badge blue">{r.method}</span>{" "}
                     <span style={{ fontSize: "0.85rem" }}>{r.path}</span>
-                    {r.error ? (
-                      <div style={{ color: "var(--danger)", fontSize: "0.78rem", marginTop: 4 }}>
-                        {r.error}
-                      </div>
-                    ) : null}
                   </td>
                   <td className="mono">{r.model ?? "—"}</td>
                   <td className="mono">
@@ -143,6 +139,17 @@ export default function LogsPage() {
                       {r.statusCode ?? "—"}
                     </span>
                   </td>
+                  <td
+                    style={{
+                      color: r.error ? "var(--danger)" : "var(--muted)",
+                      fontSize: "0.78rem",
+                      maxWidth: 280,
+                      wordBreak: "break-word",
+                    }}
+                    title={r.error ?? undefined}
+                  >
+                    {r.error || "—"}
+                  </td>
                   <td className="mono">{r.totalTokens ?? 0}</td>
                   <td className="mono">{r.durationMs != null ? `${r.durationMs}ms` : "—"}</td>
                   <td className="mono" style={{ fontSize: "0.78rem" }}>
@@ -152,7 +159,7 @@ export default function LogsPage() {
               ))}
               {!rows.length ? (
                 <tr>
-                  <td colSpan={9} className="empty">
+                  <td colSpan={10} className="empty">
                     暂无日志
                   </td>
                 </tr>
