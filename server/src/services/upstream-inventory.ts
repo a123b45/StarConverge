@@ -210,21 +210,68 @@ export async function fetchUpstreamBalance(row: UpstreamAccount): Promise<{
     return quota;
   };
 
+  const tryLogout = async (token: string, userId: string | null) => {
+    try {
+      const headers: Record<string, string> = { "content-type": "application/json" };
+      if (token) headers.authorization = `Bearer ${token}`;
+      if (userId) headers["new-api-user"] = userId;
+      await fetch(`${origin}/api/user/logout`, {
+        method: "POST",
+        headers,
+        signal: AbortSignal.timeout(8000),
+      }).catch(() => null);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const isSessionCapError = (msg: string) =>
+    /活跃登录会话|登录会话数量|session.*limit|conflict/i.test(msg);
+
   // Prefer cached session — NewAPI counts each /login as an active session.
   if (row.sessionToken) {
     try {
       const quota = await trySelf(row.sessionToken, row.sessionUserId ?? null);
       return { quota, usdMilli: quotaToUsdMilli(quota) };
     } catch {
-      // fall through to login
+      await tryLogout(row.sessionToken, row.sessionUserId ?? null);
+      await db
+        .update(upstreamAccounts)
+        .set({
+          sessionToken: null,
+          sessionUserId: null,
+          sessionAt: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(upstreamAccounts.id, row.id));
     }
   }
 
-  const login = await fetchJson(`${origin}/api/user/login`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ username: row.username, password: row.password }),
-  });
+  // If Tao already rejected us for too many sessions, do not hammer /login every poll.
+  const recentErr = (row.lastError || "").trim();
+  if (isSessionCapError(recentErr) && row.lastCheckedAt) {
+    const age = Date.now() - new Date(row.lastCheckedAt).getTime();
+    if (age < 60 * 60 * 1000) {
+      throw new Error(recentErr);
+    }
+  }
+
+  let login;
+  try {
+    login = await fetchJson(`${origin}/api/user/login`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username: row.username, password: row.password }),
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (isSessionCapError(msg)) {
+      throw new Error(
+        "活跃登录会话数量已达上限（本站余额同步会占用上游会话）。请在 Tao 后台已登录设备退出其他会话，或重置该上游密码清会话；部署会话复用后不会再每次同步都登录。",
+      );
+    }
+    throw err;
+  }
   const token = pickToken(login.json);
   const userId = pickUserId(login.json);
   if (!token) throw new Error("上游登录未返回 token");
