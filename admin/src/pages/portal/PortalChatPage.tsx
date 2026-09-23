@@ -7,6 +7,7 @@ import SoftSelect from "../../components/SoftSelect";
 import BrandLogo from "../../components/BrandLogo";
 import { softConfirm, softPrompt } from "../../components/SoftDialog";
 import { detectModelModality } from "../../lib/model-taxonomy";
+import { useI18n } from "../../lib/i18n";
 
 type Msg = {
   role: "user" | "assistant";
@@ -86,6 +87,7 @@ function historyForApi(messages: Msg[]): Array<{ role: string; content: unknown 
 }
 
 export default function PortalChatPage() {
+  const { t } = useI18n();
   const [params] = useSearchParams();
   const [sessions, setSessions] = useState<Session[]>(() => loadSessions());
   const [activeId, setActiveId] = useState<string>(() => sessions[0]?.id ?? "");
@@ -181,7 +183,7 @@ export default function PortalChatPage() {
   function newChat() {
     const s: Session = {
       id: `s_${Date.now()}`,
-      title: "新对话",
+      title: t("chat.newSession"),
       messages: [],
       updatedAt: Date.now(),
     };
@@ -222,11 +224,11 @@ export default function PortalChatPage() {
     const cur = sessions.find((s) => s.id === id);
     if (!cur) return;
     const name = await softPrompt({
-      title: "重命名对话",
-      message: "输入新的对话标题",
+      title: t("chat.renameTitle"),
+      message: t("chat.renameMsg"),
       defaultValue: cur.title,
-      placeholder: "对话标题",
-      confirmText: "保存",
+      placeholder: t("chat.renamePh"),
+      confirmText: t("common.save"),
       minLength: 1,
     });
     if (name == null) return;
@@ -254,9 +256,11 @@ export default function PortalChatPage() {
     setMenuPos(null);
     const cur = sessions.find((s) => s.id === id);
     const ok = await softConfirm({
-      title: "删除对话",
-      message: `确定删除「${cur?.title || "未命名"}」吗？此操作不可恢复。`,
-      confirmText: "删除",
+      title: t("chat.deleteTitle"),
+      message: t("chat.deleteMsg", {
+        title: cur?.title || t("common.unnamed"),
+      }),
+      confirmText: t("common.delete"),
       danger: true,
     });
     if (!ok) return;
@@ -368,7 +372,7 @@ export default function PortalChatPage() {
     if (!current) {
       current = {
         id: `s_${Date.now()}`,
-        title: "新对话",
+        title: t("chat.newSession"),
         messages: [],
         updatedAt: Date.now(),
       };
@@ -387,7 +391,9 @@ export default function PortalChatPage() {
     };
     const withUser: Session = {
       ...current,
-      title: current.messages.length ? current.title : (text || "图片").slice(0, 28),
+      title: current.messages.length
+        ? current.title
+        : (text || t("chat.imageTitle")).slice(0, 28),
       messages: [...current.messages, userMsg],
       updatedAt: Date.now(),
     };
@@ -427,7 +433,7 @@ export default function PortalChatPage() {
           ...withUser,
           messages: [
             ...withUser.messages,
-            { ...placeholder, content: content || "（空回复）", at: Date.now() },
+            { ...placeholder, content: content || t("chat.emptyReply"), at: Date.now() },
           ],
           updatedAt: Date.now(),
         });
@@ -441,7 +447,7 @@ export default function PortalChatPage() {
               const status = (err as Error & { status?: number }).status ?? 0;
               return {
                 mid,
-                content: err instanceof Error ? err.message : "失败",
+                content: err instanceof Error ? err.message : t("common.failure"),
                 err: "error" as const,
                 status,
               };
@@ -453,7 +459,7 @@ export default function PortalChatPage() {
             ? assistantFromError(r.status, r.content, r.mid)
             : {
                 role: "assistant" as const,
-                content: r.content || "（空回复）",
+                content: r.content || t("chat.emptyReply"),
                 at: Date.now(),
                 model: r.mid,
               },
@@ -478,14 +484,14 @@ export default function PortalChatPage() {
       const assistant = aborted
         ? {
             role: "assistant" as const,
-            content: "已停止生成",
+            content: t("chat.stopped"),
             at: Date.now(),
             model,
             variant: "aborted" as const,
           }
         : assistantFromError(
             status,
-            err instanceof Error ? err.message : "发送失败",
+            err instanceof Error ? err.message : t("common.sendFail"),
           );
       upsertSession({
         ...withUser,
@@ -510,7 +516,7 @@ export default function PortalChatPage() {
     if (balanceFail) {
       return {
         role: "assistant",
-        content: "余额不足，请先充值",
+        content: t("chat.balanceError"),
         at: Date.now(),
         model: mid,
         variant: "balance",
@@ -522,8 +528,8 @@ export default function PortalChatPage() {
     return {
       role: "assistant",
       content: upstreamFail
-        ? "服务暂时不可用，请联系管理员"
-        : text || "发送失败",
+        ? t("chat.upstreamError")
+        : text || t("common.sendFail"),
       at: Date.now(),
       model: mid,
       variant: "error",
@@ -541,12 +547,12 @@ export default function PortalChatPage() {
     <div className={`ds-chat${sideCollapsed ? " side-collapsed" : ""}`}>
       <aside className="ds-side">
         <button className="ds-new" type="button" onClick={newChat}>
-          <span>+</span> 开启新对话
+          <span>+</span> {t("chat.newChat")}
         </button>
-        <div className="ds-side-label">历史对话</div>
+        <div className="ds-side-label">{t("chat.history")}</div>
         <div className="ds-session-list">
           {sessions.length === 0 ? (
-            <p className="ds-side-empty">暂无会话</p>
+            <p className="ds-side-empty">{t("chat.noSessions")}</p>
           ) : (
             sessions.map((s) => (
               <div
@@ -562,13 +568,13 @@ export default function PortalChatPage() {
                   title={s.title}
                 >
                   {s.pinned ? <span className="ds-session-pin" aria-hidden /> : null}
-                  <span className="ds-session-title">{s.title || "未命名"}</span>
+                  <span className="ds-session-title">{s.title || t("common.unnamed")}</span>
                 </button>
                 <button
                   type="button"
                   className={`ds-session-more${menuId === s.id ? " open" : ""}`}
-                  aria-label="更多操作"
-                  title="更多操作"
+                  aria-label={t("chat.moreActions")}
+                  title={t("chat.moreActions")}
                   onClick={(e) => openSessionMenu(e, s.id)}
                 >
                   <IconMore size={14} />
@@ -585,29 +591,29 @@ export default function PortalChatPage() {
             <button
               type="button"
               className="ds-side-toggle"
-              title={sideCollapsed ? "展开历史对话" : "收起历史对话"}
-              aria-label={sideCollapsed ? "展开历史对话" : "收起历史对话"}
+              title={sideCollapsed ? t("chat.expandHistory") : t("chat.collapseHistory")}
+              aria-label={sideCollapsed ? t("chat.expandHistory") : t("chat.collapseHistory")}
               onClick={() => setSideCollapsed((v) => !v)}
             >
               <IconSidebar />
             </button>
-            <h1>{active?.title || "对话测试"}</h1>
+            <h1>{active?.title || t("chat.defaultTitle")}</h1>
             <span className="ds-online">
               <i />
-              在线
+              {t("chat.online")}
             </span>
           </div>
           <div className="ds-toolbar-right">
             <label className="ds-select">
-              <span>模型</span>
+              <span>{t("chat.modelLabel")}</span>
               <SoftSelect
                 className="soft-select-filter soft-select-sm"
-                ariaLabel="模型"
+                ariaLabel={t("chat.modelLabel")}
                 value={model}
                 onChange={setModel}
                 options={
                   models.length === 0
-                    ? [{ value: "", label: "暂无模型" }]
+                    ? [{ value: "", label: t("chat.noModels") }]
                     : models.map((m) => ({ value: m, label: m }))
                 }
               />
@@ -617,14 +623,14 @@ export default function PortalChatPage() {
               className={`portal-btn ghost sm${compareOn ? " is-on" : ""}`}
               onClick={() => setCompareOn((v) => !v)}
             >
-              对比
+              {t("chat.compare")}
             </button>
             {compareOn ? (
               <label className="ds-select">
-                <span>对比模型</span>
+                <span>{t("chat.compareModel")}</span>
                 <SoftSelect
                   className="soft-select-filter soft-select-sm"
-                  ariaLabel="对比模型"
+                  ariaLabel={t("chat.compareModel")}
                   value={compareModel}
                   onChange={setCompareModel}
                   options={models
@@ -634,15 +640,15 @@ export default function PortalChatPage() {
               </label>
             ) : null}
             <label className="ds-select">
-              <span>密钥</span>
+              <span>{t("chat.keyLabel")}</span>
               <SoftSelect
                 className="soft-select-filter soft-select-sm"
-                ariaLabel="密钥"
+                ariaLabel={t("chat.keyLabel")}
                 value={keyId}
                 onChange={(id) => void pickKey(id)}
                 options={
                   keys.length === 0
-                    ? [{ value: "", label: "未创建" }]
+                    ? [{ value: "", label: t("chat.noKey") }]
                     : keys.map((k) => ({ value: k.id, label: k.name }))
                 }
               />
@@ -656,19 +662,16 @@ export default function PortalChatPage() {
               <div className="ds-welcome-mark">
                 <BrandLogo size={32} />
               </div>
-              <h2>试一下模型再决定买多少</h2>
-              <p>选择模型与密钥后即可对话。对比模式会把同一句发给两个模型。</p>
+              <h2>{t("chat.welcomeTitle")}</h2>
+              <p>{t("chat.welcomeBody")}</p>
               {!apiKey ? (
                 <p className="ds-hint">
-                  还没有密钥？先去 <Link to="/app/keys">API 密钥</Link> 创建。
+                  {t("chat.noKeyHint")}{" "}
+                  <Link to="/app/keys">{t("keys.title")}</Link> {t("chat.noKeyHintSuffix")}
                 </p>
               ) : (
                 <div className="ds-presets">
-                  {[
-                    "用三句话介绍你自己，并说明你适合什么任务。",
-                    "比较 REST、GraphQL、gRPC 的适用场景。",
-                    "写一个 TypeScript 函数：把 CSV 第一列去重后排序。",
-                  ].map((p) => (
+                  {[t("chat.preset1"), t("chat.preset2"), t("chat.preset3")].map((p) => (
                     <button
                       key={p}
                       type="button"
@@ -686,7 +689,7 @@ export default function PortalChatPage() {
               {active.messages.map((m, i) => (
                 <div key={i} className={`ds-msg ${m.role}`}>
                     <div className="ds-avatar">
-                      {m.role === "user" ? "你" : <BrandLogo size={18} />}
+                      {m.role === "user" ? t("chat.you") : <BrandLogo size={18} />}
                     </div>
                   <div className="ds-msg-body">
                     <div
@@ -701,8 +704,8 @@ export default function PortalChatPage() {
                       ) : null}
                       {m.variant === "balance" ? (
                         <>
-                          余额不足，请先
-                          <Link to="/app/recharge">充值</Link>
+                          {t("chat.balanceLow")}{" "}
+                          <Link to="/app/recharge">{t("chat.topUp")}</Link>
                         </>
                       ) : (
                         m.content
@@ -721,7 +724,7 @@ export default function PortalChatPage() {
                     <BrandLogo size={18} />
                   </div>
                   <div className="ds-msg-body">
-                    <div className="ds-typing">正在生成…</div>
+                    <div className="ds-typing">{t("chat.generating")}</div>
                   </div>
                 </div>
               ) : null}
@@ -738,10 +741,10 @@ export default function PortalChatPage() {
               onKeyDown={onKeyDown}
               placeholder={
                 !apiKey
-                  ? "请先创建 API 密钥…"
+                  ? t("chat.phNeedKey")
                   : model
-                    ? `给 ${model} 发送消息`
-                    : "请先选择模型…"
+                    ? t("chat.phSendTo", { model })
+                    : t("chat.phPickModel")
               }
               rows={1}
               disabled={!apiKey || !model}
@@ -753,7 +756,7 @@ export default function PortalChatPage() {
                     key={i}
                     type="button"
                     onClick={() => setImages((prev) => prev.filter((_, j) => j !== i))}
-                    title="移除"
+                    title={t("chat.removeImage")}
                   >
                     <img src={src} alt="" />
                   </button>
@@ -762,7 +765,7 @@ export default function PortalChatPage() {
             ) : null}
             <div className="ds-composer-bar">
               <span className="ds-composer-tip">
-                Enter 发送 · Shift+Enter 换行 · 对话按 token 扣费
+                {t("chat.composerTip")}
               </span>
               <span className="ds-composer-tools">
                 {detectModelModality(model) === "multimodal" ? (
@@ -789,7 +792,7 @@ export default function PortalChatPage() {
                       className="portal-btn ghost sm"
                       onClick={() => fileRef.current?.click()}
                     >
-                      图片
+                      {t("chat.image")}
                     </button>
                   </>
                 ) : null}
@@ -799,8 +802,8 @@ export default function PortalChatPage() {
                   type="button"
                   className="ds-send ds-send-stop"
                   onClick={stopGenerating}
-                  aria-label="停止生成"
-                  title="停止生成"
+                  aria-label={t("chat.stopGen")}
+                  title={t("chat.stopGen")}
                 >
                   <IconStop size={12} />
                 </button>
@@ -809,7 +812,7 @@ export default function PortalChatPage() {
                   type="submit"
                   className="ds-send"
                   disabled={!apiKey || !model || (!input.trim() && !images.length)}
-                  aria-label="发送"
+                  aria-label={t("chat.send")}
                 >
                   ↑
                 </button>
@@ -827,10 +830,12 @@ export default function PortalChatPage() {
               role="menu"
             >
               <button type="button" role="menuitem" onClick={() => void renameSession(menuId)}>
-                重命名
+                {t("chat.rename")}
               </button>
               <button type="button" role="menuitem" onClick={() => togglePin(menuId)}>
-                {sessions.find((s) => s.id === menuId)?.pinned ? "取消置顶" : "置顶"}
+                {sessions.find((s) => s.id === menuId)?.pinned
+                  ? t("chat.unpin")
+                  : t("chat.pin")}
               </button>
               <button
                 type="button"
@@ -838,7 +843,7 @@ export default function PortalChatPage() {
                 className="danger"
                 onClick={() => void deleteSession(menuId)}
               >
-                删除
+                {t("common.delete")}
               </button>
             </div>,
             document.body,

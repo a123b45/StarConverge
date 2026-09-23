@@ -15,6 +15,7 @@ import {
   IconTrash,
 } from "../../components/icons";
 import { normalizeIpRules, type IpRule } from "../../lib/ip-rules";
+import { useI18n } from "../../lib/i18n";
 
 type KeyRow = {
   id: string;
@@ -54,8 +55,8 @@ function maskKey(key: string | null, prefix: string): string {
   return "sk-*****";
 }
 
-function quotaLabel(n?: number) {
-  if (n == null || n < 0) return "不限";
+function quotaLabel(n: number | undefined, unlimited: string) {
+  if (n == null || n < 0) return unlimited;
   return n.toLocaleString();
 }
 
@@ -84,13 +85,14 @@ const emptyForm: FormState = {
 };
 
 function parseQuota(raw: string): number {
-  const t = raw.trim();
-  if (!t || t === "不限") return -1;
-  const n = Number(t);
+  const v = raw.trim();
+  if (!v) return -1;
+  const n = Number(v);
   return Number.isFinite(n) ? Math.trunc(n) : -1;
 }
 
 export default function PortalKeysPage() {
+  const { t } = useI18n();
   const [rows, setRows] = useState<KeyRow[]>([]);
   const [models, setModels] = useState<string[]>([]);
   const [kw, setKw] = useState("");
@@ -112,7 +114,7 @@ export default function PortalKeysPage() {
 
   useEffect(() => {
     load().catch((e: unknown) =>
-      setError(e instanceof Error ? e.message : "加载失败"),
+      setError(e instanceof Error ? e.message : t("common.loadFail")),
     );
     portalApi<{ data: { model: string; retired?: boolean }[] }>("/models")
       .then((r) =>
@@ -208,7 +210,7 @@ export default function PortalKeysPage() {
       }
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "保存失败");
+      setError(err instanceof Error ? err.message : t("common.saveFail"));
     }
   }
 
@@ -221,7 +223,7 @@ export default function PortalKeysPage() {
       await load();
     } catch (e) {
       setToastTone("err");
-      setToast(e instanceof Error ? e.message : "更新失败");
+      setToast(e instanceof Error ? e.message : t("common.updateFail"));
     }
   }
 
@@ -245,15 +247,15 @@ export default function PortalKeysPage() {
       setRevealId(row.id);
     } catch (e) {
       setToastTone("err");
-      setToast(e instanceof Error ? e.message : "无法查看密钥");
+      setToast(e instanceof Error ? e.message : t("common.cannotRevealKey"));
     }
   }
 
   async function remove(row: KeyRow) {
     const ok = await softConfirm({
-      title: "删除密钥",
-      message: `确定删除密钥「${row.name}」？此操作不可恢复。`,
-      confirmText: "删除",
+      title: t("keys.deleteTitle"),
+      message: t("keys.deleteMsg", { name: row.name }),
+      confirmText: t("common.delete"),
       danger: true,
     });
     if (!ok) return;
@@ -270,7 +272,7 @@ export default function PortalKeysPage() {
   async function copyKey(text: string) {
     const ok = await copyText(text);
     setToastTone(ok ? "ok" : "err");
-    setToast(ok ? "复制成功!" : "复制失败");
+    setToast(ok ? t("common.copyOk") : t("common.copyFail"));
   }
 
   async function copyRow(row: KeyRow) {
@@ -278,13 +280,13 @@ export default function PortalKeysPage() {
       const full = await ensureFullKey(row.id);
       if (!full) {
         setToastTone("err");
-        setToast("无法复制密钥");
+        setToast(t("common.cannotCopyKey"));
         return;
       }
       await copyKey(full);
     } catch (e) {
       setToastTone("err");
-      setToast(e instanceof Error ? e.message : "复制失败");
+      setToast(e instanceof Error ? e.message : t("common.copyFail"));
     }
   }
 
@@ -294,8 +296,8 @@ export default function PortalKeysPage() {
 
       <div className="portal-hero">
         <div>
-          <h1>API 密钥</h1>
-          <p>一把密钥调用多家模型。可设日/月/总额度、模型范围和 IP 白名单。</p>
+          <h1>{t("keys.title")}</h1>
+          <p>{t("keys.lead")}</p>
         </div>
       </div>
 
@@ -304,12 +306,12 @@ export default function PortalKeysPage() {
       <div className="portal-toolbar ak-toolbar">
         <input
           className="search portal-search"
-          placeholder="按名称、备注或密钥前缀搜索"
+          placeholder={t("keys.searchPh")}
           value={kw}
           onChange={(e) => setKw(e.target.value)}
         />
         <button type="button" className="portal-btn" onClick={startCreate}>
-          创建 API Key
+          {t("keys.createBtn")}
         </button>
       </div>
 
@@ -318,13 +320,13 @@ export default function PortalKeysPage() {
           <table className="table ak-table">
             <thead>
               <tr>
-                <th>名称</th>
-                <th>Key</th>
-                <th>状态</th>
-                <th>额度</th>
-                <th>模型</th>
-                <th>最新使用</th>
-                <th>操作</th>
+                <th>{t("common.name")}</th>
+                <th>{t("keys.colKey")}</th>
+                <th>{t("common.status")}</th>
+                <th>{t("keys.colQuota")}</th>
+                <th>{t("keys.colModels")}</th>
+                <th>{t("keys.colLastUsed")}</th>
+                <th>{t("common.operations")}</th>
               </tr>
             </thead>
             <tbody>
@@ -350,7 +352,7 @@ export default function PortalKeysPage() {
                           <button
                             type="button"
                             className="icon-btn"
-                            title={revealed ? "隐藏" : "显示"}
+                            title={revealed ? t("common.hide") : t("common.show")}
                             onClick={() => void toggleReveal(r)}
                           >
                             {revealed ? <IconEyeOff /> : <IconEye />}
@@ -358,7 +360,7 @@ export default function PortalKeysPage() {
                           <button
                             type="button"
                             className="icon-btn"
-                            title="复制"
+                            title={t("common.copy")}
                             onClick={() => void copyRow(r)}
                           >
                             <IconCopy />
@@ -371,19 +373,21 @@ export default function PortalKeysPage() {
                         type="button"
                         className={`badge ${on ? "ok" : "danger"}`}
                         onClick={() => void toggleEnabled(r)}
-                        title={on ? "点击停用" : "点击启用"}
+                        title={on ? t("common.clickDisable") : t("common.clickEnable")}
                       >
-                        {on ? "启用" : "停用"}
+                        {on ? t("common.enabled") : t("common.disabled")}
                       </button>
                     </td>
                     <td className="mono">
-                      {quotaLabel(r.remainingQuota ?? r.quota)}
-                      {r.quota != null && r.quota >= 0 ? ` / ${quotaLabel(r.quota)}` : ""}
+                      {quotaLabel(r.remainingQuota ?? r.quota, t("common.unlimited"))}
+                      {r.quota != null && r.quota >= 0
+                        ? ` / ${quotaLabel(r.quota, t("common.unlimited"))}`
+                        : ""}
                     </td>
                     <td>
                       {(r.allowedModels ?? []).length
-                        ? `${r.allowedModels!.length} 个`
-                        : "全部"}
+                        ? t("common.countItems", { n: r.allowedModels!.length })
+                        : t("keys.allModels")}
                     </td>
                     <td className="mono">{ymd(r.lastUsedAt)}</td>
                     <td>
@@ -391,7 +395,7 @@ export default function PortalKeysPage() {
                         <button
                           type="button"
                           className="icon-btn"
-                          title="修改"
+                          title={t("common.edit")}
                           onClick={() => startEdit(r)}
                         >
                           <IconPencil />
@@ -399,7 +403,7 @@ export default function PortalKeysPage() {
                         <button
                           type="button"
                           className="icon-btn danger"
-                          title="删除"
+                          title={t("common.delete")}
                           onClick={() => void remove(r)}
                         >
                           <IconTrash />
@@ -413,14 +417,14 @@ export default function PortalKeysPage() {
                 <tr>
                   <td colSpan={7} className="empty">
                     <div className="portal-empty" style={{ padding: 24 }}>
-                      <strong>还没有密钥</strong>
-                      <p>创建一把 sk，填进 Cursor / Claude Code 就能调模型。</p>
+                      <strong>{t("keys.emptyTitle")}</strong>
+                      <p>{t("keys.emptyBody")}</p>
                       <div className="portal-empty-actions">
                         <button type="button" className="portal-btn" onClick={startCreate}>
-                          创建 API Key
+                          {t("keys.createBtn")}
                         </button>
                         <Link className="portal-btn ghost" to="/app/docs">
-                          看接入说明
+                          {t("keys.viewDocs")}
                         </Link>
                       </div>
                     </div>
@@ -441,12 +445,14 @@ export default function PortalKeysPage() {
           >
             <div className="modal-user-head">
               <h3>
-                {editing ? "修改 API 密钥" : createdKey ? "密钥已创建" : "创建 API Key"}
+                {editing
+                  ? t("keys.modalEdit")
+                  : createdKey
+                    ? t("keys.modalCreated")
+                    : t("keys.modalCreate")}
               </h3>
               <p>
-                {createdKey
-                  ? "请立即复制完整密钥，关闭后仅能查看脱敏值"
-                  : "额度留空表示不限，实际花费仍按账户余额扣费。"}
+                {createdKey ? t("keys.modalCreatedHint") : t("keys.modalFormHint")}
               </p>
             </div>
             {error ? <div className="alert">{error}</div> : null}
@@ -458,28 +464,28 @@ export default function PortalKeysPage() {
                   className="btn ghost"
                   onClick={() => void copyKey(createdKey)}
                 >
-                  复制
+                  {t("common.copy")}
                 </button>
               </div>
             ) : (
               <>
                 <label className="stack-field">
                   <span>
-                    名称 <em>*</em>
+                    {t("common.name")} <em>{t("common.requiredMark")}</em>
                   </span>
                   <input
                     required
                     value={form.name}
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    placeholder="例如 Cursor / 测试"
+                    placeholder={t("keys.namePh")}
                   />
                 </label>
                 <label className="stack-field">
-                  <span>备注</span>
+                  <span>{t("common.remark")}</span>
                   <input
                     value={form.remark}
                     onChange={(e) => setForm({ ...form, remark: e.target.value })}
-                    placeholder="用途，方便自己认"
+                    placeholder={t("keys.remarkPh")}
                   />
                 </label>
                 <label className="auth-check" style={{ margin: "4px 0 8px" }}>
@@ -488,35 +494,35 @@ export default function PortalKeysPage() {
                     checked={form.enabled}
                     onChange={(e) => setForm({ ...form, enabled: e.target.checked })}
                   />
-                  启用这把密钥
+                  {t("keys.enableKey")}
                 </label>
                 <div className="portal-estimate-grid">
                   <label className="stack-field">
-                    <span>总额度（tokens）</span>
+                    <span>{t("keys.quotaTotal")}</span>
                     <input
                       value={form.quota}
                       onChange={(e) => setForm({ ...form, quota: e.target.value })}
-                      placeholder="不限"
+                      placeholder={t("common.unlimited")}
                     />
                   </label>
                   <label className="stack-field">
-                    <span>日额度</span>
+                    <span>{t("keys.quotaDaily")}</span>
                     <input
                       value={form.dailyQuota}
                       onChange={(e) => setForm({ ...form, dailyQuota: e.target.value })}
-                      placeholder="不限"
+                      placeholder={t("common.unlimited")}
                     />
                   </label>
                   <label className="stack-field">
-                    <span>月额度</span>
+                    <span>{t("keys.quotaMonthly")}</span>
                     <input
                       value={form.monthlyQuota}
                       onChange={(e) => setForm({ ...form, monthlyQuota: e.target.value })}
-                      placeholder="不限"
+                      placeholder={t("common.unlimited")}
                     />
                   </label>
                   <label className="stack-field">
-                    <span>每分钟请求上限</span>
+                    <span>{t("keys.rateLimit")}</span>
                     <input
                       value={form.rateLimit}
                       onChange={(e) => setForm({ ...form, rateLimit: e.target.value })}
@@ -534,8 +540,8 @@ export default function PortalKeysPage() {
                       <IconSettings size={16} />
                     </span>
                     <span className="portal-adv-copy">
-                      <strong>高级设置</strong>
-                      <small>设置令牌的访问限制</small>
+                      <strong>{t("keys.advTitle")}</strong>
+                      <small>{t("keys.advSub")}</small>
                     </span>
                     <span className="portal-adv-chevron" aria-hidden>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
@@ -552,26 +558,24 @@ export default function PortalKeysPage() {
                   {advOpen ? (
                     <div className="portal-adv-body">
                       <label className="stack-field">
-                        <span>可用模型（空 = 全部）</span>
+                        <span>{t("keys.allowedModels")}</span>
                         <ModelPicker
                           options={models}
                           value={form.allowedModels}
                           onChange={(allowedModels) => setForm({ ...form, allowedModels })}
                         />
-                        <p className="muted portal-adv-hint">限制此密钥可使用的模型</p>
+                        <p className="muted portal-adv-hint">{t("keys.allowedModelsHint")}</p>
                       </label>
                       <label className="stack-field">
-                        <span>IP 白名单（支持 CIDR）</span>
+                        <span>{t("keys.ipAllowlist")}</span>
                         <textarea
                           className="portal-ip-area mono"
                           rows={4}
                           value={form.ipText}
                           onChange={(e) => setForm({ ...form, ipText: e.target.value })}
-                          placeholder="每行一个 IP（留空表示无限制）"
+                          placeholder={t("keys.ipPh")}
                         />
-                        <p className="muted portal-adv-hint">
-                          请勿过度信任此功能，IP 可能被伪造，请配合 nginx 和 CDN 等网关使用
-                        </p>
+                        <p className="muted portal-adv-hint">{t("keys.ipWarn")}</p>
                       </label>
                     </div>
                   ) : null}
@@ -581,7 +585,7 @@ export default function PortalKeysPage() {
             <div className="modal-actions">
               {createdKey ? (
                 <button type="button" className="btn" onClick={() => setOpen(false)}>
-                  完成
+                  {t("common.done")}
                 </button>
               ) : (
                 <>
@@ -590,9 +594,11 @@ export default function PortalKeysPage() {
                     className="btn ghost"
                     onClick={() => setOpen(false)}
                   >
-                    取消
+                    {t("common.cancel")}
                   </button>
-                  <button className="btn">{editing ? "保存" : "创建"}</button>
+                  <button className="btn">
+                    {editing ? t("common.save") : t("common.create")}
+                  </button>
                 </>
               )}
             </div>

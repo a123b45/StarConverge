@@ -1,3 +1,10 @@
+import { getLang } from "./chrome";
+import { EN, ZH, type MsgKey } from "./i18n-copy";
+
+function copy(key: MsgKey): string {
+  return getLang() === "en" ? EN[key] : ZH[key];
+}
+
 export type ModelFamily =
   | "all"
   | "gpt"
@@ -16,31 +23,31 @@ export type ModelModality = "all" | "text" | "multimodal";
 export type ModelCapability = "tools" | "thinking" | "vision" | "coding" | "longctx";
 
 export const MODEL_CAPABILITIES: Array<{ id: ModelCapability; label: string }> = [
-  { id: "tools", label: "工具调用" },
-  { id: "thinking", label: "深度思考" },
-  { id: "vision", label: "图像理解" },
-  { id: "coding", label: "AI 编程" },
-  { id: "longctx", label: "长上下文" },
+  { id: "tools", label: "Tool calling" },
+  { id: "thinking", label: "Reasoning" },
+  { id: "vision", label: "Vision" },
+  { id: "coding", label: "Coding" },
+  { id: "longctx", label: "Long context" },
 ];
 
 export const MODEL_FAMILIES: Array<{ id: ModelFamily; label: string; short: string }> = [
-  { id: "all", label: "全部系列", short: "全部" },
+  { id: "all", label: "All families", short: "All" },
   { id: "gpt", label: "GPT / OpenAI", short: "GPT" },
   { id: "deepseek", label: "DeepSeek", short: "DeepSeek" },
-  { id: "qwen", label: "Qwen / 通义", short: "Qwen" },
+  { id: "qwen", label: "Qwen", short: "Qwen" },
   { id: "claude", label: "Claude", short: "Claude" },
   { id: "gemini", label: "Gemini", short: "Gemini" },
-  { id: "glm", label: "GLM / 智谱", short: "GLM" },
+  { id: "glm", label: "GLM", short: "GLM" },
   { id: "kimi", label: "Kimi / Moonshot", short: "Kimi" },
   { id: "llama", label: "Llama / Meta", short: "Llama" },
   { id: "mistral", label: "Mistral", short: "Mistral" },
-  { id: "other", label: "其他", short: "其他" },
+  { id: "other", label: "Other", short: "Other" },
 ];
 
 export const MODEL_MODALITIES: Array<{ id: ModelModality; label: string; short: string }> = [
-  { id: "all", label: "全部能力", short: "全部" },
-  { id: "text", label: "纯文本", short: "文本" },
-  { id: "multimodal", label: "多模态", short: "多模态" },
+  { id: "all", label: "All modalities", short: "All" },
+  { id: "text", label: "Text", short: "Text" },
+  { id: "multimodal", label: "Multimodal", short: "Multimodal" },
 ];
 
 function norm(name: string): string {
@@ -234,9 +241,9 @@ export function modelBlurb(name: string): string {
     const label = MODEL_FAMILIES.find((f) => f.id === family)?.label;
     if (label) bits.push(label.replace(" / ", "·"));
   }
-  if (caps.includes("coding")) bits.push("适合写代码和 Agent");
-  else if (caps.includes("thinking")) bits.push("偏推理与长思考");
-  else if (caps.includes("vision")) bits.push("可看图理解");
-  else bits.push("按量调用，OpenAI 兼容");
+  if (caps.includes("coding")) bits.push(copy("models.blurb.coding"));
+  else if (caps.includes("thinking")) bits.push(copy("models.blurb.thinking"));
+  else if (caps.includes("vision")) bits.push(copy("models.blurb.vision"));
+  else bits.push(copy("models.blurb.default"));
   return bits.join(" · ");
 }

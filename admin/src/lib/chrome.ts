@@ -60,6 +60,9 @@ type Copy = {
   notifyPricing: string;
   notifyTypeModels: string;
   notifyTypePricing: string;
+  username: string;
+  saved: string;
+  adminEnvHint: string;
 };
 
 const zh: Copy = {
@@ -79,6 +82,9 @@ const zh: Copy = {
   notifyPricing: "价格有变动，快去看看吧！",
   notifyTypeModels: "模型",
   notifyTypePricing: "价格",
+  username: "用户名",
+  saved: "已保存",
+  adminEnvHint: "管理员账号由环境变量配置，请修改 server/.env 中的密码。",
 };
 
 const en: Copy = {
@@ -98,6 +104,9 @@ const en: Copy = {
   notifyPricing: "had a price update. Take a look!",
   notifyTypeModels: "Models",
   notifyTypePricing: "Pricing",
+  username: "Username",
+  saved: "Saved",
+  adminEnvHint: "Admin credentials come from environment variables — update server/.env to change the password.",
 };
 
 export const chromeCopy: Record<LangMode, Copy> = { zh, en };

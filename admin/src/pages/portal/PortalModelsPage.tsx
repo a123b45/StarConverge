@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { portalApi } from "../../lib/api";
+import { useI18n } from "../../lib/i18n";
+import type { MsgKey } from "../../lib/i18n-copy";
 import { IconBolt } from "../../components/icons";
 import ModelCatalogFilters from "../../components/portal/ModelCatalogFilters";
 import {
@@ -9,7 +11,6 @@ import {
   detectCapabilities,
   hasCapability,
   modelBlurb,
-  MODEL_CAPABILITIES,
   type ModelFamily,
   type ModelModality,
   type ModelCapability,
@@ -25,12 +26,21 @@ import {
   vendorLabel,
 } from "../../lib/official-pricing";
 
+const CAP_KEYS: Record<string, MsgKey> = {
+  tools: "models.cap.tools",
+  thinking: "models.cap.thinking",
+  vision: "models.cap.vision",
+  coding: "models.cap.coding",
+  longctx: "models.cap.longctx",
+};
+
 function modelInitial(name: string): string {
   const part = name.split(/[-_/]/).find(Boolean) || name;
   return part.slice(0, 1).toUpperCase();
 }
 
 export default function PortalModelsPage() {
+  const { t } = useI18n();
   const [models, setModels] = useState<PortalModel[]>([]);
   const [q, setQ] = useState("");
   const [error, setError] = useState("");
@@ -42,8 +52,8 @@ export default function PortalModelsPage() {
   useEffect(() => {
     portalApi<{ data: PortalModel[] }>("/models")
       .then((r) => setModels(r.data))
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : "加载失败"));
-  }, []);
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : t("common.loadFail")));
+  }, [t]);
 
   const live = useMemo(() => models.filter((m) => !m.retired), [models]);
   const retired = useMemo(() => models.filter((m) => m.retired), [models]);
@@ -77,14 +87,14 @@ export default function PortalModelsPage() {
     <div className="portal-page">
       <div className="portal-hero">
         <div>
-          <h1>模型广场</h1>
+          <h1>{t("models.title")}</h1>
           <p>
             {live.length
-              ? `共 ${live.length} 个可买模型 · 充值后按 token 扣费`
-              : "暂无上架模型 · 需管理员在模型管理中同步给用户"}
+              ? t("models.lead", { n: live.length })
+              : t("models.emptyLead")}
           </p>
           <p className="muted" style={{ marginTop: 6 }}>
-            官方对照价按 OpenAI / Anthropic / Google / DeepSeek / 通义公开价目同步；对不上的型号不展示对照。
+            {t("models.note")}
           </p>
         </div>
       </div>
@@ -96,12 +106,12 @@ export default function PortalModelsPage() {
       >
         <input
           className="portal-search"
-          placeholder="搜索模型名称 / ID / 描述"
+          placeholder={t("models.searchPh")}
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
         <button type="submit" className="portal-btn">
-          搜索
+          {t("common.search")}
         </button>
       </form>
       <ModelCatalogFilters
@@ -123,14 +133,14 @@ export default function PortalModelsPage() {
       </div>
       {!filteredLive.length ? (
         <div className="portal-empty">
-          <strong>没有匹配的模型</strong>
-          <p>试试调整筛选，或先去充值后再看已开通范围。</p>
+          <strong>{t("models.noMatchTitle")}</strong>
+          <p>{t("models.noMatchBody")}</p>
           <div className="portal-empty-actions">
             <Link className="portal-btn" to="/app/recharge">
-              去充值
+              {t("est.goRecharge")}
             </Link>
             <Link className="portal-btn ghost" to="/app/docs">
-              看接入说明
+              {t("models.goDocs")}
             </Link>
           </div>
         </div>
@@ -143,7 +153,8 @@ export default function PortalModelsPage() {
             className="portal-btn ghost sm"
             onClick={() => setShowRetired((v) => !v)}
           >
-            {showRetired ? "收起" : "展开"}已退役模型（{filteredRetired.length}）
+            {showRetired ? t("common.collapse") : t("common.expand")}
+            {t("models.retiredToggle")}（{filteredRetired.length}）
           </button>
           {showRetired ? (
             <div className="portal-model-grid" style={{ marginTop: 12 }}>
@@ -167,12 +178,13 @@ function ModelCard({
   hot: boolean;
   retired?: boolean;
 }) {
+  const { t } = useI18n();
   const caps = detectCapabilities(m.model, [m.rewriteModel]);
   const tags = [
-    ...(hot ? [{ id: "hot", label: "热门", kind: "hot" as const }] : []),
+    ...(hot ? [{ id: "hot", label: t("models.hot"), kind: "hot" as const }] : []),
     ...caps.map((id) => ({
       id,
-      label: MODEL_CAPABILITIES.find((c) => c.id === id)?.label ?? id,
+      label: CAP_KEYS[id] ? t(CAP_KEYS[id]!) : id,
       kind: "cap" as const,
     })),
   ];
@@ -187,34 +199,38 @@ function ModelCard({
             <h3 title={m.model}>{m.model}</h3>
             <span className={`portal-avail${retired ? " retired" : ""}`}>
               <i className={retired ? "off-dot" : "ok-dot"} aria-hidden />
-              {retired ? "已退役" : "可用"}
+              {retired ? t("models.retired") : t("models.available")}
             </span>
           </div>
         </div>
       </div>
       {tags.length ? (
         <div className="portal-model-tags">
-          {tags.map((t) => (
-            <span key={t.id} className={t.kind === "hot" ? "portal-flag hot" : "portal-cap-tag"}>
-              {t.label}
+          {tags.map((tag) => (
+            <span key={tag.id} className={tag.kind === "hot" ? "portal-flag hot" : "portal-cap-tag"}>
+              {tag.label}
             </span>
           ))}
         </div>
       ) : null}
       <p className="portal-model-desc">{modelBlurb(m.model)}</p>
-      <div className="portal-price-grid" aria-label="模型定价">
+      <div className="portal-price-grid" aria-label={t("models.pricingAria")}>
         <PriceTriple m={m} />
       </div>
       <SaveBar m={m} />
       <div className="portal-model-meta">
         <span className="portal-model-latency">
           <IconBolt size={14} />
-          延迟 {formatLatency(m.latencyMs ?? 0)}
+          {t("common.latency")} {formatLatency(m.latencyMs ?? 0)}
         </span>
         {!retired ? (
           <span className="portal-model-actions">
-            <Link to={`/app/estimate?model=${encodeURIComponent(m.model)}`}>估费用</Link>
-            <Link to={`/app/chat?model=${encodeURIComponent(m.model)}`}>对话</Link>
+            <Link to={`/app/estimate?model=${encodeURIComponent(m.model)}`}>
+              {t("models.estimateLink")}
+            </Link>
+            <Link to={`/app/chat?model=${encodeURIComponent(m.model)}`}>
+              {t("models.chatLink")}
+            </Link>
           </span>
         ) : null}
       </div>
@@ -229,6 +245,7 @@ function compactUsd(n: number) {
 }
 
 function PriceTriple({ m }: { m: PortalModel }) {
+  const { t } = useI18n();
   const official = m.official;
   const rows: Array<{
     key: string;
@@ -237,11 +254,11 @@ function PriceTriple({ m }: { m: PortalModel }) {
     official?: number;
     cache?: boolean;
   }> = [
-    { key: "in", label: "输入", ours: m.inputPer1m ?? 0, official: official?.inputPer1m },
-    { key: "out", label: "输出", ours: m.outputPer1m ?? 0, official: official?.outputPer1m },
+    { key: "in", label: t("est.input"), ours: m.inputPer1m ?? 0, official: official?.inputPer1m },
+    { key: "out", label: t("est.output"), ours: m.outputPer1m ?? 0, official: official?.outputPer1m },
     {
       key: "cache",
-      label: "缓存命中",
+      label: t("models.cacheHit"),
       ours: m.cacheHitPer1m ?? 0,
       official: official?.cacheHitPer1m,
       cache: true,
@@ -264,7 +281,7 @@ function PriceTriple({ m }: { m: PortalModel }) {
             <span className="portal-price-label">{row.label}</span>
             <strong className="portal-price-value">{formatPerMillion(row.ours)}</strong>
             <span className={`portal-price-official${cheaper ? "" : " is-ref"}`}>
-              官方 {compactUsd(row.official)}
+              {t("models.officialPrice", { price: compactUsd(row.official) })}
             </span>
           </div>
         );
@@ -274,13 +291,17 @@ function PriceTriple({ m }: { m: PortalModel }) {
 }
 
 function SaveBar({ m }: { m: PortalModel }) {
+  const { t } = useI18n();
   const official = m.official;
   if (!official) return null;
   const cmp = cardSavings(m, official);
   if (!cmp.cheaper) return null;
   return (
     <div className="portal-save-bar">
-      比 {vendorLabel(official.vendor, official.vendorLabel)} 少 {formatSavePct(cmp.pct)}
+      {t("models.saveVs", {
+        vendor: vendorLabel(official.vendor, official.vendorLabel),
+        pct: formatSavePct(cmp.pct),
+      })}
     </div>
   );
 }

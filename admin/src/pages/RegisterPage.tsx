@@ -1,6 +1,7 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { authApi, getRole, getToken, setSession } from "../lib/api";
+import { useI18n } from "../lib/i18n";
 import {
   IconEyeOff,
   IconEyeOpen,
@@ -11,6 +12,7 @@ import {
 import BrandLogo from "../components/BrandLogo";
 
 export default function RegisterPage() {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -34,9 +36,9 @@ export default function RegisterPage() {
       setCaptchaImg(res.data.image);
       setCaptcha("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "验证码加载失败");
+      setError(err instanceof Error ? err.message : t("auth.register.captchaLoadFail"));
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void loadCaptcha();
@@ -44,8 +46,8 @@ export default function RegisterPage() {
 
   useEffect(() => {
     if (cooldown <= 0) return;
-    const t = window.setTimeout(() => setCooldown((n) => n - 1), 1000);
-    return () => window.clearTimeout(t);
+    const timer = window.setTimeout(() => setCooldown((n) => n - 1), 1000);
+    return () => window.clearTimeout(timer);
   }, [cooldown]);
 
   async function sendCode() {
@@ -57,11 +59,11 @@ export default function RegisterPage() {
         method: "POST",
         body: JSON.stringify({ email, captchaId, captcha }),
       });
-      setHint(res.message || "验证码已发送，请查收邮箱");
+      setHint(res.message || t("auth.register.codeSent"));
       setCooldown(60);
       setCodeSent(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "发送失败");
+      setError(err instanceof Error ? err.message : t("common.sendFail"));
       await loadCaptcha();
     } finally {
       setSending(false);
@@ -84,7 +86,7 @@ export default function RegisterPage() {
       setSession(res.token, res.role);
       navigate(res.redirect || "/app/models");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "注册失败");
+      setError(err instanceof Error ? err.message : t("common.registerFail"));
     } finally {
       setLoading(false);
     }
@@ -100,36 +102,34 @@ export default function RegisterPage() {
         <div className="auth-hero-inner">
           <div className="auth-brand-row">
             <BrandLogo className="auth-logo" size={40} />
-            <strong>辉煌</strong>
+            <strong>{t("brand.name")}</strong>
           </div>
           <h1>
-            注册即用。
+            {t("auth.register.heroTitle")}
             <br />
-            <span>买 Token 开跑。</span>
+            <span>{t("auth.register.heroSub")}</span>
           </h1>
-          <p className="auth-hero-lead">
-            注册需验证邮箱。充值兑换卡密后按量扣费，密钥即开即用。
-          </p>
+          <p className="auth-hero-lead">{t("auth.register.heroLead")}</p>
           <ul className="auth-features">
             <li>
               <span className="check" aria-hidden />
               <div>
-                <strong>充值买 Token</strong>
-                <p>卡密兑换余额，按调用量扣费</p>
+                <strong>{t("auth.register.f1")}</strong>
+                <p>{t("auth.register.f1b")}</p>
               </div>
             </li>
             <li>
               <span className="check" aria-hidden />
               <div>
-                <strong>自助密钥</strong>
-                <p>创建、查看、删除属于自己的 sk 密钥</p>
+                <strong>{t("auth.register.f2")}</strong>
+                <p>{t("auth.register.f2b")}</p>
               </div>
             </li>
             <li>
               <span className="check" aria-hidden />
               <div>
-                <strong>OpenAI 兼容</strong>
-                <p>任意兼容客户端填 Base URL 即可接入</p>
+                <strong>{t("auth.register.f3")}</strong>
+                <p>{t("auth.register.f3b")}</p>
               </div>
             </li>
           </ul>
@@ -141,25 +141,25 @@ export default function RegisterPage() {
           <div className="auth-panel-head">
             <div className="auth-panel-brand">
               <BrandLogo className="auth-logo sm" size={30} />
-              <strong>辉煌</strong>
-              <em>注册</em>
+              <strong>{t("brand.name")}</strong>
+              <em>{t("auth.register.badge")}</em>
             </div>
-            <h2>注册用户</h2>
-            <p>验证邮箱后即可创建门户账号</p>
+            <h2>{t("auth.register.title")}</h2>
+            <p>{t("auth.register.subtitle")}</p>
           </div>
 
           {error ? <div className="alert">{error}</div> : null}
           {hint ? <div className="alert ok">{hint}</div> : null}
 
           <label className="auth-field">
-            <span>用户名</span>
+            <span>{t("auth.register.usernameLabel")}</span>
             <div className="auth-input">
               <IconPerson />
               <input
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 autoComplete="username"
-                placeholder="字母数字下划线，至少 3 位"
+                placeholder={t("auth.register.usernamePh")}
                 required
                 minLength={3}
               />
@@ -167,7 +167,7 @@ export default function RegisterPage() {
           </label>
 
           <label className="auth-field">
-            <span>邮箱</span>
+            <span>{t("auth.register.emailLabel")}</span>
             <div className="auth-input">
               <IconMail />
               <input
@@ -178,14 +178,14 @@ export default function RegisterPage() {
                   setCodeSent(false);
                 }}
                 autoComplete="email"
-                placeholder="用于接收验证码和找回密码"
+                placeholder={t("auth.register.emailPh")}
                 required
               />
             </div>
           </label>
 
           <label className="auth-field">
-            <span>图片验证码</span>
+            <span>{t("auth.register.captchaLabel")}</span>
             <div className="auth-captcha-row">
               <button
                 type="button"
@@ -193,13 +193,13 @@ export default function RegisterPage() {
                 onClick={() => {
                   if (!codeSent) void loadCaptcha();
                 }}
-                title={codeSent ? "验证码已校验" : "点击刷新"}
+                title={codeSent ? t("auth.register.captchaVerified") : t("auth.register.captchaRefresh")}
                 disabled={codeSent}
               >
                 {captchaImg ? (
-                  <img src={captchaImg} alt="验证码" />
+                  <img src={captchaImg} alt={t("auth.register.captchaAlt")} />
                 ) : (
-                  <span>加载中</span>
+                  <span>{t("common.loading")}</span>
                 )}
               </button>
               <div className="auth-input">
@@ -207,7 +207,7 @@ export default function RegisterPage() {
                   value={captcha}
                   onChange={(e) => setCaptcha(e.target.value.toUpperCase())}
                   autoComplete="off"
-                  placeholder="点击图片可刷新"
+                  placeholder={t("auth.register.captchaPh")}
                   required={!codeSent}
                   minLength={codeSent ? undefined : 5}
                   maxLength={8}
@@ -219,7 +219,7 @@ export default function RegisterPage() {
           </label>
 
           <label className="auth-field">
-            <span>邮箱验证码</span>
+            <span>{t("auth.register.emailCodeLabel")}</span>
             <div className="auth-code-row">
               <div className="auth-input">
                 <input
@@ -227,7 +227,7 @@ export default function RegisterPage() {
                   onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                   inputMode="numeric"
                   autoComplete="one-time-code"
-                  placeholder="6 位数字"
+                  placeholder={t("auth.register.emailCodePh")}
                   required
                   minLength={6}
                   maxLength={6}
@@ -239,13 +239,17 @@ export default function RegisterPage() {
                 disabled={sending || cooldown > 0 || !email || captcha.trim().length < 5}
                 onClick={() => void sendCode()}
               >
-                {sending ? "发送中…" : cooldown > 0 ? `${cooldown}s` : "发送验证码"}
+                {sending
+                  ? t("auth.register.sending")
+                  : cooldown > 0
+                    ? `${cooldown}s`
+                    : t("auth.register.sendCode")}
               </button>
             </div>
           </label>
 
           <label className="auth-field">
-            <span>密码</span>
+            <span>{t("auth.register.passwordLabel")}</span>
             <div className="auth-input">
               <IconLock />
               <input
@@ -253,7 +257,7 @@ export default function RegisterPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="new-password"
-                placeholder="至少 6 位"
+                placeholder={t("auth.register.passwordPh")}
                 required
                 minLength={6}
               />
@@ -261,7 +265,7 @@ export default function RegisterPage() {
                 type="button"
                 className="auth-eye"
                 onClick={() => setShowPwd((v) => !v)}
-                aria-label={showPwd ? "隐藏密码" : "显示密码"}
+                aria-label={showPwd ? t("common.hidePassword") : t("common.showPassword")}
               >
                 {showPwd ? <IconEyeOff /> : <IconEyeOpen />}
               </button>
@@ -269,12 +273,13 @@ export default function RegisterPage() {
           </label>
 
           <button className="auth-submit" disabled={loading}>
-            {loading ? "创建中…" : "立即注册"}
+            {loading ? t("auth.register.submitting") : t("auth.register.submit")}
             {!loading ? <span aria-hidden>→</span> : null}
           </button>
 
           <p className="auth-switch">
-            已有账户？ <Link to="/login">去登录</Link>
+            {t("auth.register.hasAccount")}{" "}
+            <Link to="/login">{t("auth.register.loginLink")}</Link>
           </p>
         </form>
       </main>

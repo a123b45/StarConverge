@@ -1,10 +1,12 @@
 import { FormEvent, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { authApi, getRole, getToken, setSession } from "../lib/api";
+import { useI18n } from "../lib/i18n";
 import { IconEyeOff, IconEyeOpen, IconLock, IconPerson } from "../components/icons";
 import BrandLogo from "../components/BrandLogo";
 
 export default function LoginPage() {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -36,7 +38,7 @@ export default function LoginPage() {
       }
       navigate(res.redirect || (res.role === "admin" ? "/admin" : "/app/models"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "登录失败");
+      setError(err instanceof Error ? err.message : t("common.loginFail"));
     } finally {
       setLoading(false);
     }
@@ -48,43 +50,41 @@ export default function LoginPage() {
         <div className="auth-hero-inner">
           <div className="auth-brand-row">
             <BrandLogo className="auth-logo" size={40} />
-            <strong>辉煌</strong>
+            <strong>{t("brand.name")}</strong>
           </div>
           <h1>
-            API 中转。
+            {t("login.heroTitle")}
             <br />
-            <span>低价 Token。</span>
+            <span>{t("login.heroSub")}</span>
           </h1>
-          <p className="auth-hero-lead">
-            我们不生产 token，我们只是 token 的搬运工。
-          </p>
+          <p className="auth-hero-lead">{t("login.heroLead")}</p>
           <ul className="auth-features">
             <li>
               <span className="check" aria-hidden />
               <div>
-                <strong>物美价廉</strong>
-                <p>支持模型估价对比，对比官方渠道优惠 70%</p>
+                <strong>{t("login.f1")}</strong>
+                <p>{t("login.f1b")}</p>
               </div>
             </li>
             <li>
               <span className="check" aria-hidden />
               <div>
-                <strong>模型可靠</strong>
-                <p>不掺水，支持各种模型测试</p>
+                <strong>{t("login.f2")}</strong>
+                <p>{t("login.f2b")}</p>
               </div>
             </li>
             <li>
               <span className="check" aria-hidden />
               <div>
-                <strong>聚合调用</strong>
-                <p>一个密钥畅享 GPT、Claude、Gemini 等 AI 智能大模型</p>
+                <strong>{t("login.f3")}</strong>
+                <p>{t("login.f3b")}</p>
               </div>
             </li>
             <li>
               <span className="check" aria-hidden />
               <div>
-                <strong>智能体接入</strong>
-                <p>可直接接入 Cursor、Claude Code、Codex</p>
+                <strong>{t("login.f4")}</strong>
+                <p>{t("login.f4b")}</p>
               </div>
             </li>
           </ul>
@@ -96,29 +96,29 @@ export default function LoginPage() {
           <div className="auth-panel-head">
             <div className="auth-panel-brand">
               <BrandLogo className="auth-logo sm" size={30} />
-              <strong>辉煌</strong>
+              <strong>{t("brand.name")}</strong>
             </div>
-            <h2>登录</h2>
+            <h2>{t("auth.login.title")}</h2>
           </div>
 
           {error ? <div className="alert">{error}</div> : null}
 
           <label className="auth-field">
-            <span>用户名/邮箱</span>
+            <span>{t("auth.login.usernameLabel")}</span>
             <div className="auth-input">
               <IconPerson />
               <input
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 autoComplete="username"
-                placeholder="请输入你的用户或者邮箱"
+                placeholder={t("auth.login.usernamePh")}
                 required
               />
             </div>
           </label>
 
           <label className="auth-field">
-            <span>密码</span>
+            <span>{t("auth.login.passwordLabel")}</span>
             <div className="auth-input">
               <IconLock />
               <input
@@ -126,14 +126,14 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="current-password"
-                placeholder="请输入密码"
+                placeholder={t("auth.login.passwordPh")}
                 required
               />
               <button
                 type="button"
                 className="auth-eye"
                 onClick={() => setShowPwd((v) => !v)}
-                aria-label={showPwd ? "隐藏密码" : "显示密码"}
+                aria-label={showPwd ? t("common.hidePassword") : t("common.showPassword")}
               >
                 {showPwd ? <IconEyeOff /> : <IconEyeOpen />}
               </button>
@@ -147,20 +147,21 @@ export default function LoginPage() {
                 checked={remember}
                 onChange={(e) => setRemember(e.target.checked)}
               />
-              记住登录状态
+              {t("auth.login.remember")}
             </label>
             <Link className="auth-muted-link" to="/forgot-password">
-              忘记密码？
+              {t("auth.login.forgot")}
             </Link>
           </div>
 
           <button className="auth-submit" disabled={loading}>
-            {loading ? "登录中…" : "登录"}
+            {loading ? t("auth.login.submitting") : t("auth.login.submit")}
             {!loading ? <span aria-hidden>→</span> : null}
           </button>
 
           <p className="auth-switch">
-            还没有账户？ <Link to="/register">立即注册</Link>
+            {t("auth.login.noAccount")}{" "}
+            <Link to="/register">{t("auth.login.registerLink")}</Link>
           </p>
         </form>
       </main>

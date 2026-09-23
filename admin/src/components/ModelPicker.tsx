@@ -1,17 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useI18n } from "../lib/i18n";
 
 type Props = {
   options: string[];
-  value: string[]; // empty => 全部模型
+  value: string[]; // empty => all models
   onChange: (next: string[]) => void;
 };
 
-/**
- * 允许模型选择器：
- * - 空数组 = 全部模型
- * - 可搜索过滤下拉项，支持多选与自定义输入
- */
 export default function ModelPicker({ options, value, onChange }: Props) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const rootRef = useRef<HTMLDivElement>(null);
@@ -71,7 +68,7 @@ export default function ModelPicker({ options, value, onChange }: Props) {
     <div className="model-picker" ref={rootRef}>
       <div className="model-picker-box" onClick={() => setOpen(true)}>
         {allMode ? (
-          <span className="badge blue">全部模型</span>
+          <span className="badge blue">{t("keys.pickerAll")}</span>
         ) : (
           value.map((m) => (
             <span className="badge blue model-chip" key={m}>
@@ -92,7 +89,7 @@ export default function ModelPicker({ options, value, onChange }: Props) {
         <input
           className="model-picker-input"
           value={query}
-          placeholder={allMode ? "搜索或输入模型名…" : "继续搜索添加…"}
+          placeholder={allMode ? t("keys.pickerSearch") : t("keys.pickerSearchMore")}
           onChange={(e) => {
             setQuery(e.target.value);
             setOpen(true);
@@ -115,9 +112,9 @@ export default function ModelPicker({ options, value, onChange }: Props) {
             className={`model-picker-item ${allMode ? "active" : ""}`}
             onClick={selectAll}
           >
-            <span>全部模型</span>
+            <span>{t("keys.pickerAll")}</span>
             <span className="mono" style={{ color: "var(--muted)", fontSize: "0.75rem" }}>
-              不限制
+              {t("keys.pickerUnlimited")}
             </span>
           </button>
           {filtered.map((m) => {
@@ -137,12 +134,12 @@ export default function ModelPicker({ options, value, onChange }: Props) {
           {query.trim() &&
           !filtered.some((m) => m.toLowerCase() === query.trim().toLowerCase()) ? (
             <button type="button" className="model-picker-item" onClick={addCustom}>
-              添加自定义「{query.trim()}」
+              {t("keys.pickerAddCustom", { name: query.trim() })}
             </button>
           ) : null}
           {!filtered.length && !query.trim() ? (
             <div className="empty" style={{ padding: 12 }}>
-              暂无渠道模型，可直接输入模型名
+              {t("keys.pickerEmpty")}
             </div>
           ) : null}
         </div>

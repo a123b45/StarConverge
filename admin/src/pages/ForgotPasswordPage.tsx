@@ -1,10 +1,12 @@
 import { FormEvent, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { authApi, getRole, getToken } from "../lib/api";
+import { useI18n } from "../lib/i18n";
 import { IconMail } from "../components/icons";
 import BrandLogo from "../components/BrandLogo";
 
 export default function ForgotPasswordPage() {
+  const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
@@ -31,11 +33,11 @@ export default function ForgotPasswordPage() {
         method: "POST",
         body: JSON.stringify({ email }),
       });
-      setMessage(res.message || "如果该邮箱已注册，我们已发送重置密码链接");
+      setMessage(res.message || t("auth.forgot.sentDefault"));
       if (res.resetUrl) setResetUrl(res.resetUrl);
       setDone(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "发送失败");
+      setError(err instanceof Error ? err.message : t("common.sendFail"));
     } finally {
       setLoading(false);
     }
@@ -47,16 +49,14 @@ export default function ForgotPasswordPage() {
         <div className="auth-hero-inner">
           <div className="auth-brand-row">
             <BrandLogo className="auth-logo" size={40} />
-            <strong>辉煌</strong>
+            <strong>{t("brand.name")}</strong>
           </div>
           <h1>
-            安全找回。
+            {t("auth.forgot.heroTitle")}
             <br />
-            <span>重新开始。</span>
+            <span>{t("auth.forgot.heroSub")}</span>
           </h1>
-          <p className="auth-hero-lead">
-            通过注册邮箱接收重置链接，找回后继续买 Token、调模型。
-          </p>
+          <p className="auth-hero-lead">{t("auth.forgot.heroLead")}</p>
         </div>
       </aside>
 
@@ -65,11 +65,11 @@ export default function ForgotPasswordPage() {
           <div className="auth-panel-head">
             <div className="auth-panel-brand">
               <BrandLogo className="auth-logo sm" size={30} />
-              <strong>辉煌</strong>
-              <em>密码重置</em>
+              <strong>{t("brand.name")}</strong>
+              <em>{t("auth.forgot.badge")}</em>
             </div>
-            <h2>找回辉煌密码</h2>
-            <p>输入注册邮箱，我们会向您发送重置密码链接</p>
+            <h2>{t("auth.forgot.title")}</h2>
+            <p>{t("auth.forgot.subtitle")}</p>
           </div>
 
           {error ? <div className="alert">{error}</div> : null}
@@ -78,9 +78,7 @@ export default function ForgotPasswordPage() {
               {message}
               {resetUrl ? (
                 <div style={{ marginTop: 10 }}>
-                  <div style={{ fontSize: 12, marginBottom: 6 }}>
-                    邮件服务未配置，请直接打开重置链接：
-                  </div>
+                  <div style={{ fontSize: 12, marginBottom: 6 }}>{t("auth.forgot.noMailHint")}</div>
                   <a href={resetUrl} style={{ wordBreak: "break-all" }}>
                     {resetUrl}
                   </a>
@@ -90,7 +88,7 @@ export default function ForgotPasswordPage() {
           ) : null}
 
           <label className="auth-field">
-            <span>邮箱</span>
+            <span>{t("auth.forgot.emailLabel")}</span>
             <div className="auth-input">
               <IconMail />
               <input
@@ -98,19 +96,19 @@ export default function ForgotPasswordPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
-                placeholder="请输入注册邮箱"
+                placeholder={t("auth.forgot.emailPh")}
                 required
               />
             </div>
           </label>
 
           <button className="auth-submit" disabled={loading}>
-            {loading ? "发送中…" : "发送重置链接"}
+            {loading ? t("auth.forgot.submitting") : t("auth.forgot.submit")}
             {!loading ? <span aria-hidden>→</span> : null}
           </button>
 
           <p className="auth-switch">
-            想起密码了？ <Link to="/login">登录</Link>
+            {t("auth.forgot.rememberLogin")} <Link to="/login">{t("auth.forgot.loginLink")}</Link>
           </p>
         </form>
       </main>

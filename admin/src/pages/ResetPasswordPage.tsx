@@ -1,10 +1,12 @@
 import { FormEvent, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { authApi, getRole, getToken } from "../lib/api";
+import { useI18n } from "../lib/i18n";
 import { IconEyeOff, IconEyeOpen, IconLock } from "../components/icons";
 import BrandLogo from "../components/BrandLogo";
 
 export default function ResetPasswordPage() {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const token = useMemo(() => params.get("token") ?? "", [params]);
@@ -21,11 +23,11 @@ export default function ResetPasswordPage() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (password !== confirm) {
-      setError("两次输入的密码不一致");
+      setError(t("auth.reset.mismatch"));
       return;
     }
     if (!token) {
-      setError("缺少重置令牌，请重新申请找回密码");
+      setError(t("auth.reset.missingToken"));
       return;
     }
     setLoading(true);
@@ -37,7 +39,7 @@ export default function ResetPasswordPage() {
       });
       navigate("/login", { replace: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "重置失败");
+      setError(err instanceof Error ? err.message : t("common.resetFail"));
     } finally {
       setLoading(false);
     }
@@ -49,14 +51,14 @@ export default function ResetPasswordPage() {
         <div className="auth-hero-inner">
           <div className="auth-brand-row">
             <BrandLogo className="auth-logo" size={40} />
-            <strong>辉煌</strong>
+            <strong>{t("brand.name")}</strong>
           </div>
           <h1>
-            设置新密码。
+            {t("auth.reset.heroTitle")}
             <br />
-            <span>继续使用。</span>
+            <span>{t("auth.reset.heroSub")}</span>
           </h1>
-          <p className="auth-hero-lead">重置完成后即可登录中转站，继续买 Token、调模型。</p>
+          <p className="auth-hero-lead">{t("auth.reset.heroLead")}</p>
         </div>
       </aside>
 
@@ -65,20 +67,18 @@ export default function ResetPasswordPage() {
           <div className="auth-panel-head">
             <div className="auth-panel-brand">
               <BrandLogo className="auth-logo sm" size={30} />
-              <strong>辉煌</strong>
-              <em>设置新密码</em>
+              <strong>{t("brand.name")}</strong>
+              <em>{t("auth.reset.badge")}</em>
             </div>
-            <h2>设置新密码</h2>
-            <p>请输入至少 6 位的新密码</p>
+            <h2>{t("auth.reset.title")}</h2>
+            <p>{t("auth.reset.subtitle")}</p>
           </div>
 
           {error ? <div className="alert">{error}</div> : null}
-          {!token ? (
-            <div className="alert">链接无效，请从找回密码页重新申请</div>
-          ) : null}
+          {!token ? <div className="alert">{t("auth.reset.invalidLink")}</div> : null}
 
           <label className="auth-field">
-            <span>新密码</span>
+            <span>{t("auth.reset.passwordLabel")}</span>
             <div className="auth-input">
               <IconLock />
               <input
@@ -86,7 +86,7 @@ export default function ResetPasswordPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="new-password"
-                placeholder="请输入新密码"
+                placeholder={t("auth.reset.passwordPh")}
                 minLength={6}
                 required
               />
@@ -94,7 +94,7 @@ export default function ResetPasswordPage() {
                 type="button"
                 className="auth-eye"
                 onClick={() => setShowPwd((v) => !v)}
-                aria-label={showPwd ? "隐藏密码" : "显示密码"}
+                aria-label={showPwd ? t("common.hidePassword") : t("common.showPassword")}
               >
                 {showPwd ? <IconEyeOff /> : <IconEyeOpen />}
               </button>
@@ -102,7 +102,7 @@ export default function ResetPasswordPage() {
           </label>
 
           <label className="auth-field">
-            <span>确认密码</span>
+            <span>{t("auth.reset.confirmLabel")}</span>
             <div className="auth-input">
               <IconLock />
               <input
@@ -110,7 +110,7 @@ export default function ResetPasswordPage() {
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
                 autoComplete="new-password"
-                placeholder="再次输入新密码"
+                placeholder={t("auth.reset.confirmPh")}
                 minLength={6}
                 required
               />
@@ -118,12 +118,12 @@ export default function ResetPasswordPage() {
           </label>
 
           <button className="auth-submit" disabled={loading || !token}>
-            {loading ? "提交中…" : "确认重置"}
+            {loading ? t("auth.reset.submitting") : t("auth.reset.submit")}
             {!loading ? <span aria-hidden>→</span> : null}
           </button>
 
           <p className="auth-switch">
-            <Link to="/login">返回登录</Link>
+            <Link to="/login">{t("auth.reset.backLogin")}</Link>
           </p>
         </form>
       </main>

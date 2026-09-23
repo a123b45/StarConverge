@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { portalApi } from "../../lib/api";
+import { useI18n } from "../../lib/i18n";
 import {
   estimateCostUsd,
   formatPerMillion,
@@ -19,8 +20,8 @@ import {
 import SoftSelect from "../../components/SoftSelect";
 import { IconTrendDown, IconTrendUp } from "../../components/icons";
 
-function rateAmount(n: number) {
-  return formatPerMillion(n).replace(/\s*\/\s*百万$/, "");
+function stripPerMillionSuffix(s: string) {
+  return s.replace(/\s*\/\s*(百万|million tokens?)\s*$/i, "");
 }
 
 function priceDelta(ours: number, official: number): "down" | "up" | "same" {
@@ -38,7 +39,8 @@ function barShare(ours: number, official: number): { ours: number; official: num
 }
 
 function TrendMark({ dir }: { dir: "down" | "up" | "same" }) {
-  if (dir === "same") return <span className="est-mark is-same">持平</span>;
+  const { t } = useI18n();
+  if (dir === "same") return <span className="est-mark is-same">{t("est.even")}</span>;
   return (
     <span className={`est-mark is-${dir}`}>
       {dir === "down" ? <IconTrendDown size={11} /> : <IconTrendUp size={11} />}
@@ -57,31 +59,37 @@ function CompareBar({
   official: number;
   money?: boolean;
 }) {
+  const { t } = useI18n();
   const share = barShare(ours, official);
   const dir = priceDelta(ours, official);
   const pct =
     official > 0 ? Math.round(((official - ours) / official) * 100) : null;
-  const fmt = (n: number) => (money ? formatUsd(n) : rateAmount(n));
+  const display = (n: number) =>
+    money ? formatUsd(n) : stripPerMillionSuffix(formatPerMillion(n));
   return (
     <div className={`est-bar${money ? " is-total" : ""}`}>
       <div className="est-bar-label">
         <strong>{label}</strong>
-        {money ? null : <small>/ 百万 tokens</small>}
+        {money ? null : <small>{t("est.perMillion")}</small>}
       </div>
       <div
         className="est-bar-track"
         role="img"
-        aria-label={`${label} 本站 ${fmt(ours)}，官方 ${fmt(official)}`}
+        aria-label={t("est.barAria", { label, ours: display(ours), official: display(official) })}
       >
         <div className="est-seg is-ours" style={{ flexGrow: share.ours }} />
         <div className="est-seg is-official" style={{ flexGrow: share.official }} />
-        <span className="est-bar-val is-ours">{fmt(ours)}</span>
-        <span className="est-bar-val is-official">{fmt(official)}</span>
+        <span className="est-bar-val is-ours">{display(ours)}</span>
+        <span className="est-bar-val is-official">{display(official)}</span>
       </div>
       <div className={`est-bar-delta is-${dir}`}>
         <TrendMark dir={dir} />
-        {dir === "down" && pct != null ? <em>低 {Math.abs(pct)}%</em> : null}
-        {dir === "up" && pct != null ? <em>高 {Math.abs(pct)}%</em> : null}
+        {dir === "down" && pct != null ? (
+          <em>{t("est.lower", { pct: Math.abs(pct) })}</em>
+        ) : null}
+        {dir === "up" && pct != null ? (
+          <em>{t("est.higher", { pct: Math.abs(pct) })}</em>
+        ) : null}
       </div>
     </div>
   );
@@ -93,6 +101,7 @@ type OfficialCatalog = {
 };
 
 export default function PortalEstimatePage() {
+  const { t } = useI18n();
   const [params] = useSearchParams();
   const [models, setModels] = useState<PortalModel[]>([]);
   const [catalog, setCatalog] = useState<OfficialQuote[]>([]);
@@ -116,8 +125,8 @@ export default function PortalEstimatePage() {
         setCatalog(pricesRes.data ?? []);
         if (pricesRes.vendors?.length) setVendorLabels(pricesRes.vendors);
       })
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : "加载失败"));
-  }, []);
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : t("common.loadFail")));
+  }, [t]);
 
   const model = useMemo(
     () => models.find((m) => m.model === modelId) ?? null,
@@ -174,42 +183,42 @@ export default function PortalEstimatePage() {
   return (
     <div className="portal-page est-page">
       <div className="est-hero">
-        <p className="est-kicker">同模型 · 官方公开价</p>
-        <h1>计费预估</h1>
+        <p className="est-kicker">{t("est.kicker")}</p>
+        <h1>{t("est.title")}</h1>
       </div>
 
       {error ? <div className="alert">{error}</div> : null}
 
       {!models.length && !error ? (
         <div className="portal-empty">
-          <strong>还没有可估的模型</strong>
-          <p>管理员同步模型后即可在这里试算。</p>
+          <strong>{t("est.emptyTitle")}</strong>
+          <p>{t("est.emptyBody")}</p>
         </div>
       ) : (
         <div className="est-sheet">
           <div className="est-controls">
             <label className="stack-field">
-              <span>本站模型</span>
+              <span>{t("est.siteModel")}</span>
               <SoftSelect
-                ariaLabel="本站模型"
+                ariaLabel={t("est.siteModel")}
                 value={modelId}
                 onChange={setModelId}
                 options={models.map((m) => ({ value: m.model, label: m.model }))}
               />
             </label>
             <label className="stack-field">
-              <span>对照官方渠道</span>
+              <span>{t("est.officialChannel")}</span>
               <SoftSelect
-                ariaLabel="官方渠道"
+                ariaLabel={t("est.officialChannel")}
                 value={resolvedVendor}
                 onChange={(v) => setVendor(v as OfficialVendor)}
                 disabled={!vendorOptions.length}
-                placeholder="官方没有此模型"
+                placeholder={t("est.noOfficial")}
                 options={vendorOptions.map((v) => ({ value: v.id, label: v.label }))}
               />
             </label>
             <label className="stack-field">
-              <span>输入 tokens</span>
+              <span>{t("est.inputTokens")}</span>
               <input
                 inputMode="numeric"
                 value={prompt}
@@ -217,7 +226,7 @@ export default function PortalEstimatePage() {
               />
             </label>
             <label className="stack-field">
-              <span>输出 tokens</span>
+              <span>{t("est.outputTokens")}</span>
               <input
                 inputMode="numeric"
                 value={completion}
@@ -225,7 +234,7 @@ export default function PortalEstimatePage() {
               />
             </label>
             <label className="stack-field">
-              <span>缓存命中 tokens</span>
+              <span>{t("est.cacheTokens")}</span>
               <input
                 inputMode="numeric"
                 value={cache}
@@ -241,31 +250,34 @@ export default function PortalEstimatePage() {
                   <div className="est-legend">
                     <span>
                       <i className="est-dot ours" />
-                      本站
+                      {t("est.ours")}
                     </span>
                     <span>
                       <i className="est-dot official" />
-                      官方 · {vendorLabel(official.vendor, official.vendorLabel)} · {official.model}
+                      {t("est.officialLegend", {
+                        vendor: vendorLabel(official.vendor, official.vendorLabel),
+                        model: official.model,
+                      })}
                     </span>
                   </div>
                   <div className="est-bars">
                     <CompareBar
-                      label="输入"
+                      label={t("est.input")}
                       ours={model.inputPer1m}
                       official={official.inputPer1m}
                     />
                     <CompareBar
-                      label="输出"
+                      label={t("est.output")}
                       ours={model.outputPer1m}
                       official={official.outputPer1m}
                     />
                     <CompareBar
-                      label="缓存"
+                      label={t("est.cache")}
                       ours={model.cacheHitPer1m}
                       official={official.cacheHitPer1m}
                     />
                     <CompareBar
-                      label="合计"
+                      label={t("est.total")}
                       ours={ours}
                       official={cmp?.official ?? 0}
                       money
@@ -274,7 +286,7 @@ export default function PortalEstimatePage() {
                 </div>
               ) : (
                 <div className="est-miss">
-                  <strong>该官方渠道内没有 {model.model} 模型</strong>
+                  <strong>{t("est.missTitle", { model: model.model })}</strong>
                 </div>
               )}
 
@@ -282,8 +294,8 @@ export default function PortalEstimatePage() {
                 <div className="est-save is-tie">
                   <TrendMark dir="same" />
                   <div>
-                    <strong>这次持平 {formatUsd(ours)}</strong>
-                    <p>与官方同模型公开价相同</p>
+                    <strong>{t("est.tieTitle", { amount: formatUsd(ours) })}</strong>
+                    <p>{t("est.tieBody")}</p>
                   </div>
                 </div>
               ) : null}
@@ -293,13 +305,14 @@ export default function PortalEstimatePage() {
                   <TrendMark dir={cmp.cheaper ? "down" : "up"} />
                   <div>
                     <strong>
-                      {cmp.cheaper ? "这次少花" : "这次多花"}{" "}
-                      {formatUsd(Math.abs(cmp.saved))}
+                      {cmp.cheaper
+                        ? t("est.saveTitle", { amount: formatUsd(Math.abs(cmp.saved)) })
+                        : t("est.spendTitle", { amount: formatUsd(Math.abs(cmp.saved)) })}
                     </strong>
                     <p>
                       {cmp.cheaper
-                        ? `比官方公开价低 ${formatSavePct(cmp.pct)}`
-                        : `比官方公开价高 ${formatSavePct(-cmp.pct)}`}
+                        ? t("est.saveBody", { pct: formatSavePct(cmp.pct) })
+                        : t("est.spendBody", { pct: formatSavePct(-cmp.pct) })}
                     </p>
                   </div>
                 </div>
@@ -310,10 +323,10 @@ export default function PortalEstimatePage() {
                   className="portal-btn"
                   to={`/app/chat?model=${encodeURIComponent(model.model)}`}
                 >
-                  用这个模型试对话
+                  {t("est.tryChat")}
                 </Link>
                 <Link className="portal-btn ghost" to="/app/recharge">
-                  去充值
+                  {t("est.goRecharge")}
                 </Link>
               </div>
             </>

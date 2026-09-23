@@ -148,7 +148,7 @@ export default function TopTools({
       onUserUpdated?.(res);
       setPassword("");
       setAccountOpen(false);
-      setToast(lang === "zh" ? "已保存" : "Saved");
+      setToast(t.saved);
       setTimeout(() => setToast(""), 1500);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Save failed");
@@ -322,7 +322,7 @@ export default function TopTools({
             {error ? <div className="alert">{error}</div> : null}
             <div className="form-grid">
               <label>
-                用户名
+                {t.username}
                 <input value={user.username} disabled />
               </label>
               <label>
@@ -347,7 +347,7 @@ export default function TopTools({
                 </label>
               ) : (
                 <p className="muted" style={{ margin: 0, gridColumn: "1 / -1" }}>
-                  管理员账号由环境变量配置，请修改 server/.env 中的密码。
+                  {t.adminEnvHint}
                 </p>
               )}
             </div>

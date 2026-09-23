@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { formatTokens, portalApi } from "../../lib/api";
 import { Link } from "react-router-dom";
+import { useI18n } from "../../lib/i18n";
 import SoftSelect from "../../components/SoftSelect";
 import ModalBackdrop from "../../components/ModalBackdrop";
 import { copyText } from "../../lib/copy";
@@ -99,6 +100,7 @@ function StatLabel({
 }
 
 export default function PortalUsagePage() {
+  const { t } = useI18n();
   const [tab, setTab] = useState<"usage" | "trace">("usage");
   const [summary, setSummary] = useState<Summary | null>(null);
   const [byModel, setByModel] = useState<ByModel[]>([]);
@@ -163,7 +165,7 @@ export default function PortalUsagePage() {
       setPage(req.page);
       setTotal(req.total);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "加载失败");
+      setError(e instanceof Error ? e.message : t("common.loadFail"));
     }
   }
 
@@ -183,7 +185,7 @@ export default function PortalUsagePage() {
       const res = await portalApi<{ data: ReqDetail }>(`/usage/requests/${id}`);
       setDetail(res.data);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "无法加载详情");
+      setError(e instanceof Error ? e.message : t("common.detailLoadFail"));
     }
   }
 
@@ -202,54 +204,54 @@ export default function PortalUsagePage() {
     <div className="portal-page">
       <div className="portal-hero">
         <div>
-          <h1>用量与链路</h1>
-          <p>调用趋势、模型明细与请求链路记录</p>
+          <h1>{t("usage.title")}</h1>
+          <p>{t("usage.lead")}</p>
         </div>
         <div className="portal-hero-actions portal-usage-filters">
           <SoftSelect
             className="soft-select-filter"
-            ariaLabel="时间范围"
+            ariaLabel={t("usage.filterRange")}
             value={fromDays}
             onChange={setFromDays}
             options={[
-              { value: "1", label: "近 1 天" },
-              { value: "7", label: "近 7 天" },
-              { value: "30", label: "近 30 天" },
+              { value: "1", label: t("usage.range1d") },
+              { value: "7", label: t("usage.range7d") },
+              { value: "30", label: t("usage.range30d") },
             ]}
           />
           <SoftSelect
             className="soft-select-filter"
-            ariaLabel="模型筛选"
+            ariaLabel={t("usage.filterModel")}
             value={model}
             onChange={setModel}
             options={[
-              { value: "", label: "全部模型" },
+              { value: "", label: t("usage.allModels") },
               ...modelOptions.map((m) => ({ value: m, label: m })),
             ]}
           />
           <SoftSelect
             className="soft-select-filter"
-            ariaLabel="密钥筛选"
+            ariaLabel={t("usage.filterKey")}
             value={tokenId}
             onChange={setTokenId}
             options={[
-              { value: "", label: "全部密钥" },
+              { value: "", label: t("usage.allKeys") },
               ...keys.map((k) => ({ value: k.id, label: k.name })),
             ]}
           />
           <SoftSelect
             className="soft-select-filter"
-            ariaLabel="状态"
+            ariaLabel={t("usage.filterStatus")}
             value={status}
             onChange={setStatus}
             options={[
-              { value: "", label: "全部状态" },
-              { value: "ok", label: "成功" },
-              { value: "error", label: "失败" },
+              { value: "", label: t("usage.allStatus") },
+              { value: "ok", label: t("common.success") },
+              { value: "error", label: t("common.failure") },
             ]}
           />
           <button className="portal-btn ghost" onClick={() => void load(page)}>
-            刷新
+            {t("common.refresh")}
           </button>
         </div>
       </div>
@@ -260,14 +262,14 @@ export default function PortalUsagePage() {
           className={tab === "usage" ? "active" : ""}
           onClick={() => setTab("usage")}
         >
-          用量
+          {t("usage.tabUsage")}
         </button>
         <button
           type="button"
           className={tab === "trace" ? "active" : ""}
           onClick={() => setTab("trace")}
         >
-          链路
+          {t("usage.tabTrace")}
         </button>
       </div>
 
@@ -279,36 +281,43 @@ export default function PortalUsagePage() {
             <div className="portal-stats">
               <div className="portal-stat wide portal-stat-money">
                 <StatLabel icon={<IconWallet size={14} />}>
-                  总消费 / 总余额
+                  {t("usage.statSpendBalance")}
                 </StatLabel>
                 <div className="value portal-stat-balance">
                   <strong>{money(totalCost)}</strong>
                   <span> / {money(balance, 2)}</span>
                 </div>
-                <div className="bar" title={`剩余 ${balancePct.toFixed(0)}%`}>
+                <div
+                  className="bar"
+                  title={t("usage.remainingPct", { pct: balancePct.toFixed(0) })}
+                >
                   <i style={{ width: `${balancePct}%` }} />
                 </div>
               </div>
               <div className="portal-stat">
-                <StatLabel icon={<IconHash size={14} />}>总调用次数</StatLabel>
+                <StatLabel icon={<IconHash size={14} />}>{t("usage.statCalls")}</StatLabel>
                 <div className="value">{summary.calls}</div>
               </div>
               <div className="portal-stat">
-                <StatLabel icon={<IconDownload size={14} />}>总输入 TOKEN</StatLabel>
+                <StatLabel icon={<IconDownload size={14} />}>
+                  {t("usage.statPromptTokens")}
+                </StatLabel>
                 <div className="value">{formatTokens(summary.promptTokens)}</div>
               </div>
               <div className="portal-stat">
-                <StatLabel icon={<IconUpload size={14} />}>总输出 TOKEN</StatLabel>
+                <StatLabel icon={<IconUpload size={14} />}>
+                  {t("usage.statCompletionTokens")}
+                </StatLabel>
                 <div className="value">
                   {formatTokens(summary.completionTokens)}
                 </div>
               </div>
               <div className="portal-stat">
-                <StatLabel icon={<IconBolt size={14} />}>总 TOKENS</StatLabel>
+                <StatLabel icon={<IconBolt size={14} />}>{t("usage.statTotalTokens")}</StatLabel>
                 <div className="value">{formatTokens(summary.totalTokens)}</div>
               </div>
               <div className="portal-stat portal-stat-latency">
-                <StatLabel icon={<IconClock size={14} />}>延迟</StatLabel>
+                <StatLabel icon={<IconClock size={14} />}>{t("usage.statLatency")}</StatLabel>
                 <div className="portal-latency-grid">
                   <div>
                     <span className="portal-latency-k">P50</span>
@@ -326,7 +335,7 @@ export default function PortalUsagePage() {
           {daily.length > 0 ? (
             <div className="portal-trend-grid">
               <div className="portal-panel">
-                <h3>模型调用趋势</h3>
+                <h3>{t("usage.trendCalls")}</h3>
                 <div className="portal-bars">
                   {daily.map((d) => (
                     <div key={d.date} className="portal-bar-col">
@@ -337,14 +346,14 @@ export default function PortalUsagePage() {
                         />
                         <div className="portal-bar-tip" role="tooltip">
                           <strong>{d.date}</strong>
-                          <em>合计 {d.calls} 次</em>
+                          <em>{t("usage.callsTotal", { n: d.calls })}</em>
                           {(d.models?.length ? d.models : []).map((m) => (
                             <span key={m.model}>
                               {m.model}
                               <b>{m.calls}</b>
                             </span>
                           ))}
-                          {!d.models?.length ? <span>暂无模型明细</span> : null}
+                          {!d.models?.length ? <span>{t("usage.noModelBreakdown")}</span> : null}
                         </div>
                       </div>
                       <span>{d.date.slice(5)}</span>
@@ -353,7 +362,7 @@ export default function PortalUsagePage() {
                 </div>
               </div>
               <div className="portal-panel">
-                <h3>Tokens 使用趋势</h3>
+                <h3>{t("usage.trendTokens")}</h3>
                 <div className="portal-bars">
                   {daily.map((d) => (
                     <div key={`t-${d.date}`} className="portal-bar-col">
@@ -366,14 +375,14 @@ export default function PortalUsagePage() {
                         />
                         <div className="portal-bar-tip" role="tooltip">
                           <strong>{d.date}</strong>
-                          <em>合计 {d.totalTokens.toLocaleString()} tokens</em>
+                          <em>{t("usage.tokensTotal", { n: d.totalTokens.toLocaleString() })}</em>
                           {(d.models?.length ? d.models : []).map((m) => (
                             <span key={m.model}>
                               {m.model}
                               <b>{m.totalTokens.toLocaleString()}</b>
                             </span>
                           ))}
-                          {!d.models?.length ? <span>暂无模型明细</span> : null}
+                          {!d.models?.length ? <span>{t("usage.noModelBreakdown")}</span> : null}
                         </div>
                       </div>
                       <span>{d.date.slice(5)}</span>
@@ -386,17 +395,17 @@ export default function PortalUsagePage() {
 
           <div className="portal-panel">
             <div className="portal-panel-head">
-              <h3>模型明细</h3>
-              <span className="muted">共 {byModel.length} 个模型</span>
+              <h3>{t("usage.modelBreakdown")}</h3>
+              <span className="muted">{t("common.totalModels", { n: byModel.length })}</span>
             </div>
             <table className="portal-table">
               <thead>
                 <tr>
-                  <th>模型</th>
-                  <th>调用次数</th>
-                  <th>Token 消耗</th>
-                  <th>输入 / 输出</th>
-                  <th>消耗金额</th>
+                  <th>{t("common.model")}</th>
+                  <th>{t("usage.colCalls")}</th>
+                  <th>{t("usage.colTokenUse")}</th>
+                  <th>{t("usage.colInOut")}</th>
+                  <th>{t("usage.colCost")}</th>
                   <th>P50</th>
                   <th>P95</th>
                 </tr>
@@ -423,7 +432,7 @@ export default function PortalUsagePage() {
                 {!byModel.length ? (
                   <tr>
                     <td colSpan={7} className="muted">
-                      暂无用量数据
+                      {t("usage.noUsageData")}
                     </td>
                   </tr>
                 ) : null}
@@ -434,21 +443,21 @@ export default function PortalUsagePage() {
       ) : (
         <div className="portal-panel portal-trace-panel">
           <div className="portal-panel-head">
-            <h3>最近请求</h3>
-            <span className="muted">共 {total} 条记录</span>
+            <h3>{t("usage.recentRequests")}</h3>
+            <span className="muted">{t("common.totalRecords", { n: total })}</span>
           </div>
           <div className="portal-table-wrap">
             <table className="portal-table portal-trace-table">
               <thead>
                 <tr>
-                  <th>时间</th>
-                  <th>模型</th>
-                  <th>调用 Key</th>
+                  <th>{t("common.time")}</th>
+                  <th>{t("common.model")}</th>
+                  <th>{t("usage.colCallKey")}</th>
                   <th>TOKENS</th>
-                  <th>输入</th>
-                  <th>输出</th>
-                  <th>延迟</th>
-                  <th>状态</th>
+                  <th>{t("usage.colInput")}</th>
+                  <th>{t("usage.colOutput")}</th>
+                  <th>{t("common.latency")}</th>
+                  <th>{t("common.status")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -477,7 +486,7 @@ export default function PortalUsagePage() {
                     </td>
                     <td>
                       <span className={`badge ${r.ok ? "ok" : "danger"}`}>
-                        {r.ok ? "成功" : "失败"}
+                        {r.ok ? t("common.success") : t("common.failure")}
                       </span>
                     </td>
                   </tr>
@@ -486,10 +495,10 @@ export default function PortalUsagePage() {
                   <tr>
                     <td colSpan={8} className="muted">
                       <div className="portal-empty" style={{ padding: 16 }}>
-                        <strong>暂无请求记录</strong>
-                        <p>先去对话测试或客户端里跑一笔，再回到这里看链路。</p>
+                        <strong>{t("usage.emptyTraceTitle")}</strong>
+                        <p>{t("usage.emptyTraceBody")}</p>
                         <Link className="portal-btn" to="/app/chat">
-                          去对话测试
+                          {t("usage.goChat")}
                         </Link>
                       </div>
                     </td>
@@ -504,17 +513,15 @@ export default function PortalUsagePage() {
               disabled={page <= 1}
               onClick={() => void load(page - 1)}
             >
-              上一页
+              {t("common.prevPage")}
             </button>
-            <span>
-              第 {page} 页 / 共 {totalPages} 页
-            </span>
+            <span>{t("common.pageOf", { page, total: totalPages })}</span>
             <button
               className="portal-btn ghost sm"
               disabled={page >= totalPages}
               onClick={() => void load(page + 1)}
             >
-              下一页
+              {t("common.nextPage")}
             </button>
           </div>
         </div>
@@ -524,7 +531,7 @@ export default function PortalUsagePage() {
         <ModalBackdrop onClose={() => setDetail(null)}>
           <div className="modal modal-md portal-trace" onClick={(e) => e.stopPropagation()}>
             <div className="modal-user-head">
-              <h3>请求详情</h3>
+              <h3>{t("usage.requestDetail")}</h3>
               <p>
                 {detail.model} · {new Date(detail.createdAt).toLocaleString()}
               </p>
@@ -540,21 +547,25 @@ export default function PortalUsagePage() {
                   window.setTimeout(() => setCopied(false), 1200);
                 }}
               >
-                {copied ? "已复制" : "复制请求 ID"}
+                {copied ? t("common.copied") : t("common.copyRequestId")}
               </button>
             </div>
             <p className="muted">
-              状态 {detail.statusCode ?? (detail.ok ? 200 : "失败")} · Key {detail.keyName || "—"} ·
-              渠道 {detail.channelName || "—"} · IP {detail.ip || "—"}
+              {t("usage.detailMeta", {
+                status: String(detail.statusCode ?? (detail.ok ? 200 : t("common.failure"))),
+                key: detail.keyName || "—",
+                channel: detail.channelName || "—",
+                ip: detail.ip || "—",
+              })}
             </p>
             {detail.error ? <div className="alert">{detail.error}</div> : null}
-            <h4>请求预览</h4>
+            <h4>{t("usage.requestPreview")}</h4>
             <pre>{detail.requestPreview || "—"}</pre>
-            <h4>响应预览</h4>
+            <h4>{t("usage.responsePreview")}</h4>
             <pre>{detail.responsePreview || "—"}</pre>
             <div className="modal-actions">
               <button type="button" className="btn" onClick={() => setDetail(null)}>
-                关闭
+                {t("common.close")}
               </button>
             </div>
           </div>

@@ -1,4 +1,6 @@
 import { useMemo } from "react";
+import { useI18n } from "../../lib/i18n";
+import type { MsgKey } from "../../lib/i18n-copy";
 import {
   MODEL_FAMILIES,
   MODEL_MODALITIES,
@@ -51,6 +53,14 @@ function Chip({
   );
 }
 
+const CAP_KEYS: Record<ModelCapability, MsgKey> = {
+  tools: "models.cap.tools",
+  thinking: "models.cap.thinking",
+  vision: "models.cap.vision",
+  coding: "models.cap.coding",
+  longctx: "models.cap.longctx",
+};
+
 export default function ModelCatalogFilters({
   models,
   family,
@@ -60,6 +70,8 @@ export default function ModelCatalogFilters({
   onModalityChange,
   onCapChange,
 }: Props) {
+  const { t } = useI18n();
+
   const familyCounts = useMemo(() => {
     const map = new Map<ModelFamily, number>();
     for (const f of MODEL_FAMILIES) map.set(f.id, 0);
@@ -95,26 +107,38 @@ export default function ModelCatalogFilters({
     return out;
   }, [models, family, modality]);
 
+  function modalityShort(id: ModelModality) {
+    if (id === "all") return t("common.all");
+    if (id === "text") return t("models.modalityText");
+    return t("models.modalityMultimodal");
+  }
+
+  function familyShort(id: ModelFamily, fallback: string) {
+    if (id === "all") return t("common.all");
+    if (id === "other") return t("models.familyOther");
+    return fallback;
+  }
+
   return (
-    <div className="portal-fbar" role="toolbar" aria-label="模型筛选">
+    <div className="portal-fbar" role="toolbar" aria-label={t("models.filterBar")}>
       <div className="portal-fbar-group">
-        <span className="portal-fbar-label">类型</span>
+        <span className="portal-fbar-label">{t("models.filterModality")}</span>
         {MODEL_MODALITIES.map((item) => (
           <Chip
             key={item.id}
             active={modality === item.id}
-            label={item.short}
-            title={item.label}
+            label={modalityShort(item.id)}
+            title={modalityShort(item.id)}
             count={modalityCounts[item.id]}
             onClick={() => onModalityChange(item.id)}
           />
         ))}
       </div>
       <div className="portal-fbar-group">
-        <span className="portal-fbar-label">能力</span>
+        <span className="portal-fbar-label">{t("models.filterCapability")}</span>
         <Chip
           active={cap === "all"}
-          label="全部"
+          label={t("common.all")}
           count={capCounts.all}
           onClick={() => onCapChange("all")}
         />
@@ -122,21 +146,21 @@ export default function ModelCatalogFilters({
           <Chip
             key={item.id}
             active={cap === item.id}
-            label={item.label}
+            label={t(CAP_KEYS[item.id])}
             count={capCounts[item.id]}
             onClick={() => onCapChange(item.id)}
           />
         ))}
       </div>
       <div className="portal-fbar-group">
-        <span className="portal-fbar-label">系列</span>
+        <span className="portal-fbar-label">{t("models.filterSeries")}</span>
         {MODEL_FAMILIES.filter((item) => item.id === "all" || (familyCounts.get(item.id) ?? 0) > 0).map(
           (item) => (
             <Chip
               key={item.id}
               active={family === item.id}
-              label={item.short}
-              title={item.label}
+              label={familyShort(item.id, item.short)}
+              title={familyShort(item.id, item.label)}
               count={familyCounts.get(item.id) ?? 0}
               onClick={() => onFamilyChange(item.id)}
             />

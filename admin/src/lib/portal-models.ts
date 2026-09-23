@@ -1,3 +1,5 @@
+import { getLang } from "./chrome";
+
 export type PriceQuote = {
   inputPer1m: number;
   outputPer1m: number;
@@ -30,7 +32,8 @@ export function formatPerMillion(n: number) {
       : v >= 1
         ? v.toFixed(2)
         : v.toFixed(Math.min(4, Math.max(2, (v.toString().split(".")[1] || "").length)));
-  return `$${text} / 百万`;
+  const suffix = getLang() === "en" ? " / million tokens" : " / 百万";
+  return `$${text}${suffix}`;
 }
 
 export function formatLatency(ms: number) {

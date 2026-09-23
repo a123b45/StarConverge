@@ -339,7 +339,7 @@ function AdminShell() {
                   return `「${a.name}」现有 ${unit}${a.balanceUsd.toFixed(4)}，低于 ${unit}${a.thresholdUsd.toFixed(2)}`;
                 })
                 .join("；")}
-              。每 5 分钟检查一次。
+              。约每 15 分钟检查一次。
             </span>
             <NavLink to="/admin/upstream">去处理</NavLink>
             <button
@@ -442,7 +442,7 @@ function PortalShell() {
       <aside className="portal-sider">
         <div className="portal-sider-brand">
           <BrandLogo className="portal-logo" size={28} />
-          <strong>辉煌</strong>
+          <strong>{t("brand.name")}</strong>
         </div>
         <nav className="portal-sider-nav">
           <div className="portal-sider-group">

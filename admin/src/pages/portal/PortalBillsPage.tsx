@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { portalApi } from "../../lib/api";
+import { useI18n } from "../../lib/i18n";
 
 type BillRow = {
   id: string;
@@ -21,31 +22,32 @@ function fmtDate(d: string | Date | null | undefined) {
   return dt.toLocaleString();
 }
 
-function statusLabel(row: BillRow) {
-  if (row.kind === "card") return "已兑换";
-  if (row.status === "paid") return "已支付";
-  if (row.status === "pending") return "待支付";
-  return row.status;
-}
-
 export default function PortalBillsPage() {
+  const { t } = useI18n();
   const [rows, setRows] = useState<BillRow[]>([]);
   const [error, setError] = useState("");
+
+  function statusLabel(row: BillRow) {
+    if (row.kind === "card") return t("bills.statusRedeemed");
+    if (row.status === "paid") return t("bills.statusPaid");
+    if (row.status === "pending") return t("bills.statusPending");
+    return row.status;
+  }
 
   useEffect(() => {
     portalApi<{ data: BillRow[] }>("/bills")
       .then((r) => setRows(r.data ?? []))
       .catch((e: unknown) =>
-        setError(e instanceof Error ? e.message : "加载失败"),
+        setError(e instanceof Error ? e.message : t("common.loadFail")),
       );
-  }, []);
+  }, [t]);
 
   return (
     <div className="portal-page">
       <div className="portal-hero">
         <div>
-          <h1>账单</h1>
-          <p>查看本账户的卡密兑换记录</p>
+          <h1>{t("bills.title")}</h1>
+          <p>{t("bills.lead")}</p>
         </div>
       </div>
 
@@ -53,17 +55,17 @@ export default function PortalBillsPage() {
 
       <div className="portal-panel">
         <div className="portal-panel-head">
-          <h3>充值记录</h3>
-          <span className="muted">共 {rows.length} 条</span>
+          <h3>{t("bills.recordsTitle")}</h3>
+          <span className="muted">{t("common.totalRecords", { n: rows.length })}</span>
         </div>
         <div className="portal-table-wrap">
           <table className="portal-table">
             <thead>
               <tr>
-                <th>方式</th>
-                <th>金额</th>
-                <th>状态</th>
-                <th>时间</th>
+                <th>{t("common.method")}</th>
+                <th>{t("common.amount")}</th>
+                <th>{t("common.status")}</th>
+                <th>{t("common.time")}</th>
               </tr>
             </thead>
             <tbody>
@@ -78,7 +80,7 @@ export default function PortalBillsPage() {
               {!rows.length ? (
                 <tr>
                   <td colSpan={4} className="muted">
-                    暂无充值记录
+                    {t("bills.empty")}
                   </td>
                 </tr>
               ) : null}
